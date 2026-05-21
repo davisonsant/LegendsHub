@@ -1,0 +1,6 @@
+{
+  "name": "LegendsHub Tactical",
+  "description": "Um simulador e gerenciador tático de eSports inspirado no competitivo de League of Legends, no estilo Football Manager e Brasfoot, com ligas, draft, transferências e patches dinâmicos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
