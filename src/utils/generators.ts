@@ -105,9 +105,9 @@ export function generateProceduralPlayer(
   };
 }
 
-export function generateDynamicPatch(patchIndex: number): GamePatch {
+export function generateDynamicPatch(patchIndex: number, customs?: Champion[]): GamePatch {
   // Select random champions to buff and nerf
-  const allChamps = [...CHAMPIONS_LIST];
+  const allChamps = customs && customs.length > 0 ? [...customs] : [...CHAMPIONS_LIST];
   const numBuffs = 3;
   const numNerfs = 3;
 

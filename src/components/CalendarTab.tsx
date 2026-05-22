@@ -12,14 +12,17 @@ interface CalendarTabProps {
 }
 
 export default function CalendarTab({ gameState }: CalendarTabProps) {
-  const { teams, week, calendarSchedule } = gameState;
+  const { teams, week, calendarSchedule, selectedRegion } = gameState;
   const [selectedCalendarWeek, setSelectedCalendarWeek] = useState(week);
+
+  // Filter teams list so we only display standings for the active region!
+  const regionalTeams = teams.filter(t => t.region === (selectedRegion || 'CBLOL'));
 
   // Sorting teams correctly according to competitive standings rules:
   // 1. Wins (desc)
   // 2. Points/Tie-breaker (desc)
   // 3. GameWins - GameLosses delta (desc)
-  const sortedLeaderboard = [...teams].sort((a, b) => {
+  const sortedLeaderboard = [...regionalTeams].sort((a, b) => {
     if (b.wins !== a.wins) return b.wins - a.wins;
     const diffA = a.gameWins - a.gameLosses;
     const diffB = b.gameWins - b.gameLosses;
@@ -46,7 +49,7 @@ export default function CalendarTab({ gameState }: CalendarTabProps) {
         <div className="px-5 py-4 border-b border-[#1e2d44] bg-[#070d19] flex justify-between items-center">
           <div className="flex gap-2 items-center">
             <Trophy className="text-[#00d2fd] w-5 h-5" />
-            <h3 className="font-display-lg text-sm font-bold uppercase tracking-wider text-white">Classificação Geral - CBLOL</h3>
+            <h3 className="font-display-lg text-sm font-bold uppercase tracking-wider text-white">Classificação Geral - {selectedRegion || 'CBLOL'}</h3>
           </div>
           <span className="text-[10px] text-gray-500 font-extrabold uppercase tracking-widest">Split Verão</span>
         </div>

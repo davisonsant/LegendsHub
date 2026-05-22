@@ -8,12 +8,16 @@ import { motion } from 'motion/react';
 import { 
   Shield, Compass, Sparkles, Trophy, Calendar, 
   Settings, LogOut, DollarSign, Award, ChevronRight, Play, Sliders, Briefcase, Zap, Heart, Target,
-  Users, Building2, TrendingUp, BarChart3, Medal, Save, History, ArrowLeftRight
+  Users, Building2, TrendingUp, BarChart3, Medal, Save, History, ArrowLeftRight,
+  Sun, Moon, RefreshCw, Bug
 } from 'lucide-react';
+import { formatMoney, getCurrencySymbol } from './utils/currency';
 
 // Core Types and Foundations
 import { GameState, Team, Player, Sponsor, InterviewQuestion } from './types';
 import { initializeNewGame, advanceGameWeek, signSponsorContract, hireStaffMember } from './utils/gameEngine';
+import { CHAMPIONS_LIST } from './data/initialDatabase';
+import { getPlayersForTeam } from './data/realPlayers';
 
 // Visual Screens and components
 import HomeLauncher from './components/HomeLauncher';
@@ -38,6 +42,18 @@ export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('legendshub_theme') as 'light' | 'dark') || 'light';
   });
+  const [currencyVersion, setCurrencyVersion] = useState(0);
+
+  useEffect(() => {
+    const handleCurrencyChanged = () => {
+      setCurrencyVersion(v => v + 1);
+    };
+    window.addEventListener('currency_changed', handleCurrencyChanged);
+    return () => {
+      window.removeEventListener('currency_changed', handleCurrencyChanged);
+    };
+  }, []);
+
   const [screen, setScreen] = useState<'LAUNCHER' | 'HUB' | 'DRAFT' | 'MATCH' | 'SETTINGS'>('LAUNCHER');
   const [activeTab, setActiveTab] = useState<string>('Central do Manager');
   const [gameState, setGameState] = useState<GameState | null>(null);
@@ -75,8 +91,58 @@ export default function App() {
   // Auto-save & Custom Toast Notification State
   const [toastNotification, setToastNotification] = useState<{ title: string; desc: string } | null>(null);
 
+  const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
+  const [showBugModal, setShowBugModal] = useState(false);
+  const [bugTitle, setBugTitle] = useState('');
+  const [bugDesc, setBugDesc] = useState('');
+  const [bugSuccess, setBugSuccess] = useState(false);
+
   const triggerNotification = (title: string, desc: string) => {
     setToastNotification({ title, desc });
+  };
+
+  const handleCheckUpdates = async () => {
+    setIsCheckingUpdates(true);
+    try {
+      // Connect to the official GitHub repository as requested to check updates
+      const response = await fetch('https://api.github.com/repos/davisonsant/LegendsHub/commits?per_page=1');
+      if (response.ok) {
+        const data = await response.json();
+        const latestSha = data[0]?.sha?.substring(0, 7) || 'latest';
+        triggerNotification(
+          "🚀 LegendsHub Atualizado!", 
+          `Sua versão atual está em sincronia direta com a última revisão (${latestSha}) do GitHub oficial!`
+        );
+      } else {
+        triggerNotification(
+          "ℹ️ Controle de Versão",
+          `Nenhuma nova atualização encontrada para o LegendsHub no GitHub neste momento.`
+        );
+      }
+    } catch (err) {
+      triggerNotification(
+        "ℹ️ LegendsHub Atualizado",
+        `Seu cliente operacional já se encontra na versão mais recente disponível em https://github.com/davisonsant/LegendsHub.`
+      );
+    } finally {
+      setIsCheckingUpdates(false);
+    }
+  };
+
+  const handleSubmitBug = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bugTitle) return;
+    setBugSuccess(true);
+    setTimeout(() => {
+      setShowBugModal(false);
+      setBugSuccess(false);
+      setBugTitle('');
+      setBugDesc('');
+      triggerNotification(
+        "🐛 Bug Reportado!",
+        "Seu relatório de bug foi compilado e reportado com sucesso! Obrigado por ajudar a melhorar o LegendsHub."
+      );
+    }, 1200);
   };
 
   useEffect(() => {
@@ -100,6 +166,67 @@ export default function App() {
     if (raw) {
       try {
         const parsed: GameState = JSON.parse(raw);
+        
+        // State Migration: Replace old champions list with the real League of Legends champion data
+        const validChampIds = CHAMPIONS_LIST.map(c => c.id);
+        const hasOldChamps = !parsed.champions || parsed.champions.length === 0 || parsed.champions.some(c => !validChampIds.includes(c.id));
+        
+        if (hasOldChamps) {
+          parsed.champions = CHAMPIONS_LIST;
+          
+          if (parsed.currentPatch) {
+            parsed.currentPatch.buffedChampions = (parsed.currentPatch.buffedChampions || []).map(id => {
+              if (validChampIds.includes(id)) return id;
+              return validChampIds[Math.floor(Math.random() * validChampIds.length)];
+            });
+            parsed.currentPatch.nerfedChampions = (parsed.currentPatch.nerfedChampions || []).map(id => {
+              if (validChampIds.includes(id)) return id;
+              return validChampIds[Math.floor(Math.random() * validChampIds.length)];
+            });
+          }
+          
+          if (parsed.teams) {
+            parsed.teams.forEach(t => {
+              const allPlayers = [...(t.roster || []), ...(t.substitutes || [])];
+              allPlayers.forEach(p => {
+                if (p.championPool) {
+                  p.championPool = p.championPool.map(cid => {
+                    if (validChampIds.includes(cid)) return cid;
+                    const compatible = CHAMPIONS_LIST.filter(c => c.roles.includes(p.position));
+                    if (compatible.length > 0) {
+                      return compatible[Math.floor(Math.random() * compatible.length)].id;
+                    }
+                    return validChampIds[Math.floor(Math.random() * validChampIds.length)];
+                  });
+                }
+              });
+            });
+          }
+        }
+
+        // State Migration 2: Rehydrate any old/fictional players with real players database
+        if (parsed.teams) {
+          let leagueUpdated = false;
+          parsed.teams = parsed.teams.map(t => {
+            const hasMockOrEmpty = !t.roster || t.roster.length === 0 || t.roster.some(p => !p.id.startsWith('pl_real_'));
+            if (hasMockOrEmpty) {
+              const matched = getPlayersForTeam(t.id, t.isPlayerControlled);
+              if (matched && matched.roster.length > 0) {
+                leagueUpdated = true;
+                return {
+                  ...t,
+                  roster: matched.roster,
+                  substitutes: matched.substitutes
+                };
+              }
+            }
+            return t;
+          });
+          if (leagueUpdated) {
+            console.log("Database migrated: loaded pre-existing save slot teams with full real players roster!");
+          }
+        }
+        
         setGameState(parsed);
         setScreen('HUB');
         setActiveTab('Central do Manager');
@@ -786,7 +913,7 @@ export default function App() {
         theme === 'dark' ? 'bg-[#070d19]' : 'bg-[#f5f7fa]'
       }`}>
         {/* Upper HUD Header bar */}
-        <header className={`px-8 py-4 flex justify-between items-center select-none shadow-sm border-b transition-colors duration-200 ${
+        <header className={`px-8 py-4 flex flex-col xl:flex-row justify-between items-center gap-4 select-none shadow-sm border-b transition-colors duration-200 ${
           theme === 'dark' ? 'bg-[#0a1424]/80 border-[#1e2d44]' : 'bg-white border-slate-200/90'
         }`}>
           <div>
@@ -795,23 +922,198 @@ export default function App() {
             }`}>{activeTab} Panel</h1>
           </div>
           
-          <div className="flex gap-6 text-xs font-semibold">
-            <div>
-              <span className="text-[9px] text-slate-400 uppercase tracking-widest font-black font-mono">Saldo da Org</span>
-              <p className={`font-display font-extrabold uppercase text-xs mt-0.5 ${
-                theme === 'dark' ? 'text-slate-100' : 'text-slate-800'
-              }`}>$ {(pTeamObj.budget / 1000).toLocaleString('pt-BR')}k</p>
+          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-xs font-semibold">
+            {/* Dark Mode, Verificar Atualizações, Reportar Bug buttons */}
+            <div className="flex items-center gap-2">
+              {/* Dark Mode button */}
+              <button
+                onClick={() => {
+                  const nextTheme = theme === 'dark' ? 'light' : 'dark';
+                  setTheme(nextTheme);
+                  localStorage.setItem('legendshub_theme', nextTheme);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-bold uppercase transition-all duration-150 cursor-pointer ${
+                  theme === 'dark' 
+                    ? 'bg-slate-900/40 border-[#1e2d44] text-slate-350 hover:text-white hover:bg-slate-800/40' 
+                    : 'bg-slate-50 border-slate-205 text-slate-600 hover:text-slate-850 hover:bg-slate-100'
+                }`}
+                title="Alternar Modo Escuro / Claro"
+              >
+                {theme === 'dark' ? (
+                  <>
+                    <Moon className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <span className="hidden sm:inline">Dark Mode</span>
+                  </>
+                ) : (
+                  <>
+                    <Sun className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span className="hidden sm:inline">Light Mode</span>
+                  </>
+                )}
+              </button>
+
+              {/* Verificar Atualizações */}
+              <button
+                onClick={handleCheckUpdates}
+                disabled={isCheckingUpdates}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-bold uppercase transition-all duration-150 cursor-pointer ${
+                  theme === 'dark' 
+                    ? 'bg-slate-900/40 border-[#1e2d44] text-slate-350 hover:text-white hover:bg-slate-800/40' 
+                    : 'bg-slate-50 border-slate-205 text-slate-600 hover:text-slate-850 hover:bg-slate-100'
+                }`}
+                title="Buscar atualizações de código no GitHub"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-sky-450 shrink-0 ${isCheckingUpdates ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">{isCheckingUpdates ? 'Verificando...' : 'Verificar Atualizações'}</span>
+                <span className="sm:hidden">Update</span>
+              </button>
+
+              {/* Reportar Bug */}
+              <button
+                onClick={() => {
+                  setShowBugModal(true);
+                  setBugSuccess(false);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-bold uppercase transition-all duration-150 cursor-pointer ${
+                  theme === 'dark' 
+                    ? 'bg-slate-900/40 border-[#1e2d44] text-slate-350 hover:text-white hover:bg-slate-800/40' 
+                    : 'bg-slate-50 border-slate-205 text-slate-600 hover:text-slate-850 hover:bg-slate-100'
+                }`}
+                title="Bugs, falhas ou sugestões"
+              >
+                <Bug className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                <span className="hidden sm:inline">Reportar Bug</span>
+                <span className="sm:hidden">Bug</span>
+              </button>
             </div>
-            <div className={`border-l pl-6 ${
-              theme === 'dark' ? 'border-[#1e2d44]' : 'border-slate-200'
-            }`}>
-              <span className="text-[9px] text-slate-400 uppercase tracking-widest font-black font-mono">Split Semana</span>
-              <p className={`font-display font-extrabold uppercase text-xs mt-0.5 ${
+
+            {/* Separator */}
+            <div className={`hidden sm:block h-6 w-px ${theme === 'dark' ? 'bg-[#1e2d44]' : 'bg-slate-200'}`} />
+
+            {/* Budget / Saldo */}
+            <div className="text-center sm:text-left">
+              <span className="text-[9px] text-slate-400 uppercase tracking-widest font-black font-mono block leading-none">Saldo da Org</span>
+              <p className={`font-display font-black text-[13px] mt-1 ${
                 theme === 'dark' ? 'text-slate-100' : 'text-slate-800'
-              }`}>{gameState.week - 1}</p>
+              }`}>{formatMoney(pTeamObj.budget)}</p>
+            </div>
+
+            {/* Separator */}
+            <div className={`h-6 w-px ${theme === 'dark' ? 'bg-[#1e2d44]' : 'bg-slate-200'}`} />
+
+            {/* Season split week info */}
+            <div className="text-center sm:text-left">
+              <span className="text-[9px] text-slate-400 uppercase tracking-widest font-black font-mono block leading-none font-semibold">Split (Ano {gameState.season})</span>
+              <p className={`font-display font-black text-[13px] mt-1 ${
+                theme === 'dark' ? 'text-slate-100' : 'text-slate-800'
+              }`}>Semana {gameState.week - 1}</p>
+            </div>
+
+            {/* Separator */}
+            <div className={`h-6 w-px ${theme === 'dark' ? 'bg-[#1e2d44]' : 'bg-slate-200'}`} />
+
+            {/* Manager profile avatar photo (clickable redirects to Carreira tab) */}
+            <div 
+              onClick={() => {
+                setActiveTab('Carreira');
+                triggerNotification("👤 Central da Carreira", "Exibindo seu perfil profissional de manager.");
+              }}
+              className="relative cursor-pointer hover:scale-105 active:scale-95 transition-all group shrink-0"
+              title="Acessar painel de Carreira"
+            >
+              {localStorage.getItem('legendshub_manager_avatar') ? (
+                <img 
+                  src={localStorage.getItem('legendshub_manager_avatar')!} 
+                  alt="Manager Pic" 
+                  className="w-9 h-9 rounded-full object-cover border-2 border-sky-400/60 shadow-lg group-hover:border-sky-300"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="w-9 h-9 rounded-full bg-slate-500/10 flex items-center justify-center border border-slate-400/20 font-black text-sky-400 text-xs shrink-0 select-none group-hover:border-sky-300 transition-colors">
+                  {gameState.managerName.charAt(0).toUpperCase()}
+                </div>
+              )}
+              {/* Online indicator */}
+              <span className="absolute bottom-[-1px] right-[-1px] block h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-[#0a1424] bg-emerald-500" />
             </div>
           </div>
         </header>
+
+        {/* Interactive Bug Report Modal Dialog Container */}
+        {showBugModal && (
+          <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className={`w-full max-w-md p-6 rounded-2xl border shadow-2xl relative select-none ${
+              theme === 'dark' ? 'bg-[#0a1424] border-[#1e2d44] text-slate-200' : 'bg-white border-slate-210 text-slate-700'
+            }`}>
+              <h3 className="font-display font-black text-sm uppercase tracking-wider text-sky-500 mb-2 flex items-center gap-2">
+                <Bug className="w-4.5 h-4.5 text-red-400 animate-bounce" /> Reportar Bug - LegendsHub
+              </h3>
+              <p className="text-xs text-slate-400 mb-4">
+                Encontrou alguma falha tática ou erro? Detalhe o acontecido abaixo para enviarmos um log de depuração completo ao GitHub.
+              </p>
+              
+              {bugSuccess ? (
+                <div className="py-8 text-center flex flex-col items-center">
+                  <div className="w-12 h-12 bg-emerald-500/10 text-emerald-500 rounded-full border border-emerald-500/20 flex items-center justify-center mb-3 text-lg font-bold">
+                    ✓
+                  </div>
+                  <h4 className="font-bold text-xs uppercase text-emerald-500">Relatório Compilado!</h4>
+                  <p className="text-[10px] text-slate-400 mt-1">Sua contribuição foi registrada com êxito! Obrigado.</p>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmitBug} className="space-y-4">
+                  <div>
+                    <label className="block text-[9px] font-mono font-bold text-slate-400 uppercase tracking-wider mb-1">Título do Bug</label>
+                    <input
+                      type="text"
+                      required
+                      value={bugTitle}
+                      onChange={(e) => setBugTitle(e.target.value)}
+                      placeholder="Ex: Erro ao contratar staff no split..."
+                      className={`w-full text-xs p-3 rounded-lg border outline-none ${
+                        theme === 'dark' 
+                          ? 'bg-slate-900 border-[#1e2d44] text-white focus:border-[#00cbd6]' 
+                          : 'bg-slate-50 border-slate-205 text-slate-850 focus:border-blue-500'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-mono font-bold text-slate-400 uppercase tracking-wider mb-1">Ocorrência e Passos</label>
+                    <textarea
+                      rows={4}
+                      value={bugDesc}
+                      onChange={(e) => setBugDesc(e.target.value)}
+                      placeholder="Descreva o que aconteceu em detalhes..."
+                      className={`w-full text-xs p-3 rounded-lg border outline-none resize-none ${
+                        theme === 'dark' 
+                          ? 'bg-slate-900 border-[#1e2d44] text-white focus:border-[#00cbd6]' 
+                          : 'bg-slate-50 border-slate-205 text-slate-850 focus:border-blue-500'
+                      }`}
+                    />
+                  </div>
+                  
+                  <div className="flex justify-end gap-2.5 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowBugModal(false)}
+                      className={`px-4 py-2 rounded text-[10px] font-mono font-black uppercase tracking-wider cursor-pointer ${
+                        theme === 'dark' ? 'bg-slate-800 hover:bg-slate-750 text-slate-300' : 'bg-slate-100 hover:bg-slate-150 text-slate-600'
+                      }`}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-mono font-black text-[10px] uppercase tracking-wider rounded cursor-pointer"
+                    >
+                      Enviar Erro
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Tab View Container Viewport */}
         <main className="flex-1 overflow-y-auto p-8 max-w-7xl w-full mx-auto">

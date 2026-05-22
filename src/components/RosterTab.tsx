@@ -10,6 +10,7 @@ import {
   ListFilter, Circle, HelpCircle, Activity, ChevronRight, BrainCircuit, Target, Laptop, Plus
 } from 'lucide-react';
 import { GameState, Player, Position, Team } from '../types';
+import { formatMoney } from '../utils/currency';
 
 interface RosterTabProps {
   gameState: GameState;
@@ -84,7 +85,7 @@ export default function RosterTab({
           </div>
           <div>
             <h2 className="font-display text-lg font-black tracking-wide text-slate-800 uppercase flex items-center gap-2">
-              TEAM ROSTER <span className="text-slate-300 font-medium text-xs">|</span> <span className="text-blue-500 font-mono text-sm tracking-widest">BUDGET: ${(playerTeam.budget / 1000000).toFixed(1)}M</span>
+              TEAM ROSTER <span className="text-slate-300 font-medium text-xs">|</span> <span className="text-blue-500 font-mono text-sm tracking-widest">BUDGET: {formatMoney(playerTeam.budget)}</span>
             </h2>
             <p className="text-xs text-slate-500 font-medium font-sans">
               Gerencie seus titulares do split, treine atributos mecânicos e ajuste cláusulas de rescisão.

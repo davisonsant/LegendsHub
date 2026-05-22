@@ -6,6 +6,7 @@
 import React from 'react';
 import { Award, Zap, TrendingUp, Sparkles, Building2, HelpCircle, AlertCircle, DollarSign } from 'lucide-react';
 import { GameState, Sponsor } from '../types';
+import { formatMoney } from '../utils/currency';
 
 interface SponsorsTabProps {
   gameState: GameState;
@@ -45,12 +46,12 @@ export default function SponsorsTab({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-[#0a1424] border border-[#1e2d44] p-5 rounded-xl select-none">
         <div>
           <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-widest">Saldo de Caixa</p>
-          <h3 className="font-display-lg text-white text-xl font-black mt-1">$ {(playerTeam.budget / 1000).toLocaleString('pt-BR')}k</h3>
+          <h3 className="font-display-lg text-white text-xl font-black mt-1">{formatMoney(playerTeam.budget)}</h3>
         </div>
         <div>
           <p className="text-[10px] text-gray-500 font-extrabold uppercase tracking-widest">Inflow Semanal (Patrocínios)</p>
           <h3 className="font-display-lg text-green-400 text-xl font-black mt-1">
-            + $ {(playerTeam.sponsors.reduce((acc, s) => acc + s.incomePerWeek, 0) / 1000).toLocaleString('pt-BR')}k
+            + {formatMoney(playerTeam.sponsors.reduce((acc, s) => acc + s.incomePerWeek, 0))}
           </h3>
         </div>
         <div>
@@ -84,7 +85,7 @@ export default function SponsorsTab({
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-display-lg text-green-400 text-xs font-black">+$ {(s.incomePerWeek / 1000).toFixed(0)}k / semana</p>
+                      <p className="font-display-lg text-green-400 text-xs font-black">+{formatMoney(s.incomePerWeek)} / semana</p>
                       <p className="text-[8px] text-gray-500 uppercase tracking-widest mt-0.5">Termo: {s.activeWeeks || s.termsInWeeks} semanas</p>
                     </div>
                   </div>
@@ -112,14 +113,14 @@ export default function SponsorsTab({
                       <div>
                         <h5 className="font-display-lg text-xs font-bold text-white uppercase leading-none">{s.name}</h5>
                         <p className="text-[10px] text-gray-400 mt-1.5 font-semibold">
-                          BÔNUS DE ASSINATURA: <span className="text-[#00d2fd] font-bold">$ {(s.signatureBonus / 1000).toFixed(0)}k</span>
+                          BÔNUS DE ASSINATURA: <span className="text-[#00d2fd] font-bold">{formatMoney(s.signatureBonus)}</span>
                         </p>
                         <p className="text-[9px] text-gray-500 uppercase tracking-wider mt-1">META: {s.objective}</p>
                       </div>
 
                       <div className="text-right flex items-center gap-4">
                         <div>
-                          <p className="font-display-lg text-emerald-400 text-sm font-black">+$ {(s.incomePerWeek / 1000).toFixed(0)}k/sem</p>
+                          <p className="font-display-lg text-emerald-400 text-sm font-black">+{formatMoney(s.incomePerWeek)}/sem</p>
                           <p className="text-[8px] text-gray-500 uppercase font-black">Min. Fãs: {s.minPopularity}%</p>
                         </div>
                         <button
@@ -164,7 +165,7 @@ export default function SponsorsTab({
                 <span className="font-display-lg text-[#00d2fd] text-xs font-extrabold">Max Level 5</span>
               </div>
               <div className="flex justify-between items-center pt-2 border-t border-[#1e2d44]/50">
-                <span className="text-gray-400 font-medium text-xs font-display-lg">CUSTO: $ {(upgradeCostGH / 1000).toFixed(0)}k</span>
+                <span className="text-gray-400 font-medium text-xs font-display-lg">CUSTO: {formatMoney(upgradeCostGH)}</span>
                 <button
                   onClick={() => handleUpgrade('gamingHouseLevel', upgradeCostGH)}
                   disabled={ghLevel >= 5}
@@ -187,7 +188,7 @@ export default function SponsorsTab({
                 <span className="font-display-lg text-[#00d2fd] text-xs font-extrabold">Max Level 5</span>
               </div>
               <div className="flex justify-between items-center pt-2 border-t border-[#1e2d44]/50">
-                <span className="text-gray-400 font-medium text-xs font-display-lg">CUSTO: $ {(upgradeCostTC / 1000).toFixed(0)}k</span>
+                <span className="text-gray-400 font-medium text-xs font-display-lg">CUSTO: {formatMoney(upgradeCostTC)}</span>
                 <button
                   onClick={() => handleUpgrade('trainingCenterLevel', upgradeCostTC)}
                   disabled={tcLevel >= 5}
@@ -210,7 +211,7 @@ export default function SponsorsTab({
                 <span className="font-display-lg text-[#00d2fd] text-xs font-extrabold">Max Level 5</span>
               </div>
               <div className="flex justify-between items-center pt-2 border-t border-[#1e2d44]/50">
-                <span className="text-gray-400 font-medium text-xs font-display-lg">CUSTO: $ {(upgradeCostMT / 1000).toFixed(0)}k</span>
+                <span className="text-gray-400 font-medium text-xs font-display-lg">CUSTO: {formatMoney(upgradeCostMT)}</span>
                 <button
                   onClick={() => handleUpgrade('mediaTeamLevel', upgradeCostMT)}
                   disabled={mtLevel >= 5}

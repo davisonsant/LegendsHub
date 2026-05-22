@@ -863,7 +863,7 @@ export function MetaTab({ gameState }: MetaTabProps) {
           </p>
         </div>
         <span className="px-2.5 py-1.5 bg-[#00cbd6]/10 text-[#00cbd6] border border-[#00cbd6]/25 rounded text-[10.5px] font-mono uppercase font-black tracking-widest leading-none">
-          PATCH OPERACIONAL 16.4
+          PATCH OPERACIONAL {gameState.currentPatch?.version || '15.1'}
         </span>
       </div>
 

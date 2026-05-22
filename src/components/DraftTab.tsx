@@ -24,8 +24,9 @@ export default function DraftTab({
   onConfirmDraft,
   onBackToHub
 }: DraftTabProps) {
-  const { currentPatch, playerTeamId, teams, week } = gameState;
+  const { currentPatch, playerTeamId, teams, week, champions } = gameState;
   const playerTeam = teams.find(t => t.id === playerTeamId)!;
+  const championsToUse = champions && champions.length > 0 ? champions : CHAMPIONS_LIST;
 
   // Next Opponent Setup
   const currentWeekMatches = gameState.calendarSchedule[week];
@@ -91,7 +92,7 @@ export default function DraftTab({
   const executeBotTurn = () => {
     // Collect banned lists
     const unavailable = [...bans, ...Object.values(bluePicks), ...Object.values(redPicks)].filter(Boolean) as string[];
-    const candidates = CHAMPIONS_LIST.filter(c => !unavailable.includes(c.id));
+    const candidates = championsToUse.filter(c => !unavailable.includes(c.id));
 
     if (currentStep.startsWith('BAN')) {
       // Ban random or high power
@@ -182,7 +183,7 @@ export default function DraftTab({
             <div className="space-y-3">
               {(['TOP', 'JNG', 'MID', 'ADC', 'SUP'] as Position[]).map(pos => {
                 const champId = bluePicks[pos];
-                const activeChamp = CHAMPIONS_LIST.find(c => c.id === champId);
+                const activeChamp = championsToUse.find(c => c.id === champId);
                 const isPickingNow = currentStep === `PICK_${pos}_B`;
                 
                 return (
@@ -225,7 +226,7 @@ export default function DraftTab({
               {/* Ban listing visualizer */}
               <div className="flex gap-1.5">
                 {bans.map((bId, idx) => {
-                  const bc = CHAMPIONS_LIST.find(c => c.id === bId);
+                  const bc = championsToUse.find(c => c.id === bId);
                   return (
                     <span key={idx} className="w-5 h-5 bg-red-500/10 border border-red-500/30 text-[8px] font-black tracking-widest rounded text-red-500 flex items-center justify-center uppercase" title={`Banido: ${bc?.name}`}>
                       {bc?.name.substring(0, 2)}
@@ -238,7 +239,7 @@ export default function DraftTab({
             {/* Champions selection grid */}
             {currentStep !== 'DRAFT_DONE' ? (
               <div className="grid grid-cols-4 md:grid-cols-5 gap-2.5 max-h-[355px] overflow-y-auto pr-1">
-                {CHAMPIONS_LIST.map(champ => {
+                {championsToUse.map(champ => {
                   const isBanned = bans.includes(champ.id);
                   const isSelected = Object.values(bluePicks).includes(champ.id) || Object.values(redPicks).includes(champ.id);
                   const isAvailable = !isBanned && !isSelected;
@@ -327,7 +328,7 @@ export default function DraftTab({
             <div className="space-y-3">
               {(['TOP', 'JNG', 'MID', 'ADC', 'SUP'] as Position[]).map(pos => {
                 const champId = redPicks[pos];
-                const activeChamp = CHAMPIONS_LIST.find(c => c.id === champId);
+                const activeChamp = championsToUse.find(c => c.id === champId);
                 const isPickingNow = currentStep === `PICK_${pos}_R`;
                 
                 return (

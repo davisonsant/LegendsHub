@@ -103,7 +103,8 @@ export default function MatchCenterTab({
         isPlayerBlue ? opponentTeamObj.name : playerTeam.name,
         bluePicks,
         redPicks,
-        stats
+        stats,
+        gameState.champions
       );
 
       // Apply increments
@@ -182,7 +183,8 @@ export default function MatchCenterTab({
         isPlayerBlue ? opponentTeamObj.name : playerTeam.name,
         bluePicks,
         redPicks,
-        stats
+        stats,
+        gameState.champions
       );
       // mutably apply inline
       Object.assign(stats, step.statsChange);

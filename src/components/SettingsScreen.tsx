@@ -5,6 +5,7 @@ import {
   Database, Save, HardDrive, Edit2, AlertTriangle, Info, CheckCircle2, Plus
 } from 'lucide-react';
 import { GameState, Team, Player, Sponsor, Champion, Position } from '../types';
+import { getPlayersForTeam } from '../data/realPlayers';
 
 interface SettingsScreenProps {
   gameState: GameState | null;
@@ -125,6 +126,11 @@ export default function SettingsScreen({
   const [lang, setLang] = useState<'pt' | 'es' | 'en'>(() => {
     const saved = localStorage.getItem('legendshub_lang');
     return (saved as 'pt' | 'es' | 'en') || 'pt';
+  });
+
+  // Load currency preference
+  const [selectedCurrency, setSelectedCurrency] = useState<'USD' | 'EUR' | 'BRL'>(() => {
+    return (localStorage.getItem('legendshub_currency') as 'USD' | 'EUR' | 'BRL') || 'USD';
   });
 
   // Handle language change
@@ -485,6 +491,18 @@ export default function SettingsScreen({
       // Ensure budget isn't negative or null
       const budget = isNaN(t.budget) || t.budget === null ? 100000 : Math.max(0, t.budget);
       
+      let currentRoster = t.roster || [];
+      let currentSubs = t.substitutes || [];
+      // If team has mock or empty rosters, rehydrate from real players database
+      const hasMockOrEmpty = currentRoster.length === 0 || currentRoster.some(p => !p.id.startsWith('pl_real_'));
+      if (hasMockOrEmpty) {
+        const matched = getPlayersForTeam(t.id, t.isPlayerControlled);
+        if (matched && matched.roster.length > 0) {
+          currentRoster = matched.roster;
+          currentSubs = matched.substitutes;
+        }
+      }
+
       // Ensure roster players have stats, reasonable overall and attributes
       const fixRoster = (players: Player[]) => {
         return players.map(p => ({
@@ -508,8 +526,8 @@ export default function SettingsScreen({
       return {
         ...t,
         budget,
-        roster: fixRoster(t.roster),
-        substitutes: fixRoster(t.substitutes || []),
+        roster: fixRoster(currentRoster),
+        substitutes: fixRoster(currentSubs),
         academy: fixRoster(t.academy || [])
       };
     });
@@ -591,6 +609,18 @@ export default function SettingsScreen({
   const [editorPlayerOvr, setEditorPlayerOvr] = useState(70);
   const [editorPlayerPosition, setEditorPlayerPosition] = useState<Position>('TOP');
 
+  // Sync selected player when team changes or when players list loads
+  useEffect(() => {
+    if (allPlayers.length > 0) {
+      const isStillValid = allPlayers.some(p => p.id === selectedPlayerId);
+      if (!isStillValid) {
+        setSelectedPlayerId(allPlayers[0].id);
+      }
+    } else {
+      setSelectedPlayerId('');
+    }
+  }, [selectedTeamId, allPlayers]);
+
   // Sync edits when selectedPlayer changes
   useEffect(() => {
     if (playerToEdit) {
@@ -599,7 +629,7 @@ export default function SettingsScreen({
       setEditorPlayerOvr(playerToEdit.overallRating);
       setEditorPlayerPosition(playerToEdit.position || 'TOP');
     }
-  }, [selectedPlayerId]);
+  }, [selectedPlayerId, playerToEdit]);
 
   // Edit existing sponsors / register sponsors
   const [selectedSponsorId, setSelectedSponsorId] = useState<string>(gameState?.sponsorsMarket && gameState.sponsorsMarket.length > 0 ? gameState.sponsorsMarket[0].id : '');
@@ -629,6 +659,12 @@ export default function SettingsScreen({
   const [editorChampRoles, setEditorChampRoles] = useState<Position[]>([]);
   const [editorChampPower, setEditorChampPower] = useState(75);
   const [editorChampTier, setEditorChampTier] = useState<'S+' | 'S' | 'A' | 'B' | 'C'>('A');
+
+  useEffect(() => {
+    if (gameState?.champions && gameState.champions.length > 0 && !selectedChampId) {
+      setSelectedChampId(gameState.champions[0].id);
+    }
+  }, [gameState, selectedChampId]);
 
   useEffect(() => {
     if (gameState?.champions && selectedChampId) {
@@ -1137,6 +1173,83 @@ export default function SettingsScreen({
                       {currText.langEs}
                     </span>
                     {lang === 'es' && <Check className="w-4 h-4 text-sky-400" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Currency Settings / Moeda de Exibição */}
+              <div className="pt-6 border-t border-slate-200/20">
+                <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#00cbd6] mb-2 flex items-center gap-2">
+                  <Database className="w-4.5 h-4.5 text-sky-400" />
+                  {lang === 'pt' ? 'Moeda de Exibição' : lang === 'es' ? 'Moneda de Visualización' : 'Display Currency'}
+                </h3>
+                <p className="text-xs text-slate-400 mb-4 font-medium">
+                  {lang === 'pt' 
+                    ? 'Opções do jogo: Escolha a moeda utilizada para exibir orçamentos, salários e valores de mercado no painel operacional.' 
+                    : lang === 'es' 
+                      ? 'Opciones del juego: Elija la moneda utilizada para mostrar presupuestos, salarios y valores de mercado en el panel operacional.' 
+                      : 'Game options: Choose the currency used to display budgets, salaries and market values on the operational panel.'}
+                </p>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* USD */}
+                  <button
+                    onClick={() => {
+                      localStorage.setItem('legendshub_currency', 'USD');
+                      setSelectedCurrency('USD');
+                      window.dispatchEvent(new Event('currency_changed'));
+                    }}
+                    className={`p-3 rounded-xl border text-left text-xs font-semibold uppercase tracking-wider flex items-center justify-between transition-all cursor-pointer ${
+                      selectedCurrency === 'USD'
+                        ? 'border-[#00d2fd] bg-[#00d2fd]/5 font-bold text-[#00cbd6]' 
+                        : theme === 'dark' ? 'border-slate-800 bg-slate-900/30 text-slate-400 hover:border-slate-700' : 'border-slate-300 bg-slate-50 text-slate-600 hover:border-slate-400'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="font-extrabold text-sm text-[#00d2fd]">$</span>
+                      <span>{lang === 'pt' ? 'Dólar ($)' : lang === 'es' ? 'Dólar ($)' : 'US Dollar ($)'}</span>
+                    </span>
+                    {selectedCurrency === 'USD' && <Check className="w-4 h-4 text-sky-400" />}
+                  </button>
+
+                  {/* EUR */}
+                  <button
+                    onClick={() => {
+                      localStorage.setItem('legendshub_currency', 'EUR');
+                      setSelectedCurrency('EUR');
+                      window.dispatchEvent(new Event('currency_changed'));
+                    }}
+                    className={`p-3 rounded-xl border text-left text-xs font-semibold uppercase tracking-wider flex items-center justify-between transition-all cursor-pointer ${
+                      selectedCurrency === 'EUR'
+                        ? 'border-[#00d2fd] bg-[#00d2fd]/5 font-bold text-[#00cbd6]' 
+                        : theme === 'dark' ? 'border-slate-800 bg-slate-900/30 text-slate-400 hover:border-slate-700' : 'border-slate-300 bg-slate-50 text-slate-600 hover:border-slate-400'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="font-extrabold text-sm text-[#00d2fd]">€</span>
+                      <span>{lang === 'pt' ? 'Euro (€)' : lang === 'es' ? 'Euro (€)' : 'Euro (€)'}</span>
+                    </span>
+                    {selectedCurrency === 'EUR' && <Check className="w-4 h-4 text-sky-400" />}
+                  </button>
+
+                  {/* BRL */}
+                  <button
+                    onClick={() => {
+                      localStorage.setItem('legendshub_currency', 'BRL');
+                      setSelectedCurrency('BRL');
+                      window.dispatchEvent(new Event('currency_changed'));
+                    }}
+                    className={`p-3 rounded-xl border text-left text-xs font-semibold uppercase tracking-wider flex items-center justify-between transition-all cursor-pointer ${
+                      selectedCurrency === 'BRL'
+                        ? 'border-[#00d2fd] bg-[#00d2fd]/5 font-bold text-[#00cbd6]' 
+                        : theme === 'dark' ? 'border-slate-800 bg-slate-900/30 text-slate-400 hover:border-slate-700' : 'border-slate-300 bg-slate-50 text-slate-600 hover:border-slate-400'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="font-extrabold text-sm text-[#00d2fd]">R$</span>
+                      <span>{lang === 'pt' ? 'Real (R$)' : lang === 'es' ? 'Real (R$)' : 'Real (R$)'}</span>
+                    </span>
+                    {selectedCurrency === 'BRL' && <Check className="w-4 h-4 text-sky-400" />}
                   </button>
                 </div>
               </div>

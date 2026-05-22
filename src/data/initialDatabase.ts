@@ -6,28 +6,3490 @@
 import { Player, Champion, Sponsor, Staff, Team, Position, PlayerAttributes, InterviewQuestion } from '../types';
 
 export const CHAMPIONS_LIST: Champion[] = [
-  { id: 'aether', name: 'Aether', roles: ['MID', 'ADC'], tier: 'S', power: 88, buffStatus: 'NORMAL', idealPlaystyle: 'Hyper Scaling Magic Damage', counters: ['desert_emperor', 'nine_tails'], synergies: ['deep_terror', 'shield_mate'], imageSeed: 1 },
-  { id: 'vanguard', name: 'Vanguard', roles: ['TOP', 'MID'], tier: 'S', power: 90, buffStatus: 'NORMAL', idealPlaystyle: 'Fighter Splitpush', counters: ['colossus', 'blade_dancer'], synergies: ['striker_x', 'storm_roar'], imageSeed: 2 },
-  { id: 'colossus', name: 'Colossus', roles: ['TOP'], tier: 'A', power: 84, buffStatus: 'NORMAL', idealPlaystyle: 'Tank Teamfight Engage', counters: ['blade_dancer'], synergies: ['reaper', 'bullet_pro'], imageSeed: 3 },
-  { id: 'shadow_zenith', name: 'Shadow Slasher', roles: ['MID', 'JNG'], tier: 'S+', power: 94, buffStatus: 'NORMAL', idealPlaystyle: 'Assassin Dive', counters: ['phantom', 'nine_tails'], synergies: ['silent_hit', 'deep_terror'], imageSeed: 4 },
-  { id: 'silent_hit', name: 'Silent Hit', roles: ['JNG'], tier: 'A', power: 85, buffStatus: 'NORMAL', idealPlaystyle: 'Assassin Invisibility', counters: ['storm_roar'], synergies: ['shadow_zenith', 'phantom'], imageSeed: 5 },
-  { id: 'void_mage', name: 'Void Mage', roles: ['MID'], tier: 'A', power: 86, buffStatus: 'NORMAL', idealPlaystyle: 'Zone Control CC', counters: ['nine_tails', 'shadow_zenith'], synergies: ['deep_terror', 'silent_hit'], imageSeed: 6 },
-  { id: 'reaper', name: 'Reaper', roles: ['ADC'], tier: 'S', power: 89, buffStatus: 'NORMAL', idealPlaystyle: 'Framer Lane Bully', counters: ['bullet_pro', 'frost_archer'], synergies: ['medic_7', 'soul_lantern'], imageSeed: 7 },
-  { id: 'medic_7', name: 'Medic 7', roles: ['SUP'], tier: 'A', power: 83, buffStatus: 'NORMAL', idealPlaystyle: 'Enchanter Sustain', counters: ['soul_lantern'], synergies: ['bullet_pro', 'reaper'], imageSeed: 8 },
-  { id: 'solo_king', name: 'Solo King', roles: ['TOP'], tier: 'S', power: 88, buffStatus: 'NORMAL', idealPlaystyle: 'Fighter Duelist', counters: ['vanguard', 'colossus'], synergies: ['silent_hit', 'time_weaver'], imageSeed: 9 },
-  { id: 'shield_mate', name: 'Shield Mate', roles: ['SUP'], tier: 'A', power: 85, buffStatus: 'NORMAL', idealPlaystyle: 'Vanguard Protect', counters: ['medic_7'], synergies: ['bullet_pro', 'reaper'], imageSeed: 10 },
-  { id: 'striker_x', name: 'Striker X', roles: ['JNG'], tier: 'S+', power: 93, buffStatus: 'NORMAL', idealPlaystyle: 'Skirmisher Early Gank', counters: ['silent_hit', 'storm_roar'], synergies: ['blade_dancer', 'vanguard'], imageSeed: 11 },
-  { id: 'phantom', name: 'Phantom', roles: ['MID'], tier: 'S', power: 89, buffStatus: 'NORMAL', idealPlaystyle: 'Burst Mage Trickster', counters: ['desert_emperor', 'void_mage'], synergies: ['striker_x', 'silent_hit'], imageSeed: 12 },
-  { id: 'bullet_pro', name: 'Bullet Pro', roles: ['ADC'], tier: 'A', power: 87, buffStatus: 'NORMAL', idealPlaystyle: 'Hyper Carry Attack Speed', counters: ['frost_archer'], synergies: ['medic_7', 'shield_mate'], imageSeed: 13 },
-  { id: 'frost_archer', name: 'Frost Archer', roles: ['ADC'], tier: 'A', power: 85, buffStatus: 'NORMAL', idealPlaystyle: 'Utility Arrow Initiate', counters: ['bullet_pro'], synergies: ['soul_lantern', 'deep_terror'], imageSeed: 14 },
-  { id: 'desert_emperor', name: 'Desert Emperor', roles: ['MID'], tier: 'S', power: 91, buffStatus: 'NORMAL', idealPlaystyle: 'DPS Mage Shurima Shuffle', counters: ['void_mage'], synergies: ['storm_roar', 'colossus'], imageSeed: 15 },
-  { id: 'nine_tails', name: 'Nine Tails', roles: ['MID'], tier: 'B', power: 82, buffStatus: 'NORMAL', idealPlaystyle: 'Mage Assassin Roam', counters: ['phantom'], synergies: ['striker_x', 'deep_terror'], imageSeed: 16 },
-  { id: 'deep_terror', name: 'Deep Terror', roles: ['SUP', 'TOP'], tier: 'S', power: 88, buffStatus: 'NORMAL', idealPlaystyle: 'Tank Crowd Control Heavy', counters: ['medic_7'], synergies: ['bullet_pro', 'reaper'], imageSeed: 17 },
-  { id: 'soul_lantern', name: 'Soul Lantern', roles: ['SUP'], tier: 'S+', power: 92, buffStatus: 'NORMAL', idealPlaystyle: 'Playmaker Hook Flay', counters: ['medic_7', 'shield_mate'], synergies: ['reaper', 'bullet_pro'], imageSeed: 18 },
-  { id: 'blade_dancer', name: 'Blade Dancer', roles: ['TOP', 'MID'], tier: 'A', power: 86, buffStatus: 'NORMAL', idealPlaystyle: 'Fighter Multi-dash Teamfight', counters: ['colossus', 'vanguard'], synergies: ['striker_x', 'deep_terror'], imageSeed: 19 },
-  { id: 'storm_roar', name: 'Storm Roar', roles: ['JNG', 'TOP'], tier: 'B', power: 81, buffStatus: 'NORMAL', idealPlaystyle: 'Bruiser Diver', counters: ['silent_hit'], synergies: ['shield_mate', 'medic_7'], imageSeed: 20 },
-  { id: 'time_weaver', name: 'Time Weaver', roles: ['JNG', 'MID'], tier: 'S', power: 89, buffStatus: 'NORMAL', idealPlaystyle: 'Utility Assassin Time Lap', counters: ['silent_hit'], synergies: ['vanguard', 'blade_dancer'], imageSeed: 21 },
-  { id: 'feather_dancer', name: 'Feather Dancer', roles: ['ADC'], tier: 'S', power: 88, buffStatus: 'NORMAL', idealPlaystyle: 'Self Defense DPS', counters: ['reaper', 'bullet_pro'], synergies: ['soul_lantern', 'shield_mate'], imageSeed: 22 }
+  {
+    "id": "aatrox",
+    "name": "Aatrox",
+    "roles": [
+      "TOP"
+    ],
+    "tier": "B",
+    "power": 81,
+    "buffStatus": "BUFFED",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "azir",
+      "gangplank"
+    ],
+    "synergies": [
+      "cho_gath",
+      "kassadin"
+    ],
+    "imageSeed": 1
+  },
+  {
+    "id": "ahri",
+    "name": "Ahri",
+    "roles": [
+      "MID"
+    ],
+    "tier": "S+",
+    "power": 96,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "bard",
+      "garen"
+    ],
+    "synergies": [
+      "corki",
+      "katarina"
+    ],
+    "imageSeed": 2
+  },
+  {
+    "id": "akali",
+    "name": "Akali",
+    "roles": [
+      "MID",
+      "TOP"
+    ],
+    "tier": "A",
+    "power": 85,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "bel_veth",
+      "gnar"
+    ],
+    "synergies": [
+      "darius",
+      "kayle"
+    ],
+    "imageSeed": 3
+  },
+  {
+    "id": "akshan",
+    "name": "Akshan",
+    "roles": [
+      "MID",
+      "TOP"
+    ],
+    "tier": "A",
+    "power": 85,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "blitzcrank",
+      "gragas"
+    ],
+    "synergies": [
+      "diana",
+      "kayn"
+    ],
+    "imageSeed": 4
+  },
+  {
+    "id": "alistar",
+    "name": "Alistar",
+    "roles": [
+      "SUP"
+    ],
+    "tier": "S",
+    "power": 89,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "brand",
+      "graves"
+    ],
+    "synergies": [
+      "dr__mundo",
+      "kennen"
+    ],
+    "imageSeed": 5
+  },
+  {
+    "id": "ambessa",
+    "name": "Ambessa",
+    "roles": [
+      "TOP",
+      "JNG"
+    ],
+    "tier": "B",
+    "power": 82,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "braum",
+      "gwen"
+    ],
+    "synergies": [
+      "draven",
+      "kha_zix"
+    ],
+    "imageSeed": 6
+  },
+  {
+    "id": "amumu",
+    "name": "Amumu",
+    "roles": [
+      "JNG",
+      "SUP"
+    ],
+    "tier": "C",
+    "power": 78,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "briar",
+      "hecarim"
+    ],
+    "synergies": [
+      "ekko",
+      "kindred"
+    ],
+    "imageSeed": 7
+  },
+  {
+    "id": "anivia",
+    "name": "Anivia",
+    "roles": [
+      "MID"
+    ],
+    "tier": "B",
+    "power": 81,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "caitlyn",
+      "heimerdinger"
+    ],
+    "synergies": [
+      "elise",
+      "kled"
+    ],
+    "imageSeed": 8
+  },
+  {
+    "id": "annie",
+    "name": "Annie",
+    "roles": [
+      "MID"
+    ],
+    "tier": "A",
+    "power": 87,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "camille",
+      "hwei"
+    ],
+    "synergies": [
+      "evelynn",
+      "kog_maw"
+    ],
+    "imageSeed": 9
+  },
+  {
+    "id": "aphelios",
+    "name": "Aphelios",
+    "roles": [
+      "ADC"
+    ],
+    "tier": "S",
+    "power": 91,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dano contínuo devastador, foco em cerco e posicionamento defensivo.",
+    "counters": [
+      "cassiopeia",
+      "illaoi"
+    ],
+    "synergies": [
+      "ezreal",
+      "k_sante"
+    ],
+    "imageSeed": 10
+  },
+  {
+    "id": "ashe",
+    "name": "Ashe",
+    "roles": [
+      "ADC",
+      "SUP"
+    ],
+    "tier": "A",
+    "power": 85,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dano contínuo devastador, foco em cerco e posicionamento defensivo.",
+    "counters": [
+      "cho_gath",
+      "irelia"
+    ],
+    "synergies": [
+      "fiddlesticks",
+      "leblanc"
+    ],
+    "imageSeed": 11
+  },
+  {
+    "id": "aurelion_sol",
+    "name": "Aurelion Sol",
+    "roles": [
+      "MID"
+    ],
+    "tier": "S",
+    "power": 88,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "corki",
+      "ivern"
+    ],
+    "synergies": [
+      "fiora",
+      "lee_sin"
+    ],
+    "imageSeed": 12
+  },
+  {
+    "id": "aurora",
+    "name": "Aurora",
+    "roles": [
+      "MID",
+      "TOP"
+    ],
+    "tier": "B",
+    "power": 83,
+    "buffStatus": "NERFED",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "darius",
+      "janna"
+    ],
+    "synergies": [
+      "fizz",
+      "leona"
+    ],
+    "imageSeed": 13
+  },
+  {
+    "id": "azir",
+    "name": "Azir",
+    "roles": [
+      "MID"
+    ],
+    "tier": "S",
+    "power": 89,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "diana",
+      "jarvan_iv"
+    ],
+    "synergies": [
+      "galio",
+      "lillia"
+    ],
+    "imageSeed": 14
+  },
+  {
+    "id": "bard",
+    "name": "Bard (Bardo)",
+    "roles": [
+      "SUP"
+    ],
+    "tier": "C",
+    "power": 75,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "dr__mundo",
+      "jax"
+    ],
+    "synergies": [
+      "gangplank",
+      "lissandra"
+    ],
+    "imageSeed": 15
+  },
+  {
+    "id": "bel_veth",
+    "name": "Bel'Veth",
+    "roles": [
+      "JNG"
+    ],
+    "tier": "B",
+    "power": 83,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "draven",
+      "jayce"
+    ],
+    "synergies": [
+      "garen",
+      "lucian"
+    ],
+    "imageSeed": 16
+  },
+  {
+    "id": "blitzcrank",
+    "name": "Blitzcrank",
+    "roles": [
+      "SUP"
+    ],
+    "tier": "C",
+    "power": 79,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "ekko",
+      "jhin"
+    ],
+    "synergies": [
+      "gnar",
+      "lulu"
+    ],
+    "imageSeed": 17
+  },
+  {
+    "id": "brand",
+    "name": "Brand",
+    "roles": [
+      "JNG",
+      "MID",
+      "SUP"
+    ],
+    "tier": "S",
+    "power": 89,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "elise",
+      "jinx"
+    ],
+    "synergies": [
+      "gragas",
+      "lux"
+    ],
+    "imageSeed": 18
+  },
+  {
+    "id": "braum",
+    "name": "Braum",
+    "roles": [
+      "SUP"
+    ],
+    "tier": "C",
+    "power": 74,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "evelynn",
+      "kai_sa"
+    ],
+    "synergies": [
+      "graves",
+      "malphite"
+    ],
+    "imageSeed": 19
+  },
+  {
+    "id": "briar",
+    "name": "Briar",
+    "roles": [
+      "JNG"
+    ],
+    "tier": "C",
+    "power": 76,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "ezreal",
+      "kalista"
+    ],
+    "synergies": [
+      "gwen",
+      "malzahar"
+    ],
+    "imageSeed": 20
+  },
+  {
+    "id": "caitlyn",
+    "name": "Caitlyn",
+    "roles": [
+      "ADC"
+    ],
+    "tier": "A",
+    "power": 87,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dano contínuo devastador, foco em cerco e posicionamento defensivo.",
+    "counters": [
+      "fiddlesticks",
+      "karma"
+    ],
+    "synergies": [
+      "hecarim",
+      "maokai"
+    ],
+    "imageSeed": 21
+  },
+  {
+    "id": "camille",
+    "name": "Camille",
+    "roles": [
+      "TOP",
+      "SUP"
+    ],
+    "tier": "B",
+    "power": 82,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "fiora",
+      "karthus"
+    ],
+    "synergies": [
+      "heimerdinger",
+      "master_yi"
+    ],
+    "imageSeed": 22
+  },
+  {
+    "id": "cassiopeia",
+    "name": "Cassiopeia",
+    "roles": [
+      "MID",
+      "TOP"
+    ],
+    "tier": "S",
+    "power": 89,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "fizz",
+      "kassadin"
+    ],
+    "synergies": [
+      "hwei",
+      "mel"
+    ],
+    "imageSeed": 23
+  },
+  {
+    "id": "cho_gath",
+    "name": "Cho'Gath",
+    "roles": [
+      "TOP",
+      "MID"
+    ],
+    "tier": "A",
+    "power": 84,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "galio",
+      "katarina"
+    ],
+    "synergies": [
+      "illaoi",
+      "milio"
+    ],
+    "imageSeed": 24
+  },
+  {
+    "id": "corki",
+    "name": "Corki",
+    "roles": [
+      "MID",
+      "ADC"
+    ],
+    "tier": "B",
+    "power": 81,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "gangplank",
+      "kayle"
+    ],
+    "synergies": [
+      "irelia",
+      "miss_fortune"
+    ],
+    "imageSeed": 25
+  },
+  {
+    "id": "darius",
+    "name": "Darius",
+    "roles": [
+      "TOP"
+    ],
+    "tier": "S+",
+    "power": 94,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "garen",
+      "kayn"
+    ],
+    "synergies": [
+      "ivern",
+      "mordekaiser"
+    ],
+    "imageSeed": 26
+  },
+  {
+    "id": "diana",
+    "name": "Diana",
+    "roles": [
+      "JNG",
+      "MID"
+    ],
+    "tier": "S",
+    "power": 88,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "gnar",
+      "kennen"
+    ],
+    "synergies": [
+      "janna",
+      "morgana"
+    ],
+    "imageSeed": 27
+  },
+  {
+    "id": "dr__mundo",
+    "name": "Dr. Mundo",
+    "roles": [
+      "TOP",
+      "JNG"
+    ],
+    "tier": "C",
+    "power": 74,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "gragas",
+      "kha_zix"
+    ],
+    "synergies": [
+      "jarvan_iv",
+      "naafiri"
+    ],
+    "imageSeed": 28
+  },
+  {
+    "id": "draven",
+    "name": "Draven",
+    "roles": [
+      "ADC"
+    ],
+    "tier": "C",
+    "power": 75,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dano contínuo devastador, foco em cerco e posicionamento defensivo.",
+    "counters": [
+      "graves",
+      "kindred"
+    ],
+    "synergies": [
+      "jax",
+      "nami"
+    ],
+    "imageSeed": 29
+  },
+  {
+    "id": "ekko",
+    "name": "Ekko",
+    "roles": [
+      "JNG",
+      "MID"
+    ],
+    "tier": "A",
+    "power": 87,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "gwen",
+      "kled"
+    ],
+    "synergies": [
+      "jayce",
+      "nasus"
+    ],
+    "imageSeed": 30
+  },
+  {
+    "id": "elise",
+    "name": "Elise",
+    "roles": [
+      "JNG"
+    ],
+    "tier": "B",
+    "power": 82,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "hecarim",
+      "kog_maw"
+    ],
+    "synergies": [
+      "jhin",
+      "nautilus"
+    ],
+    "imageSeed": 31
+  },
+  {
+    "id": "evelynn",
+    "name": "Evelynn",
+    "roles": [
+      "JNG"
+    ],
+    "tier": "B",
+    "power": 82,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "heimerdinger",
+      "k_sante"
+    ],
+    "synergies": [
+      "jinx",
+      "neeko"
+    ],
+    "imageSeed": 32
+  },
+  {
+    "id": "ezreal",
+    "name": "Ezreal",
+    "roles": [
+      "ADC"
+    ],
+    "tier": "A",
+    "power": 87,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dano contínuo devastador, foco em cerco e posicionamento defensivo.",
+    "counters": [
+      "hwei",
+      "leblanc"
+    ],
+    "synergies": [
+      "kai_sa",
+      "nidalee"
+    ],
+    "imageSeed": 33
+  },
+  {
+    "id": "fiddlesticks",
+    "name": "Fiddlesticks",
+    "roles": [
+      "JNG"
+    ],
+    "tier": "B",
+    "power": 80,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "illaoi",
+      "lee_sin"
+    ],
+    "synergies": [
+      "kalista",
+      "nilah"
+    ],
+    "imageSeed": 34
+  },
+  {
+    "id": "fiora",
+    "name": "Fiora",
+    "roles": [
+      "TOP"
+    ],
+    "tier": "B",
+    "power": 81,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "irelia",
+      "leona"
+    ],
+    "synergies": [
+      "karma",
+      "nocturne"
+    ],
+    "imageSeed": 35
+  },
+  {
+    "id": "fizz",
+    "name": "Fizz",
+    "roles": [
+      "MID"
+    ],
+    "tier": "A",
+    "power": 86,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "ivern",
+      "lillia"
+    ],
+    "synergies": [
+      "karthus",
+      "nunu_willump"
+    ],
+    "imageSeed": 36
+  },
+  {
+    "id": "galio",
+    "name": "Galio",
+    "roles": [
+      "MID",
+      "SUP"
+    ],
+    "tier": "A",
+    "power": 85,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "janna",
+      "lissandra"
+    ],
+    "synergies": [
+      "kassadin",
+      "olaf"
+    ],
+    "imageSeed": 37
+  },
+  {
+    "id": "gangplank",
+    "name": "Gangplank",
+    "roles": [
+      "TOP"
+    ],
+    "tier": "S+",
+    "power": 95,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "jarvan_iv",
+      "lucian"
+    ],
+    "synergies": [
+      "katarina",
+      "orianna"
+    ],
+    "imageSeed": 38
+  },
+  {
+    "id": "garen",
+    "name": "Garen",
+    "roles": [
+      "TOP"
+    ],
+    "tier": "S",
+    "power": 90,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "jax",
+      "lulu"
+    ],
+    "synergies": [
+      "kayle",
+      "ornn"
+    ],
+    "imageSeed": 39
+  },
+  {
+    "id": "gnar",
+    "name": "Gnar",
+    "roles": [
+      "TOP"
+    ],
+    "tier": "S",
+    "power": 89,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "jayce",
+      "lux"
+    ],
+    "synergies": [
+      "kayn",
+      "pantheon"
+    ],
+    "imageSeed": 40
+  },
+  {
+    "id": "gragas",
+    "name": "Gragas",
+    "roles": [
+      "TOP",
+      "JNG",
+      "MID"
+    ],
+    "tier": "A",
+    "power": 87,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "jhin",
+      "malphite"
+    ],
+    "synergies": [
+      "kennen",
+      "poppy"
+    ],
+    "imageSeed": 41
+  },
+  {
+    "id": "graves",
+    "name": "Graves",
+    "roles": [
+      "JNG"
+    ],
+    "tier": "C",
+    "power": 79,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "jinx",
+      "malzahar"
+    ],
+    "synergies": [
+      "kha_zix",
+      "pyke"
+    ],
+    "imageSeed": 42
+  },
+  {
+    "id": "gwen",
+    "name": "Gwen",
+    "roles": [
+      "TOP",
+      "JNG"
+    ],
+    "tier": "A",
+    "power": 84,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "kai_sa",
+      "maokai"
+    ],
+    "synergies": [
+      "kindred",
+      "qiyana"
+    ],
+    "imageSeed": 43
+  },
+  {
+    "id": "hecarim",
+    "name": "Hecarim",
+    "roles": [
+      "JNG"
+    ],
+    "tier": "C",
+    "power": 77,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "kalista",
+      "master_yi"
+    ],
+    "synergies": [
+      "kled",
+      "quinn"
+    ],
+    "imageSeed": 44
+  },
+  {
+    "id": "heimerdinger",
+    "name": "Heimerdinger",
+    "roles": [
+      "TOP",
+      "SUP",
+      "MID"
+    ],
+    "tier": "A",
+    "power": 86,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "karma",
+      "mel"
+    ],
+    "synergies": [
+      "kog_maw",
+      "rakan"
+    ],
+    "imageSeed": 45
+  },
+  {
+    "id": "hwei",
+    "name": "Hwei",
+    "roles": [
+      "MID",
+      "SUP"
+    ],
+    "tier": "C",
+    "power": 78,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "karthus",
+      "milio"
+    ],
+    "synergies": [
+      "k_sante",
+      "rammus"
+    ],
+    "imageSeed": 46
+  },
+  {
+    "id": "illaoi",
+    "name": "Illaoi",
+    "roles": [
+      "TOP"
+    ],
+    "tier": "A",
+    "power": 85,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "kassadin",
+      "miss_fortune"
+    ],
+    "synergies": [
+      "leblanc",
+      "rek_sai"
+    ],
+    "imageSeed": 47
+  },
+  {
+    "id": "irelia",
+    "name": "Irelia",
+    "roles": [
+      "TOP",
+      "MID"
+    ],
+    "tier": "B",
+    "power": 83,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "katarina",
+      "mordekaiser"
+    ],
+    "synergies": [
+      "lee_sin",
+      "rell"
+    ],
+    "imageSeed": 48
+  },
+  {
+    "id": "ivern",
+    "name": "Ivern",
+    "roles": [
+      "JNG"
+    ],
+    "tier": "B",
+    "power": 81,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "kayle",
+      "morgana"
+    ],
+    "synergies": [
+      "leona",
+      "renata_glasc"
+    ],
+    "imageSeed": 49
+  },
+  {
+    "id": "janna",
+    "name": "Janna",
+    "roles": [
+      "SUP"
+    ],
+    "tier": "S",
+    "power": 91,
+    "buffStatus": "NERFED",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "kayn",
+      "naafiri"
+    ],
+    "synergies": [
+      "lillia",
+      "renekton"
+    ],
+    "imageSeed": 50
+  },
+  {
+    "id": "jarvan_iv",
+    "name": "Jarvan IV",
+    "roles": [
+      "JNG"
+    ],
+    "tier": "B",
+    "power": 81,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "kennen",
+      "nami"
+    ],
+    "synergies": [
+      "lissandra",
+      "rengar"
+    ],
+    "imageSeed": 51
+  },
+  {
+    "id": "jax",
+    "name": "Jax",
+    "roles": [
+      "TOP",
+      "JNG"
+    ],
+    "tier": "A",
+    "power": 85,
+    "buffStatus": "BUFFED",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "kha_zix",
+      "nasus"
+    ],
+    "synergies": [
+      "lucian",
+      "riven"
+    ],
+    "imageSeed": 52
+  },
+  {
+    "id": "jayce",
+    "name": "Jayce",
+    "roles": [
+      "TOP",
+      "MID"
+    ],
+    "tier": "S",
+    "power": 88,
+    "buffStatus": "BUFFED",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "kindred",
+      "nautilus"
+    ],
+    "synergies": [
+      "lulu",
+      "rumble"
+    ],
+    "imageSeed": 53
+  },
+  {
+    "id": "jhin",
+    "name": "Jhin",
+    "roles": [
+      "ADC"
+    ],
+    "tier": "S",
+    "power": 88,
+    "buffStatus": "NERFED",
+    "idealPlaystyle": "Dano contínuo devastador, foco em cerco e posicionamento defensivo.",
+    "counters": [
+      "kled",
+      "neeko"
+    ],
+    "synergies": [
+      "lux",
+      "ryze"
+    ],
+    "imageSeed": 54
+  },
+  {
+    "id": "jinx",
+    "name": "Jinx",
+    "roles": [
+      "ADC"
+    ],
+    "tier": "S",
+    "power": 88,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dano contínuo devastador, foco em cerco e posicionamento defensivo.",
+    "counters": [
+      "kog_maw",
+      "nidalee"
+    ],
+    "synergies": [
+      "malphite",
+      "samira"
+    ],
+    "imageSeed": 55
+  },
+  {
+    "id": "kai_sa",
+    "name": "Kai'Sa",
+    "roles": [
+      "ADC"
+    ],
+    "tier": "C",
+    "power": 78,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dano contínuo devastador, foco em cerco e posicionamento defensivo.",
+    "counters": [
+      "k_sante",
+      "nilah"
+    ],
+    "synergies": [
+      "malzahar",
+      "sejuani"
+    ],
+    "imageSeed": 56
+  },
+  {
+    "id": "kalista",
+    "name": "Kalista",
+    "roles": [
+      "ADC"
+    ],
+    "tier": "S",
+    "power": 90,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dano contínuo devastador, foco em cerco e posicionamento defensivo.",
+    "counters": [
+      "leblanc",
+      "nocturne"
+    ],
+    "synergies": [
+      "maokai",
+      "senna"
+    ],
+    "imageSeed": 57
+  },
+  {
+    "id": "karma",
+    "name": "Karma",
+    "roles": [
+      "SUP",
+      "MID"
+    ],
+    "tier": "A",
+    "power": 87,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "lee_sin",
+      "nunu_willump"
+    ],
+    "synergies": [
+      "master_yi",
+      "seraphine"
+    ],
+    "imageSeed": 58
+  },
+  {
+    "id": "karthus",
+    "name": "Karthus",
+    "roles": [
+      "JNG",
+      "ADC"
+    ],
+    "tier": "B",
+    "power": 80,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "leona",
+      "olaf"
+    ],
+    "synergies": [
+      "mel",
+      "sett"
+    ],
+    "imageSeed": 59
+  },
+  {
+    "id": "kassadin",
+    "name": "Kassadin",
+    "roles": [
+      "MID"
+    ],
+    "tier": "C",
+    "power": 79,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "lillia",
+      "orianna"
+    ],
+    "synergies": [
+      "milio",
+      "shaco"
+    ],
+    "imageSeed": 60
+  },
+  {
+    "id": "katarina",
+    "name": "Katarina",
+    "roles": [
+      "MID"
+    ],
+    "tier": "A",
+    "power": 86,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "lissandra",
+      "ornn"
+    ],
+    "synergies": [
+      "miss_fortune",
+      "shen"
+    ],
+    "imageSeed": 61
+  },
+  {
+    "id": "kayle",
+    "name": "Kayle",
+    "roles": [
+      "TOP"
+    ],
+    "tier": "S+",
+    "power": 94,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "lucian",
+      "pantheon"
+    ],
+    "synergies": [
+      "mordekaiser",
+      "shyvana"
+    ],
+    "imageSeed": 62
+  },
+  {
+    "id": "kayn",
+    "name": "Kayn",
+    "roles": [
+      "JNG"
+    ],
+    "tier": "A",
+    "power": 86,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "lulu",
+      "poppy"
+    ],
+    "synergies": [
+      "morgana",
+      "singed"
+    ],
+    "imageSeed": 63
+  },
+  {
+    "id": "kennen",
+    "name": "Kennen",
+    "roles": [
+      "TOP"
+    ],
+    "tier": "S",
+    "power": 88,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "lux",
+      "pyke"
+    ],
+    "synergies": [
+      "naafiri",
+      "sion"
+    ],
+    "imageSeed": 64
+  },
+  {
+    "id": "kha_zix",
+    "name": "Kha'Zix",
+    "roles": [
+      "JNG"
+    ],
+    "tier": "S",
+    "power": 91,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "malphite",
+      "qiyana"
+    ],
+    "synergies": [
+      "nami",
+      "sivir"
+    ],
+    "imageSeed": 65
+  },
+  {
+    "id": "kindred",
+    "name": "Kindred",
+    "roles": [
+      "JNG"
+    ],
+    "tier": "A",
+    "power": 84,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "malzahar",
+      "quinn"
+    ],
+    "synergies": [
+      "nasus",
+      "skarner"
+    ],
+    "imageSeed": 66
+  },
+  {
+    "id": "kled",
+    "name": "Kled",
+    "roles": [
+      "TOP"
+    ],
+    "tier": "A",
+    "power": 86,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "maokai",
+      "rakan"
+    ],
+    "synergies": [
+      "nautilus",
+      "smolder"
+    ],
+    "imageSeed": 67
+  },
+  {
+    "id": "kog_maw",
+    "name": "Kog'Maw",
+    "roles": [
+      "ADC"
+    ],
+    "tier": "C",
+    "power": 77,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dano contínuo devastador, foco em cerco e posicionamento defensivo.",
+    "counters": [
+      "master_yi",
+      "rammus"
+    ],
+    "synergies": [
+      "neeko",
+      "sona"
+    ],
+    "imageSeed": 68
+  },
+  {
+    "id": "k_sante",
+    "name": "K'Sante",
+    "roles": [
+      "TOP"
+    ],
+    "tier": "B",
+    "power": 80,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "mel",
+      "rek_sai"
+    ],
+    "synergies": [
+      "nidalee",
+      "soraka"
+    ],
+    "imageSeed": 69
+  },
+  {
+    "id": "leblanc",
+    "name": "LeBlanc",
+    "roles": [
+      "MID"
+    ],
+    "tier": "A",
+    "power": 86,
+    "buffStatus": "NERFED",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "milio",
+      "rell"
+    ],
+    "synergies": [
+      "nilah",
+      "swain"
+    ],
+    "imageSeed": 70
+  },
+  {
+    "id": "lee_sin",
+    "name": "Lee Sin",
+    "roles": [
+      "JNG"
+    ],
+    "tier": "S",
+    "power": 88,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "miss_fortune",
+      "renata_glasc"
+    ],
+    "synergies": [
+      "nocturne",
+      "sylas"
+    ],
+    "imageSeed": 71
+  },
+  {
+    "id": "leona",
+    "name": "Leona",
+    "roles": [
+      "SUP"
+    ],
+    "tier": "S",
+    "power": 91,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "mordekaiser",
+      "renekton"
+    ],
+    "synergies": [
+      "nunu_willump",
+      "syndra"
+    ],
+    "imageSeed": 72
+  },
+  {
+    "id": "lillia",
+    "name": "Lillia",
+    "roles": [
+      "JNG"
+    ],
+    "tier": "A",
+    "power": 87,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "morgana",
+      "rengar"
+    ],
+    "synergies": [
+      "olaf",
+      "tahm_kench"
+    ],
+    "imageSeed": 73
+  },
+  {
+    "id": "lissandra",
+    "name": "Lissandra",
+    "roles": [
+      "MID"
+    ],
+    "tier": "S",
+    "power": 88,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "naafiri",
+      "riven"
+    ],
+    "synergies": [
+      "orianna",
+      "taliyah"
+    ],
+    "imageSeed": 74
+  },
+  {
+    "id": "lucian",
+    "name": "Lucian",
+    "roles": [
+      "ADC",
+      "MID"
+    ],
+    "tier": "S",
+    "power": 88,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dano contínuo devastador, foco em cerco e posicionamento defensivo.",
+    "counters": [
+      "nami",
+      "rumble"
+    ],
+    "synergies": [
+      "ornn",
+      "talon"
+    ],
+    "imageSeed": 75
+  },
+  {
+    "id": "lulu",
+    "name": "Lulu",
+    "roles": [
+      "SUP"
+    ],
+    "tier": "B",
+    "power": 82,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "nasus",
+      "ryze"
+    ],
+    "synergies": [
+      "pantheon",
+      "taric"
+    ],
+    "imageSeed": 76
+  },
+  {
+    "id": "lux",
+    "name": "Lux",
+    "roles": [
+      "MID",
+      "SUP"
+    ],
+    "tier": "A",
+    "power": 84,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "nautilus",
+      "samira"
+    ],
+    "synergies": [
+      "poppy",
+      "teemo"
+    ],
+    "imageSeed": 77
+  },
+  {
+    "id": "malphite",
+    "name": "Malphite",
+    "roles": [
+      "TOP"
+    ],
+    "tier": "S+",
+    "power": 96,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "neeko",
+      "sejuani"
+    ],
+    "synergies": [
+      "pyke",
+      "thresh"
+    ],
+    "imageSeed": 78
+  },
+  {
+    "id": "malzahar",
+    "name": "Malzahar",
+    "roles": [
+      "MID"
+    ],
+    "tier": "S",
+    "power": 88,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "nidalee",
+      "senna"
+    ],
+    "synergies": [
+      "qiyana",
+      "tristana"
+    ],
+    "imageSeed": 79
+  },
+  {
+    "id": "maokai",
+    "name": "Maokai",
+    "roles": [
+      "SUP",
+      "JNG",
+      "TOP"
+    ],
+    "tier": "B",
+    "power": 83,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "nilah",
+      "seraphine"
+    ],
+    "synergies": [
+      "quinn",
+      "trundle"
+    ],
+    "imageSeed": 80
+  },
+  {
+    "id": "master_yi",
+    "name": "Master Yi",
+    "roles": [
+      "JNG"
+    ],
+    "tier": "A",
+    "power": 86,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "nocturne",
+      "sett"
+    ],
+    "synergies": [
+      "rakan",
+      "tryndamere"
+    ],
+    "imageSeed": 81
+  },
+  {
+    "id": "mel",
+    "name": "Mel",
+    "roles": [
+      "MID"
+    ],
+    "tier": "B",
+    "power": 83,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "nunu_willump",
+      "shaco"
+    ],
+    "synergies": [
+      "rammus",
+      "twisted_fate"
+    ],
+    "imageSeed": 82
+  },
+  {
+    "id": "milio",
+    "name": "Milio",
+    "roles": [
+      "SUP"
+    ],
+    "tier": "C",
+    "power": 78,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "olaf",
+      "shen"
+    ],
+    "synergies": [
+      "rek_sai",
+      "twitch"
+    ],
+    "imageSeed": 83
+  },
+  {
+    "id": "miss_fortune",
+    "name": "Miss Fortune",
+    "roles": [
+      "ADC"
+    ],
+    "tier": "S",
+    "power": 89,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dano contínuo devastador, foco em cerco e posicionamento defensivo.",
+    "counters": [
+      "orianna",
+      "shyvana"
+    ],
+    "synergies": [
+      "rell",
+      "udyr"
+    ],
+    "imageSeed": 84
+  },
+  {
+    "id": "mordekaiser",
+    "name": "Mordekaiser",
+    "roles": [
+      "TOP",
+      "JNG"
+    ],
+    "tier": "C",
+    "power": 75,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "ornn",
+      "singed"
+    ],
+    "synergies": [
+      "renata_glasc",
+      "urgot"
+    ],
+    "imageSeed": 85
+  },
+  {
+    "id": "morgana",
+    "name": "Morgana",
+    "roles": [
+      "SUP",
+      "JNG"
+    ],
+    "tier": "B",
+    "power": 81,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "pantheon",
+      "sion"
+    ],
+    "synergies": [
+      "renekton",
+      "varus"
+    ],
+    "imageSeed": 86
+  },
+  {
+    "id": "naafiri",
+    "name": "Naafiri",
+    "roles": [
+      "MID",
+      "TOP"
+    ],
+    "tier": "A",
+    "power": 85,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "poppy",
+      "sivir"
+    ],
+    "synergies": [
+      "rengar",
+      "vayne"
+    ],
+    "imageSeed": 87
+  },
+  {
+    "id": "nami",
+    "name": "Nami",
+    "roles": [
+      "SUP"
+    ],
+    "tier": "A",
+    "power": 84,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "pyke",
+      "skarner"
+    ],
+    "synergies": [
+      "riven",
+      "veigar"
+    ],
+    "imageSeed": 88
+  },
+  {
+    "id": "nasus",
+    "name": "Nasus",
+    "roles": [
+      "TOP"
+    ],
+    "tier": "A",
+    "power": 86,
+    "buffStatus": "BUFFED",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "qiyana",
+      "smolder"
+    ],
+    "synergies": [
+      "rumble",
+      "vel_koz"
+    ],
+    "imageSeed": 89
+  },
+  {
+    "id": "nautilus",
+    "name": "Nautilus",
+    "roles": [
+      "SUP"
+    ],
+    "tier": "S+",
+    "power": 96,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "quinn",
+      "sona"
+    ],
+    "synergies": [
+      "ryze",
+      "vex"
+    ],
+    "imageSeed": 90
+  },
+  {
+    "id": "neeko",
+    "name": "Neeko",
+    "roles": [
+      "MID",
+      "SUP"
+    ],
+    "tier": "S",
+    "power": 91,
+    "buffStatus": "NERFED",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "rakan",
+      "soraka"
+    ],
+    "synergies": [
+      "samira",
+      "vi"
+    ],
+    "imageSeed": 91
+  },
+  {
+    "id": "nidalee",
+    "name": "Nidalee",
+    "roles": [
+      "JNG"
+    ],
+    "tier": "A",
+    "power": 87,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "rammus",
+      "swain"
+    ],
+    "synergies": [
+      "sejuani",
+      "viego"
+    ],
+    "imageSeed": 92
+  },
+  {
+    "id": "nilah",
+    "name": "Nilah",
+    "roles": [
+      "ADC"
+    ],
+    "tier": "A",
+    "power": 85,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dano contínuo devastador, foco em cerco e posicionamento defensivo.",
+    "counters": [
+      "rek_sai",
+      "sylas"
+    ],
+    "synergies": [
+      "senna",
+      "viktor"
+    ],
+    "imageSeed": 93
+  },
+  {
+    "id": "nocturne",
+    "name": "Nocturne",
+    "roles": [
+      "JNG"
+    ],
+    "tier": "S",
+    "power": 88,
+    "buffStatus": "BUFFED",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "rell",
+      "syndra"
+    ],
+    "synergies": [
+      "seraphine",
+      "vladimir"
+    ],
+    "imageSeed": 94
+  },
+  {
+    "id": "nunu_willump",
+    "name": "Nunu e Willump",
+    "roles": [
+      "JNG"
+    ],
+    "tier": "A",
+    "power": 86,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "renata_glasc",
+      "tahm_kench"
+    ],
+    "synergies": [
+      "sett",
+      "volibear"
+    ],
+    "imageSeed": 95
+  },
+  {
+    "id": "olaf",
+    "name": "Olaf",
+    "roles": [
+      "TOP",
+      "JNG"
+    ],
+    "tier": "A",
+    "power": 87,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "renekton",
+      "taliyah"
+    ],
+    "synergies": [
+      "shaco",
+      "warwick"
+    ],
+    "imageSeed": 96
+  },
+  {
+    "id": "orianna",
+    "name": "Orianna",
+    "roles": [
+      "MID"
+    ],
+    "tier": "S",
+    "power": 88,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "rengar",
+      "talon"
+    ],
+    "synergies": [
+      "shen",
+      "wukong"
+    ],
+    "imageSeed": 97
+  },
+  {
+    "id": "ornn",
+    "name": "Ornn",
+    "roles": [
+      "TOP"
+    ],
+    "tier": "B",
+    "power": 82,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "riven",
+      "taric"
+    ],
+    "synergies": [
+      "shyvana",
+      "xayah"
+    ],
+    "imageSeed": 98
+  },
+  {
+    "id": "pantheon",
+    "name": "Pantheon",
+    "roles": [
+      "TOP",
+      "MID",
+      "SUP"
+    ],
+    "tier": "A",
+    "power": 87,
+    "buffStatus": "NERFED",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "rumble",
+      "teemo"
+    ],
+    "synergies": [
+      "singed",
+      "xerath"
+    ],
+    "imageSeed": 99
+  },
+  {
+    "id": "poppy",
+    "name": "Poppy",
+    "roles": [
+      "TOP",
+      "JNG",
+      "SUP"
+    ],
+    "tier": "A",
+    "power": 84,
+    "buffStatus": "BUFFED",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "ryze",
+      "thresh"
+    ],
+    "synergies": [
+      "sion",
+      "xin_zhao"
+    ],
+    "imageSeed": 100
+  },
+  {
+    "id": "pyke",
+    "name": "Pyke",
+    "roles": [
+      "SUP",
+      "MID"
+    ],
+    "tier": "A",
+    "power": 84,
+    "buffStatus": "NERFED",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "samira",
+      "tristana"
+    ],
+    "synergies": [
+      "sivir",
+      "yasuo"
+    ],
+    "imageSeed": 101
+  },
+  {
+    "id": "qiyana",
+    "name": "Qiyana",
+    "roles": [
+      "MID"
+    ],
+    "tier": "S+",
+    "power": 94,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "sejuani",
+      "trundle"
+    ],
+    "synergies": [
+      "skarner",
+      "yone"
+    ],
+    "imageSeed": 102
+  },
+  {
+    "id": "quinn",
+    "name": "Quinn",
+    "roles": [
+      "TOP"
+    ],
+    "tier": "B",
+    "power": 82,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "senna",
+      "tryndamere"
+    ],
+    "synergies": [
+      "smolder",
+      "yorick"
+    ],
+    "imageSeed": 103
+  },
+  {
+    "id": "rakan",
+    "name": "Rakan",
+    "roles": [
+      "SUP"
+    ],
+    "tier": "S",
+    "power": 89,
+    "buffStatus": "NERFED",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "seraphine",
+      "twisted_fate"
+    ],
+    "synergies": [
+      "sona",
+      "yuumi"
+    ],
+    "imageSeed": 104
+  },
+  {
+    "id": "rammus",
+    "name": "Rammus",
+    "roles": [
+      "JNG"
+    ],
+    "tier": "A",
+    "power": 86,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "sett",
+      "twitch"
+    ],
+    "synergies": [
+      "soraka",
+      "zac"
+    ],
+    "imageSeed": 105
+  },
+  {
+    "id": "rek_sai",
+    "name": "Rek'Sai",
+    "roles": [
+      "JNG"
+    ],
+    "tier": "S",
+    "power": 88,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "shaco",
+      "udyr"
+    ],
+    "synergies": [
+      "swain",
+      "zed"
+    ],
+    "imageSeed": 106
+  },
+  {
+    "id": "rell",
+    "name": "Rell",
+    "roles": [
+      "SUP",
+      "JNG"
+    ],
+    "tier": "S",
+    "power": 91,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "shen",
+      "urgot"
+    ],
+    "synergies": [
+      "sylas",
+      "zeri"
+    ],
+    "imageSeed": 107
+  },
+  {
+    "id": "renata_glasc",
+    "name": "Renata Glasc",
+    "roles": [
+      "SUP"
+    ],
+    "tier": "A",
+    "power": 84,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "shyvana",
+      "varus"
+    ],
+    "synergies": [
+      "syndra",
+      "ziggs"
+    ],
+    "imageSeed": 108
+  },
+  {
+    "id": "renekton",
+    "name": "Renekton",
+    "roles": [
+      "TOP"
+    ],
+    "tier": "C",
+    "power": 76,
+    "buffStatus": "BUFFED",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "singed",
+      "vayne"
+    ],
+    "synergies": [
+      "tahm_kench",
+      "zilean"
+    ],
+    "imageSeed": 109
+  },
+  {
+    "id": "rengar",
+    "name": "Rengar",
+    "roles": [
+      "JNG",
+      "TOP"
+    ],
+    "tier": "C",
+    "power": 76,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "sion",
+      "veigar"
+    ],
+    "synergies": [
+      "taliyah",
+      "zoe"
+    ],
+    "imageSeed": 110
+  },
+  {
+    "id": "riven",
+    "name": "Riven",
+    "roles": [
+      "TOP"
+    ],
+    "tier": "S+",
+    "power": 95,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "sivir",
+      "vel_koz"
+    ],
+    "synergies": [
+      "talon",
+      "zyra"
+    ],
+    "imageSeed": 111
+  },
+  {
+    "id": "rumble",
+    "name": "Rumble",
+    "roles": [
+      "TOP",
+      "MID"
+    ],
+    "tier": "A",
+    "power": 86,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "skarner",
+      "vex"
+    ],
+    "synergies": [
+      "taric",
+      "aatrox"
+    ],
+    "imageSeed": 112
+  },
+  {
+    "id": "ryze",
+    "name": "Ryze",
+    "roles": [
+      "MID",
+      "TOP"
+    ],
+    "tier": "A",
+    "power": 86,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "smolder",
+      "vi"
+    ],
+    "synergies": [
+      "teemo",
+      "ahri"
+    ],
+    "imageSeed": 113
+  },
+  {
+    "id": "samira",
+    "name": "Samira",
+    "roles": [
+      "ADC"
+    ],
+    "tier": "A",
+    "power": 85,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dano contínuo devastador, foco em cerco e posicionamento defensivo.",
+    "counters": [
+      "sona",
+      "viego"
+    ],
+    "synergies": [
+      "thresh",
+      "akali"
+    ],
+    "imageSeed": 114
+  },
+  {
+    "id": "sejuani",
+    "name": "Sejuani",
+    "roles": [
+      "JNG",
+      "TOP"
+    ],
+    "tier": "B",
+    "power": 81,
+    "buffStatus": "NERFED",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "soraka",
+      "viktor"
+    ],
+    "synergies": [
+      "tristana",
+      "akshan"
+    ],
+    "imageSeed": 115
+  },
+  {
+    "id": "senna",
+    "name": "Senna",
+    "roles": [
+      "SUP",
+      "ADC"
+    ],
+    "tier": "A",
+    "power": 87,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "swain",
+      "vladimir"
+    ],
+    "synergies": [
+      "trundle",
+      "alistar"
+    ],
+    "imageSeed": 116
+  },
+  {
+    "id": "seraphine",
+    "name": "Seraphine",
+    "roles": [
+      "SUP",
+      "ADC"
+    ],
+    "tier": "S",
+    "power": 91,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "sylas",
+      "volibear"
+    ],
+    "synergies": [
+      "tryndamere",
+      "ambessa"
+    ],
+    "imageSeed": 117
+  },
+  {
+    "id": "sett",
+    "name": "Sett",
+    "roles": [
+      "TOP",
+      "SUP"
+    ],
+    "tier": "S+",
+    "power": 96,
+    "buffStatus": "NERFED",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "syndra",
+      "warwick"
+    ],
+    "synergies": [
+      "twisted_fate",
+      "amumu"
+    ],
+    "imageSeed": 118
+  },
+  {
+    "id": "shaco",
+    "name": "Shaco",
+    "roles": [
+      "JNG",
+      "SUP"
+    ],
+    "tier": "A",
+    "power": 85,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "tahm_kench",
+      "wukong"
+    ],
+    "synergies": [
+      "twitch",
+      "anivia"
+    ],
+    "imageSeed": 119
+  },
+  {
+    "id": "shen",
+    "name": "Shen",
+    "roles": [
+      "TOP",
+      "SUP"
+    ],
+    "tier": "B",
+    "power": 83,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "taliyah",
+      "xayah"
+    ],
+    "synergies": [
+      "udyr",
+      "annie"
+    ],
+    "imageSeed": 120
+  },
+  {
+    "id": "shyvana",
+    "name": "Shyvana",
+    "roles": [
+      "JNG"
+    ],
+    "tier": "B",
+    "power": 82,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "talon",
+      "xerath"
+    ],
+    "synergies": [
+      "urgot",
+      "aphelios"
+    ],
+    "imageSeed": 121
+  },
+  {
+    "id": "singed",
+    "name": "Singed",
+    "roles": [
+      "TOP"
+    ],
+    "tier": "A",
+    "power": 85,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "taric",
+      "xin_zhao"
+    ],
+    "synergies": [
+      "varus",
+      "ashe"
+    ],
+    "imageSeed": 122
+  },
+  {
+    "id": "sion",
+    "name": "Sion",
+    "roles": [
+      "TOP"
+    ],
+    "tier": "S+",
+    "power": 92,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "teemo",
+      "yasuo"
+    ],
+    "synergies": [
+      "vayne",
+      "aurelion_sol"
+    ],
+    "imageSeed": 123
+  },
+  {
+    "id": "sivir",
+    "name": "Sivir",
+    "roles": [
+      "ADC"
+    ],
+    "tier": "A",
+    "power": 84,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dano contínuo devastador, foco em cerco e posicionamento defensivo.",
+    "counters": [
+      "thresh",
+      "yone"
+    ],
+    "synergies": [
+      "veigar",
+      "aurora"
+    ],
+    "imageSeed": 124
+  },
+  {
+    "id": "skarner",
+    "name": "Skarner",
+    "roles": [
+      "JNG",
+      "TOP"
+    ],
+    "tier": "C",
+    "power": 76,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "tristana",
+      "yorick"
+    ],
+    "synergies": [
+      "vel_koz",
+      "azir"
+    ],
+    "imageSeed": 125
+  },
+  {
+    "id": "smolder",
+    "name": "Smolder",
+    "roles": [
+      "ADC",
+      "MID"
+    ],
+    "tier": "B",
+    "power": 80,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dano contínuo devastador, foco em cerco e posicionamento defensivo.",
+    "counters": [
+      "trundle",
+      "yuumi"
+    ],
+    "synergies": [
+      "vex",
+      "bard"
+    ],
+    "imageSeed": 126
+  },
+  {
+    "id": "sona",
+    "name": "Sona",
+    "roles": [
+      "SUP"
+    ],
+    "tier": "C",
+    "power": 78,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "tryndamere",
+      "zac"
+    ],
+    "synergies": [
+      "vi",
+      "bel_veth"
+    ],
+    "imageSeed": 127
+  },
+  {
+    "id": "soraka",
+    "name": "Soraka",
+    "roles": [
+      "SUP"
+    ],
+    "tier": "S",
+    "power": 90,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "twisted_fate",
+      "zed"
+    ],
+    "synergies": [
+      "viego",
+      "blitzcrank"
+    ],
+    "imageSeed": 128
+  },
+  {
+    "id": "swain",
+    "name": "Swain",
+    "roles": [
+      "MID",
+      "SUP",
+      "TOP"
+    ],
+    "tier": "A",
+    "power": 84,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "twitch",
+      "zeri"
+    ],
+    "synergies": [
+      "viktor",
+      "brand"
+    ],
+    "imageSeed": 129
+  },
+  {
+    "id": "sylas",
+    "name": "Sylas",
+    "roles": [
+      "MID",
+      "JNG"
+    ],
+    "tier": "A",
+    "power": 86,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "udyr",
+      "ziggs"
+    ],
+    "synergies": [
+      "vladimir",
+      "braum"
+    ],
+    "imageSeed": 130
+  },
+  {
+    "id": "syndra",
+    "name": "Syndra",
+    "roles": [
+      "MID"
+    ],
+    "tier": "B",
+    "power": 81,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "urgot",
+      "zilean"
+    ],
+    "synergies": [
+      "volibear",
+      "briar"
+    ],
+    "imageSeed": 131
+  },
+  {
+    "id": "tahm_kench",
+    "name": "Tahm Kench",
+    "roles": [
+      "TOP",
+      "SUP"
+    ],
+    "tier": "C",
+    "power": 77,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "varus",
+      "zoe"
+    ],
+    "synergies": [
+      "warwick",
+      "caitlyn"
+    ],
+    "imageSeed": 132
+  },
+  {
+    "id": "taliyah",
+    "name": "Taliyah",
+    "roles": [
+      "JNG",
+      "MID"
+    ],
+    "tier": "A",
+    "power": 85,
+    "buffStatus": "BUFFED",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "vayne",
+      "zyra"
+    ],
+    "synergies": [
+      "wukong",
+      "camille"
+    ],
+    "imageSeed": 133
+  },
+  {
+    "id": "talon",
+    "name": "Talon",
+    "roles": [
+      "MID",
+      "JNG"
+    ],
+    "tier": "B",
+    "power": 80,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "veigar",
+      "aatrox"
+    ],
+    "synergies": [
+      "xayah",
+      "cassiopeia"
+    ],
+    "imageSeed": 134
+  },
+  {
+    "id": "taric",
+    "name": "Taric",
+    "roles": [
+      "SUP"
+    ],
+    "tier": "S",
+    "power": 88,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "vel_koz",
+      "ahri"
+    ],
+    "synergies": [
+      "xerath",
+      "cho_gath"
+    ],
+    "imageSeed": 135
+  },
+  {
+    "id": "teemo",
+    "name": "Teemo",
+    "roles": [
+      "TOP"
+    ],
+    "tier": "B",
+    "power": 82,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "vex",
+      "akali"
+    ],
+    "synergies": [
+      "xin_zhao",
+      "corki"
+    ],
+    "imageSeed": 136
+  },
+  {
+    "id": "thresh",
+    "name": "Thresh",
+    "roles": [
+      "SUP"
+    ],
+    "tier": "S",
+    "power": 88,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "vi",
+      "akshan"
+    ],
+    "synergies": [
+      "yasuo",
+      "darius"
+    ],
+    "imageSeed": 137
+  },
+  {
+    "id": "tristana",
+    "name": "Tristana",
+    "roles": [
+      "ADC",
+      "MID"
+    ],
+    "tier": "S+",
+    "power": 92,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dano contínuo devastador, foco em cerco e posicionamento defensivo.",
+    "counters": [
+      "viego",
+      "alistar"
+    ],
+    "synergies": [
+      "yone",
+      "diana"
+    ],
+    "imageSeed": 138
+  },
+  {
+    "id": "trundle",
+    "name": "Trundle",
+    "roles": [
+      "TOP",
+      "JNG"
+    ],
+    "tier": "A",
+    "power": 86,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "viktor",
+      "ambessa"
+    ],
+    "synergies": [
+      "yorick",
+      "dr__mundo"
+    ],
+    "imageSeed": 139
+  },
+  {
+    "id": "tryndamere",
+    "name": "Tryndamere",
+    "roles": [
+      "TOP"
+    ],
+    "tier": "A",
+    "power": 85,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "vladimir",
+      "amumu"
+    ],
+    "synergies": [
+      "yuumi",
+      "draven"
+    ],
+    "imageSeed": 140
+  },
+  {
+    "id": "twisted_fate",
+    "name": "Twisted Fate",
+    "roles": [
+      "MID",
+      "TOP",
+      "ADC"
+    ],
+    "tier": "C",
+    "power": 78,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "volibear",
+      "anivia"
+    ],
+    "synergies": [
+      "zac",
+      "ekko"
+    ],
+    "imageSeed": 141
+  },
+  {
+    "id": "twitch",
+    "name": "Twitch",
+    "roles": [
+      "ADC",
+      "JNG"
+    ],
+    "tier": "B",
+    "power": 82,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dano contínuo devastador, foco em cerco e posicionamento defensivo.",
+    "counters": [
+      "warwick",
+      "annie"
+    ],
+    "synergies": [
+      "zed",
+      "elise"
+    ],
+    "imageSeed": 142
+  },
+  {
+    "id": "udyr",
+    "name": "Udyr",
+    "roles": [
+      "JNG",
+      "TOP"
+    ],
+    "tier": "A",
+    "power": 84,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "wukong",
+      "aphelios"
+    ],
+    "synergies": [
+      "zeri",
+      "evelynn"
+    ],
+    "imageSeed": 143
+  },
+  {
+    "id": "urgot",
+    "name": "Urgot",
+    "roles": [
+      "TOP"
+    ],
+    "tier": "B",
+    "power": 80,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "xayah",
+      "ashe"
+    ],
+    "synergies": [
+      "ziggs",
+      "ezreal"
+    ],
+    "imageSeed": 144
+  },
+  {
+    "id": "varus",
+    "name": "Varus",
+    "roles": [
+      "ADC",
+      "MID",
+      "TOP"
+    ],
+    "tier": "B",
+    "power": 82,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dano contínuo devastador, foco em cerco e posicionamento defensivo.",
+    "counters": [
+      "xerath",
+      "aurelion_sol"
+    ],
+    "synergies": [
+      "zilean",
+      "fiddlesticks"
+    ],
+    "imageSeed": 145
+  },
+  {
+    "id": "vayne",
+    "name": "Vayne",
+    "roles": [
+      "ADC",
+      "TOP"
+    ],
+    "tier": "S",
+    "power": 89,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dano contínuo devastador, foco em cerco e posicionamento defensivo.",
+    "counters": [
+      "xin_zhao",
+      "aurora"
+    ],
+    "synergies": [
+      "zoe",
+      "fiora"
+    ],
+    "imageSeed": 146
+  },
+  {
+    "id": "veigar",
+    "name": "Veigar",
+    "roles": [
+      "MID",
+      "ADC"
+    ],
+    "tier": "S",
+    "power": 91,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "yasuo",
+      "azir"
+    ],
+    "synergies": [
+      "zyra",
+      "fizz"
+    ],
+    "imageSeed": 147
+  },
+  {
+    "id": "vel_koz",
+    "name": "Vel'Koz",
+    "roles": [
+      "SUP",
+      "MID"
+    ],
+    "tier": "B",
+    "power": 80,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "yone",
+      "bard"
+    ],
+    "synergies": [
+      "aatrox",
+      "galio"
+    ],
+    "imageSeed": 148
+  },
+  {
+    "id": "vex",
+    "name": "Vex",
+    "roles": [
+      "MID"
+    ],
+    "tier": "C",
+    "power": 79,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "yorick",
+      "bel_veth"
+    ],
+    "synergies": [
+      "ahri",
+      "gangplank"
+    ],
+    "imageSeed": 149
+  },
+  {
+    "id": "vi",
+    "name": "Vi",
+    "roles": [
+      "JNG"
+    ],
+    "tier": "C",
+    "power": 77,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "yuumi",
+      "blitzcrank"
+    ],
+    "synergies": [
+      "akali",
+      "garen"
+    ],
+    "imageSeed": 150
+  },
+  {
+    "id": "viego",
+    "name": "Viego",
+    "roles": [
+      "JNG"
+    ],
+    "tier": "S+",
+    "power": 93,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "zac",
+      "brand"
+    ],
+    "synergies": [
+      "akshan",
+      "gnar"
+    ],
+    "imageSeed": 151
+  },
+  {
+    "id": "viktor",
+    "name": "Viktor",
+    "roles": [
+      "MID"
+    ],
+    "tier": "B",
+    "power": 82,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "zed",
+      "braum"
+    ],
+    "synergies": [
+      "alistar",
+      "gragas"
+    ],
+    "imageSeed": 152
+  },
+  {
+    "id": "vladimir",
+    "name": "Vladimir",
+    "roles": [
+      "MID",
+      "TOP"
+    ],
+    "tier": "A",
+    "power": 87,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "zeri",
+      "briar"
+    ],
+    "synergies": [
+      "ambessa",
+      "graves"
+    ],
+    "imageSeed": 153
+  },
+  {
+    "id": "volibear",
+    "name": "Volibear",
+    "roles": [
+      "TOP",
+      "JNG"
+    ],
+    "tier": "A",
+    "power": 87,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "ziggs",
+      "caitlyn"
+    ],
+    "synergies": [
+      "amumu",
+      "gwen"
+    ],
+    "imageSeed": 154
+  },
+  {
+    "id": "warwick",
+    "name": "Warwick",
+    "roles": [
+      "JNG",
+      "TOP"
+    ],
+    "tier": "B",
+    "power": 82,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "zilean",
+      "camille"
+    ],
+    "synergies": [
+      "anivia",
+      "hecarim"
+    ],
+    "imageSeed": 155
+  },
+  {
+    "id": "wukong",
+    "name": "Wukong",
+    "roles": [
+      "JNG",
+      "TOP"
+    ],
+    "tier": "B",
+    "power": 80,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "zoe",
+      "cassiopeia"
+    ],
+    "synergies": [
+      "annie",
+      "heimerdinger"
+    ],
+    "imageSeed": 156
+  },
+  {
+    "id": "xayah",
+    "name": "Xayah",
+    "roles": [
+      "ADC"
+    ],
+    "tier": "A",
+    "power": 86,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dano contínuo devastador, foco em cerco e posicionamento defensivo.",
+    "counters": [
+      "zyra",
+      "cho_gath"
+    ],
+    "synergies": [
+      "aphelios",
+      "hwei"
+    ],
+    "imageSeed": 157
+  },
+  {
+    "id": "xerath",
+    "name": "Xerath",
+    "roles": [
+      "SUP",
+      "MID"
+    ],
+    "tier": "B",
+    "power": 83,
+    "buffStatus": "BUFFED",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "aatrox",
+      "corki"
+    ],
+    "synergies": [
+      "ashe",
+      "illaoi"
+    ],
+    "imageSeed": 158
+  },
+  {
+    "id": "xin_zhao",
+    "name": "Xin Zhao",
+    "roles": [
+      "JNG"
+    ],
+    "tier": "A",
+    "power": 85,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "ahri",
+      "darius"
+    ],
+    "synergies": [
+      "aurelion_sol",
+      "irelia"
+    ],
+    "imageSeed": 159
+  },
+  {
+    "id": "yasuo",
+    "name": "Yasuo",
+    "roles": [
+      "MID",
+      "TOP",
+      "ADC"
+    ],
+    "tier": "A",
+    "power": 84,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "akali",
+      "diana"
+    ],
+    "synergies": [
+      "aurora",
+      "ivern"
+    ],
+    "imageSeed": 160
+  },
+  {
+    "id": "yone",
+    "name": "Yone",
+    "roles": [
+      "MID",
+      "TOP"
+    ],
+    "tier": "B",
+    "power": 83,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "akshan",
+      "dr__mundo"
+    ],
+    "synergies": [
+      "azir",
+      "janna"
+    ],
+    "imageSeed": 161
+  },
+  {
+    "id": "yorick",
+    "name": "Yorick",
+    "roles": [
+      "TOP"
+    ],
+    "tier": "A",
+    "power": 84,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dominância e splitpush no topo, controle de teleporte e lutas corporas.",
+    "counters": [
+      "alistar",
+      "draven"
+    ],
+    "synergies": [
+      "bard",
+      "jarvan_iv"
+    ],
+    "imageSeed": 162
+  },
+  {
+    "id": "yuumi",
+    "name": "Yuumi",
+    "roles": [
+      "SUP"
+    ],
+    "tier": "A",
+    "power": 86,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "ambessa",
+      "ekko"
+    ],
+    "synergies": [
+      "bel_veth",
+      "jax"
+    ],
+    "imageSeed": 163
+  },
+  {
+    "id": "zac",
+    "name": "Zac",
+    "roles": [
+      "JNG",
+      "TOP",
+      "SUP"
+    ],
+    "tier": "S",
+    "power": 91,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Controle tático da selva, pathing coordenado para objetivos.",
+    "counters": [
+      "amumu",
+      "elise"
+    ],
+    "synergies": [
+      "blitzcrank",
+      "jayce"
+    ],
+    "imageSeed": 164
+  },
+  {
+    "id": "zed",
+    "name": "Zed",
+    "roles": [
+      "MID",
+      "JNG"
+    ],
+    "tier": "S+",
+    "power": 95,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "anivia",
+      "evelynn"
+    ],
+    "synergies": [
+      "brand",
+      "jhin"
+    ],
+    "imageSeed": 165
+  },
+  {
+    "id": "zeri",
+    "name": "Zeri",
+    "roles": [
+      "ADC"
+    ],
+    "tier": "A",
+    "power": 87,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dano contínuo devastador, foco em cerco e posicionamento defensivo.",
+    "counters": [
+      "annie",
+      "ezreal"
+    ],
+    "synergies": [
+      "braum",
+      "jinx"
+    ],
+    "imageSeed": 166
+  },
+  {
+    "id": "ziggs",
+    "name": "Ziggs",
+    "roles": [
+      "ADC",
+      "MID"
+    ],
+    "tier": "S+",
+    "power": 94,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Dano contínuo devastador, foco em cerco e posicionamento defensivo.",
+    "counters": [
+      "aphelios",
+      "fiddlesticks"
+    ],
+    "synergies": [
+      "briar",
+      "kai_sa"
+    ],
+    "imageSeed": 167
+  },
+  {
+    "id": "zilean",
+    "name": "Zilean",
+    "roles": [
+      "SUP",
+      "MID"
+    ],
+    "tier": "C",
+    "power": 77,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "ashe",
+      "fiora"
+    ],
+    "synergies": [
+      "caitlyn",
+      "kalista"
+    ],
+    "imageSeed": 168
+  },
+  {
+    "id": "zoe",
+    "name": "Zoe",
+    "roles": [
+      "MID"
+    ],
+    "tier": "S",
+    "power": 90,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Pressão da linha central, rotações rápidas e rajada de dano.",
+    "counters": [
+      "aurelion_sol",
+      "fizz"
+    ],
+    "synergies": [
+      "camille",
+      "karma"
+    ],
+    "imageSeed": 169
+  },
+  {
+    "id": "zyra",
+    "name": "Zyra",
+    "roles": [
+      "SUP",
+      "JNG"
+    ],
+    "tier": "B",
+    "power": 80,
+    "buffStatus": "NORMAL",
+    "idealPlaystyle": "Visão ampla do mapa, peel completo aos carries e iniciação precisa.",
+    "counters": [
+      "aurora",
+      "galio"
+    ],
+    "synergies": [
+      "cassiopeia",
+      "karthus"
+    ],
+    "imageSeed": 170
+  }
 ];
 
 export const FIRST_NAMES = [
@@ -79,7 +3541,6 @@ export const STAFF_PRESETS: Staff[] = [
   { id: 'st5', name: 'Marcus Wu', role: 'PerformanceCoach', salary: 6500, level: 82, description: 'Aumenta a stamina máxima e acelera a recuperação física do elenco.', photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150', hired: false, attributes: { tactical: 70, tiltReduction: 80 } }
 ];
 
-// TEAM PRESENTER DEFINITIONS
 export const INITIAL_TEAMS_DATA = [
   { id: 'player_team', name: 'Apex Guardians', acronym: 'APX', primaryColor: '#00d2fd', secondaryColor: '#01677e', popularity: 65, budget: 2400000, controlled: true },
   { id: 'paiN', name: 'paiN Gaming', acronym: 'PNG', primaryColor: '#ff0000', secondaryColor: '#1b1b1b', popularity: 95, budget: 1900000, controlled: false },
@@ -128,7 +3589,7 @@ export const REGIONAL_TEAMS_DATABASE: {
   LPL: [
     { id: 'lpl_al', name: 'Anyone\'s Legend', acronym: 'AL', primaryColor: '#ff4d4d', secondaryColor: '#1a1a1a', popularity: 70, budget: 1600000, description: 'Força indômita do cenário chinês, famosa por sua ousadia e velocidade letal em lutas iniciais.' },
     { id: 'lpl_blg', name: 'Bilibili Gaming', acronym: 'BLG', primaryColor: '#00e5ff', secondaryColor: '#0d1b2a', popularity: 95, budget: 3300000, description: 'Os reis supremos da dinâmica agressiva chinesa, comandando jogadas monumentais e jogando no limite técnico extremo.' },
-    { id: 'lpl_edg', name: 'EDward Gaming', acronym: 'EDG', primaryColor: '#111111', secondaryColor: '#ff2a2a', popularity: 86, budget: 2600000, description: 'Superpotência clássica com múltiplas taças de dinastias passadas, focando em controle disciplinado de mapa.' },
+    { id: 'lpl_edg', name: 'EDward Gaming', acronym: 'EDG', primaryColor: '#111111', secondaryColor: '#ff2a2a', popularity: 86, budget: 2600000, description: 'Superpotência clássica with múltipla taça de dinastia passada, focando em controle disciplinado de mapa.' },
     { id: 'lpl_ig', name: 'Invictus Gaming', acronym: 'IG', primaryColor: '#475569', secondaryColor: '#f8fafc', popularity: 80, budget: 1800000, description: 'Pioneiros da glória máxima oriental, eternamente associados a combates implacáveis 5v5 de pura habilidade mecânica.' },
     { id: 'lpl_jdg', name: 'JD Gaming', acronym: 'JDG', primaryColor: '#be123c', secondaryColor: '#0f172a', popularity: 90, budget: 3000000, description: 'Gigante corporativo focado em composições de escalada perfeita e excelente entrosamento de suas rotas.' },
     { id: 'lpl_lgd', name: 'LGD Gaming', acronym: 'LGD', primaryColor: '#ec4899', secondaryColor: '#111827', popularity: 68, budget: 1500000, description: 'Elenco tradicional de Xangai que carrega vasta história estratégica e táticas agressivas marcantes.' },
@@ -139,7 +3600,9 @@ export const REGIONAL_TEAMS_DATABASE: {
     { id: 'lpl_tt', name: 'ThunderTalk Gaming', acronym: 'TT', primaryColor: '#38bdf8', secondaryColor: '#0f172a', popularity: 69, budget: 1550000, description: 'Guerreiros cibernéticos rápidos que buscam quebrar barreiras tecnológicas e ditar novas tendências táticas.' },
     { id: 'lpl_tes', name: 'Top Esports', acronym: 'TES', primaryColor: '#dc2626', secondaryColor: '#1e293b', popularity: 92, budget: 3100000, description: 'Constelação de craques mecânicos chineses de alta calibragem, conhecidos pelo jogo dinâmico e implacável.' },
     { id: 'lpl_up', name: 'Ultra Prime', acronym: 'UP', primaryColor: '#a855f7', secondaryColor: '#14532d', popularity: 67, budget: 1450000, description: 'Equipe resiliente buscando criar a fórmula perfeita para furar o bloqueio defensivo dos favoritos da liga.' },
-    { id: 'lpl_wbg', name: 'Weibo Gaming', acronym: 'WBG', primaryColor: '#ea580c', secondaryColor: '#f8fafc', popularity: 88, budget: 2800000, description: 'Mestres do entretenimento competitivo, capazes de criar drafts bizarros que quebram o meta com brilhantismo.' }
+    { id: 'lpl_wbg', name: 'Weibo Gaming', acronym: 'WBG', primaryColor: '#ea580c', secondaryColor: '#f8fafc', popularity: 88, budget: 2800000, description: 'Mestres do entretenimento competitivo, capazes de criar drafts bizarros que quebram o meta com brilhantismo.' },
+    { id: 'lpl_ra', name: 'Rare Atom', acronym: 'RA', primaryColor: '#581c87', secondaryColor: '#000000', popularity: 65, budget: 1400000, description: 'Organização em reestruturação que aposta em alta calibragem mecânica e novos talentos para quebrar a hegemonia.' },
+    { id: 'lpl_rng', name: 'Royal Never Give Up', acronym: 'RNG', primaryColor: '#ca8a04', secondaryColor: '#1e293b', popularity: 82, budget: 2000000, description: 'Organização tradicionalíssima repleta de história competitiva, disposta a recuperar seu lugar de reis dominantes.' }
   ],
   LEC: [
     { id: 'lec_g2', name: 'G2 Esports', acronym: 'G2', primaryColor: '#475569', secondaryColor: '#dc2626', popularity: 97, budget: 3200000, description: 'Os samurais brincalhões da Europa, soberanos do entretenimento estratégico com flex-picks inacreditáveis.' },
@@ -170,7 +3633,7 @@ export const REGIONAL_TEAMS_DATABASE: {
     { id: 'lcp_cfo', name: 'CTBC Flying Oyster', acronym: 'CFO', primaryColor: '#06b6d4', secondaryColor: '#020617', popularity: 80, budget: 1900000, description: 'Ostras voadoras dinâmicas com excelente retaguarda financeira, famosas pela extrema resiliência sob pressão externa.' },
     { id: 'lcp_shg', name: 'Fukuoka SoftBank Hawks Gaming', acronym: 'SHG', primaryColor: '#ca8a04', secondaryColor: '#000000', popularity: 82, budget: 2000000, description: 'Os falcões tecnológicos japoneses, unindo disciplina extrema de treinos à lógicas frias de lutas coreografadas.' },
     { id: 'lcp_gam', name: 'GAM Esports', acronym: 'GAM', primaryColor: '#d97706', secondaryColor: '#111111', popularity: 85, budget: 1800000, description: 'Legenda absoluta do eSport vietnamita, célebre mundialmente pelo caos tático, criatividade ofensiva desenfreada e imensa fã-base.' },
-    { id: 'lcp_gz', name: 'Ground Zero Gaming', acronym: 'GZ', primaryColor: '#4b5563', secondaryColor: '#0f172a', popularity: 68, budget: 1350000, description: 'A base zero agressiva do Pacífico, jogando com forte engajamento ofensivo de atiradores hipercarries.' },
+    { id: 'lcp_gz', name: 'Ground Zero Gaming', acronym: 'GZ', primaryColor: '#4b5563', secondaryColor: '#0f172a', popularity: 68, budget: 1350000, description: 'A base zero agressiva do Pacífico, jogando with forte engajamento ofensivo de atirador hipercarries.' },
     { id: 'lcp_dfm', name: 'DetonatioN FocusMe', acronym: 'DFM', primaryColor: '#2563eb', secondaryColor: '#ffffff', popularity: 74, budget: 1550000, description: 'Lendas da terra do sol nascente, sinônimo de precisão tática oriental de alto nível técnico continuado.' }
   ]
 };
@@ -195,7 +3658,7 @@ export const INITIAL_PLAYER_ROSTER: Player[] = [
     motivation: 95,
     stamina: 90,
     chemistry: 80,
-    championPool: ['vanguard', 'colossus', 'solo_king'],
+    championPool: ['aatrox', 'garen', 'jax'],
     isPlayerControlled: true,
     photoUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=150'
   },
@@ -217,7 +3680,7 @@ export const INITIAL_PLAYER_ROSTER: Player[] = [
     motivation: 88,
     stamina: 85,
     chemistry: 82,
-    championPool: ['striker_x', 'silent_hit', 'storm_roar'],
+    championPool: ['lee_sin', 'jarvan_iv', 'viego'],
     isPlayerControlled: true,
     photoUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=150'
   },
@@ -239,7 +3702,7 @@ export const INITIAL_PLAYER_ROSTER: Player[] = [
     motivation: 92,
     stamina: 87,
     chemistry: 85,
-    championPool: ['shadow_zenith', 'phantom', 'desert_emperor'],
+    championPool: ['ahri', 'azir', 'syndra'],
     isPlayerControlled: true,
     photoUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=150'
   },
@@ -261,7 +3724,7 @@ export const INITIAL_PLAYER_ROSTER: Player[] = [
     motivation: 90,
     stamina: 89,
     chemistry: 88,
-    championPool: ['reaper', 'bullet_pro', 'feather_dancer'],
+    championPool: ['ashe', 'ezreal', 'jinx'],
     isPlayerControlled: true,
     photoUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=150'
   },
@@ -283,7 +3746,7 @@ export const INITIAL_PLAYER_ROSTER: Player[] = [
     motivation: 87,
     stamina: 88,
     chemistry: 90,
-    championPool: ['soul_lantern', 'shield_mate', 'deep_terror'],
+    championPool: ['alistar', 'thresh', 'leona'],
     isPlayerControlled: true,
     photoUrl: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&q=80&w=150'
   }
@@ -309,7 +3772,7 @@ export const INITIAL_PLAYER_SUBS: Player[] = [
     motivation: 80,
     stamina: 90,
     chemistry: 65,
-    championPool: ['silent_hit', 'striker_x'],
+    championPool: ['lee_sin', 'volibear'],
     isPlayerControlled: true,
     photoUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=150'
   },
@@ -331,7 +3794,7 @@ export const INITIAL_PLAYER_SUBS: Player[] = [
     motivation: 85,
     stamina: 88,
     chemistry: 70,
-    championPool: ['void_mage', 'nine_tails'],
+    championPool: ['ahri', 'lux'],
     isPlayerControlled: true,
     photoUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=150'
   }

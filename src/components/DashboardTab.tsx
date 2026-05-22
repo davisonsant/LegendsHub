@@ -288,22 +288,28 @@ export default function DashboardTab({
               <div className="bg-slate-50 p-3.5 rounded-lg border border-emerald-100">
                 <p className="text-emerald-700 font-mono text-[9px] font-black uppercase tracking-wider mb-2">BUFFADOS (+4 Tático)</p>
                 <div className="flex gap-1.5 flex-wrap">
-                  {currentPatch.buffedChampions.map((cid, i) => (
-                    <span key={i} className="px-2 py-1 bg-emerald-100/50 text-emerald-700 text-[10px] font-mono font-bold uppercase rounded border border-emerald-200">
-                      {cid.replace('_', ' ')}
-                    </span>
-                  ))}
+                  {currentPatch.buffedChampions.map((cid, i) => {
+                    const champName = gameState.champions?.find(c => c.id === cid)?.name || cid.replace('_', ' ');
+                    return (
+                      <span key={i} className="px-2 py-1 bg-emerald-100/50 text-emerald-700 text-[10px] font-mono font-bold uppercase rounded border border-emerald-200">
+                        {champName}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
               {/* Nerfed */}
               <div className="bg-slate-50 p-3.5 rounded-lg border border-pink-100">
                 <p className="text-pink-700 font-mono text-[9px] font-black uppercase tracking-wider mb-2">NERFADOS (-4 Tático)</p>
                 <div className="flex gap-1.5 flex-wrap">
-                  {currentPatch.nerfedChampions.map((cid, i) => (
-                    <span key={i} className="px-2 py-1 bg-pink-100/50 text-pink-700 text-[10px] font-mono font-bold uppercase rounded border border-pink-200">
-                      {cid.replace('_', ' ')}
-                    </span>
-                  ))}
+                  {currentPatch.nerfedChampions.map((cid, i) => {
+                    const champName = gameState.champions?.find(c => c.id === cid)?.name || cid.replace('_', ' ');
+                    return (
+                      <span key={i} className="px-2 py-1 bg-pink-100/50 text-pink-700 text-[10px] font-mono font-bold uppercase rounded border border-pink-200">
+                        {champName}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
             </div>

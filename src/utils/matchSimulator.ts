@@ -19,8 +19,10 @@ export function analyzeComposition(
   picks: { [key in Position]?: string },
   team: Team,
   currentPatchBuffs: string[],
-  currentPatchNerfs: string[]
+  currentPatchNerfs: string[],
+  championsPool?: Champion[]
 ): CompositionAnalysis {
+  const pool = championsPool && championsPool.length > 0 ? championsPool : CHAMPIONS_LIST;
   let draftPower = 0;
   let signaturePicks: string[] = [];
   let synergyCount = 0;
@@ -32,7 +34,7 @@ export function analyzeComposition(
     const champId = picks[pos];
     if (!champId) return;
 
-    const champion = CHAMPIONS_LIST.find(c => c.id === champId);
+    const champion = pool.find(c => c.id === champId);
     const player = team.roster.find(p => p.position === pos) || team.substitutes.find(p => p.position === pos);
     
     if (!champion || !player) return;
@@ -66,7 +68,7 @@ export function analyzeComposition(
   // Calculate synergy matches
   const activeChamps = Object.values(picks).filter(Boolean) as string[];
   activeChamps.forEach(champId => {
-    const champ = CHAMPIONS_LIST.find(c => c.id === champId);
+    const champ = pool.find(c => c.id === champId);
     if (!champ) return;
     
     // Check inside comp for synergy
@@ -140,7 +142,8 @@ export function generateGameStep(
   redName: string,
   bComp: { [key in Position]?: string },
   rComp: { [key in Position]?: string },
-  stats: MatchStats
+  stats: MatchStats,
+  championsPool?: Champion[]
 ): { log: MatchLog; statsChange: Partial<MatchStats>; goldChange: number } {
   
   const events: ('kill' | 'tower' | 'dragon' | 'baron' | 'objective' | 'info')[] = [];
@@ -189,7 +192,8 @@ export function generateGameStep(
   const getChampName = (list: string[], defaultName: string) => {
     if (list.length === 0) return defaultName;
     const cid = list[Math.floor(Math.random() * list.length)];
-    const ch = CHAMPIONS_LIST.find(c => c.id === cid);
+    const pool = championsPool && championsPool.length > 0 ? championsPool : CHAMPIONS_LIST;
+    const ch = pool.find(c => c.id === cid);
     return ch ? ch.name : defaultName;
   };
 
