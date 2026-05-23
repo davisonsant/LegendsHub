@@ -35,7 +35,8 @@ import SettingsScreen from './components/SettingsScreen';
 // Custom Multi-tabs integration
 import { 
   GamingOfficeTab, LigaTab, TimesTab, EscritorioTab, FinancasTab, 
-  EstatisticasTab, SoloQueueTab, UltimasPartidasTab, MetaTab, CarreiraTab, SalvarJogoTab 
+  EstatisticasTab, SoloQueueTab, UltimasPartidasTab, MetaTab, CarreiraTab, SalvarJogoTab,
+  ComunidadeTab, CentralDeEmpregosTab
 } from './components/NewTabs';
 
 export default function App() {
@@ -57,6 +58,10 @@ export default function App() {
   const [screen, setScreen] = useState<'LAUNCHER' | 'HUB' | 'DRAFT' | 'MATCH' | 'SETTINGS'>('LAUNCHER');
   const [activeTab, setActiveTab] = useState<string>('Central do Manager');
   const [gameState, setGameState] = useState<GameState | null>(null);
+  
+  // Shared state for selected player and detailed profile visibility
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
+  const [isDetailedProfileOpen, setIsDetailedProfileOpen] = useState<boolean>(false);
 
   const [activeBluePicks, setActiveBluePicks] = useState<{ [key: string]: string }>({});
   const [activeRedPicks, setActiveRedPicks] = useState<{ [key: string]: string }>({});
@@ -573,6 +578,36 @@ export default function App() {
   // Layout wrapper component helper
   const renderTabContent = () => {
     if (!gameState) return null;
+
+    // Fallback if the user is currently unemployed and tried to visit a restricted tab
+    const playerTeam = gameState.teams.find(t => t.id === gameState.playerTeamId);
+    const exemptTabs = [
+      'Central de Empregos', 'Calendário', 'Liga', 'Times', 
+      'Estatísticas', 'Últimas Partidas', 'Meta', 'Carreira', 
+      'Salvar Jogo', 'Configurações'
+    ];
+    if (!playerTeam && !exemptTabs.includes(activeTab)) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 text-center px-4 max-w-lg mx-auto space-y-6">
+          <div className="w-16 h-16 bg-blue-600/10 rounded-full flex items-center justify-center border border-blue-500/25 text-blue-400">
+            <Briefcase className="w-8 h-8 animate-pulse text-sky-400" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="font-display font-black text-white text-base uppercase tracking-wider">Você está sem Clube! (Free Agent)</h3>
+            <p className="text-slate-400 text-xs leading-relaxed">
+              Você não faz parte de nenhuma organization ou equipe de eSports. Por favor, acesse a <strong>Central de Empregos</strong> para avaliar propostas e assinar com um novo time!
+            </p>
+          </div>
+          <button
+            onClick={() => setActiveTab('Central de Empregos')}
+            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-mono font-black text-[10px] uppercase tracking-widest rounded-lg cursor-pointer transition-colors shadow-lg"
+          >
+            Ir para Central de Empregos
+          </button>
+        </div>
+      );
+    }
+
     switch (activeTab) {
       case 'Central do Manager':
         return (
@@ -583,10 +618,12 @@ export default function App() {
               if (tab === 'Match Center') setScreen('DRAFT');
             }}
             onAnswerInterview={answerInterviewHandler}
+            theme={theme}
           />
         );
       case 'Calendário':
-        return <CalendarTab gameState={gameState} />;
+        return <CalendarTab {...({ gameState, theme } as any)} />;
+      case 'Jogadores':
       case 'Gerenciar Jogadores':
         return (
           <RosterTab
@@ -595,21 +632,44 @@ export default function App() {
             onTransferListPlayer={transferListHandler}
             onReleasePlayer={releasePlayerHandler}
             onSelectPlayerTraining={selectPlayerTrainingHandler}
+            theme={theme}
+            selectedPlayerId={selectedPlayerId}
+            setSelectedPlayerId={setSelectedPlayerId}
+            isDetailedProfileOpen={isDetailedProfileOpen}
+            setIsDetailedProfileOpen={setIsDetailedProfileOpen}
           />
         );
+      case 'Academy':
       case 'Youth Academia':
         return (
           <AcademyTab
-            gameState={gameState}
-            onPromoteProspect={promoteProspectHandler}
+            {...({
+              gameState,
+              onPromoteProspect: promoteProspectHandler,
+              theme
+            } as any)}
+          />
+        );
+      case 'Comunidade':
+        return (
+          <ComunidadeTab
+            {...({
+              gameState,
+              onUpdateGameState: setGameState,
+              triggerNotification,
+              theme
+            } as any)}
           />
         );
       case 'Gaming House':
         return (
           <SponsorsTab
-            gameState={gameState}
-            onSignSponsor={signSponsorHandler}
-            onUpgradeInfrastructure={upgradeInfrastructureHandler}
+            {...({
+              gameState,
+              onSignSponsor: signSponsorHandler,
+              onUpgradeInfrastructure: upgradeInfrastructureHandler,
+              theme
+            } as any)}
           />
         );
       case 'Gaming Office':
@@ -618,63 +678,123 @@ export default function App() {
             gameState={gameState}
             onUpdateGameState={setGameState}
             triggerNotification={triggerNotification}
+            theme={theme}
           />
         );
       case 'Transferências':
          return (
           <MarketTab
-            gameState={gameState}
-            onBuyPlayer={buyPlayerHandler}
-            onSellProposeAccept={sellProposeAcceptHandler}
+            {...({
+              gameState,
+              onBuyPlayer: buyPlayerHandler,
+              onSellProposeAccept: sellProposeAcceptHandler,
+              theme,
+              onSelectPlayer: (pId: string) => {
+                setSelectedPlayerId(pId);
+                setIsDetailedProfileOpen(true);
+                setActiveTab('Jogadores');
+              }
+            } as any)}
           />
         );
       case 'Liga':
-         return <LigaTab gameState={gameState} />;
+         return <LigaTab gameState={gameState} theme={theme} />;
       case 'Times':
-         return <TimesTab gameState={gameState} />;
+         return (
+           <TimesTab 
+             gameState={gameState} 
+             theme={theme} 
+             onSelectPlayer={(pId) => {
+               setSelectedPlayerId(pId);
+               setIsDetailedProfileOpen(true);
+               setActiveTab('Jogadores');
+             }}
+           />
+         );
       case 'Patrocinadores':
         return (
           <SponsorsTab
-            gameState={gameState}
-            onSignSponsor={signSponsorHandler}
-            onUpgradeInfrastructure={upgradeInfrastructureHandler}
+            {...({
+              gameState,
+              onSignSponsor: signSponsorHandler,
+              onUpgradeInfrastructure: upgradeInfrastructureHandler,
+              theme
+            } as any)}
           />
         );
       case 'Escritório':
          return (
           <EscritorioTab
-            gameState={gameState}
-            onUpdateGameState={setGameState}
-            triggerNotification={triggerNotification}
+            {...({
+              gameState,
+              onUpdateGameState: setGameState,
+              triggerNotification,
+              theme
+            } as any)}
           />
         );
       case 'Finanças':
-         return <FinancasTab gameState={gameState} />;
+         return <FinancasTab {...({ gameState, theme } as any)} />;
+      case 'Central de Empregos':
+        return (
+          <CentralDeEmpregosTab
+            {...({
+              gameState,
+              onUpdateGameState: setGameState,
+              triggerNotification,
+              theme
+            } as any)}
+          />
+        );
       case 'Estatísticas':
-         return <EstatisticasTab gameState={gameState} />;
+         return (
+          <EstatisticasTab 
+            {...({ 
+              gameState, 
+              theme,
+              onSelectPlayer: (pId: string) => {
+                setSelectedPlayerId(pId);
+                setIsDetailedProfileOpen(true);
+                setActiveTab('Jogadores');
+              }
+            } as any)} 
+          />
+         );
+      case 'Scouting':
       case 'Solo Queue':
          return (
           <SoloQueueTab
-            gameState={gameState}
-            onUpdateGameState={setGameState}
-            triggerNotification={triggerNotification}
+            {...({
+              gameState,
+              onUpdateGameState: setGameState,
+              triggerNotification,
+              theme,
+              onSelectPlayer: (pId: string) => {
+                setSelectedPlayerId(pId);
+                setIsDetailedProfileOpen(true);
+                setActiveTab('Jogadores');
+              }
+            } as any)}
           />
         );
       case 'Últimas Partidas':
-         return <UltimasPartidasTab gameState={gameState} />;
+         return <UltimasPartidasTab {...({ gameState, theme } as any)} />;
       case 'Meta':
-         return <MetaTab gameState={gameState} />;
+         return <MetaTab {...({ gameState, theme } as any)} />;
       case 'Carreira':
-         return <CarreiraTab gameState={gameState} />;
+         return <CarreiraTab {...({ gameState, theme } as any)} />;
       case 'Salvar Jogo':
          return (
           <SalvarJogoTab
-            gameState={gameState}
-            onManualSave={(slotIdx) => {
-              saveGameToSlot(slotIdx, gameState);
-              triggerNotification("💾 Progresso Salvo!", `O Jogo foi guardado com sucesso no Slot local ${slotIdx}.`);
-            }}
-            triggerNotification={triggerNotification}
+            {...({
+              gameState,
+              onManualSave: (slotIdx: number) => {
+                saveGameToSlot(slotIdx, gameState);
+                triggerNotification("💾 Progresso Salvo!", `O Jogo foi guardado com sucesso no Slot local ${slotIdx}.`);
+              },
+              triggerNotification,
+              theme
+            } as any)}
           />
         );
       case 'Configurações':
@@ -788,7 +908,7 @@ export default function App() {
     );
   }
 
-  const pTeamObj = gameState.teams.find(t => t.id === gameState.playerTeamId)!;
+  const pTeamObj = gameState.teams.find(t => t.id === gameState.playerTeamId);
 
   return (
     <div className={`min-h-screen flex font-sans transition-colors duration-200 ${
@@ -814,48 +934,24 @@ export default function App() {
             </div>
           </div>
 
-          {/* User profile mini widget with Manager Photo */}
-          <div className={`p-4 rounded-lg border text-xs shadow-inner flex items-center gap-3 transition-colors duration-200 ${
-            theme === 'dark' ? 'bg-[#070d19]/80 border-[#1e2d44]' : 'bg-slate-50 border-slate-200/65'
-          }`}>
-            {localStorage.getItem('legendshub_manager_avatar') ? (
-              <img 
-                src={localStorage.getItem('legendshub_manager_avatar')!} 
-                alt="Manager Pic" 
-                className="w-10 h-10 rounded-full object-cover border-2 border-sky-400/50 flex-shrink-0"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-slate-500/10 flex items-center justify-center border border-slate-400/20 font-black text-sky-400 text-xs shrink-0">
-                {gameState.managerName.charAt(0).toUpperCase()}
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <p className="text-slate-400 font-bold uppercase text-[7.5px] tracking-wider leading-none font-mono">Club Account</p>
-              <p className={`font-display font-extrabold uppercase mt-1 leading-none truncate text-[11px] ${
-                theme === 'dark' ? 'text-slate-100' : 'text-slate-800'
-              }`}>{pTeamObj.name}</p>
-              <p className="text-[9px] text-[#00cbd6] font-extrabold mt-0.5 tracking-wide font-mono truncate">Mgr: {gameState.managerName}</p>
-            </div>
-          </div>
-
           {/* Menu loops links */}
-          <nav className="flex flex-col gap-1 pr-1 overflow-y-auto max-h-[calc(100vh-275px)] scrollbar-thin scrollbar-thumb-slate-850/50 scrollbar-track-transparent">
+          <nav className="flex flex-col gap-1 pr-1 overflow-y-auto max-h-[calc(100vh-295px)] scrollbar-thin scrollbar-thumb-slate-850/50 scrollbar-track-transparent">
             {[
               { id: 'Central do Manager', title: 'Central do Manager', icon: Compass },
               { id: 'Calendário', title: 'Calendário', icon: Calendar },
-              { id: 'Gerenciar Jogadores', title: 'Gerenciar Jogadores', icon: Users },
-              { id: 'Youth Academia', title: 'Youth Academia', icon: Target },
+              { id: 'Jogadores', title: 'Jogadores', icon: Users },
+              { id: 'Academy', title: 'Academy', icon: Target },
+              { id: 'Comunidade', title: 'Comunidade', icon: Heart },
               { id: 'Gaming House', title: 'Gaming House', icon: Building2 },
               { id: 'Gaming Office', title: 'Gaming Office', icon: Building2 },
+              { id: 'Escritório', title: 'Escritório', icon: Briefcase },
+              { id: 'Patrocinadores', title: 'Patrocinadores', icon: Award },
               { id: 'Transferências', title: 'Transferências', icon: ArrowLeftRight },
               { id: 'Liga', title: 'Liga', icon: Trophy },
               { id: 'Times', title: 'Times', icon: Shield },
-              { id: 'Patrocinadores', title: 'Patrocinadores', icon: Award },
-              { id: 'Escritório', title: 'Escritório', icon: Briefcase },
-              { id: 'Finanças', title: 'Finanças', icon: TrendingUp },
+              { id: 'Central de Empregos', title: 'Central de Empregos', icon: Briefcase },
               { id: 'Estatísticas', title: 'Estatísticas', icon: BarChart3 },
-              { id: 'Solo Queue', title: 'Solo Queue', icon: Zap },
+              { id: 'Scouting', title: 'Scouting', icon: Zap },
               { id: 'Últimas Partidas', title: 'Últimas Partidas', icon: History },
               { id: 'Meta', title: 'Meta', icon: Sliders },
               { id: 'Carreira', title: 'Carreira', icon: Medal },
@@ -868,7 +964,7 @@ export default function App() {
                 <button
                   key={link.id}
                   onClick={() => setActiveTab(link.id)}
-                  className={`w-full py-1.5 px-3 rounded-lg flex items-center gap-2.5 text-[11px] font-bold uppercase tracking-wider text-left transition-all cursor-pointer shrink-0 ${
+                  className={`w-full py-1 px-3 rounded-lg flex items-center gap-2.5 text-[10px] font-bold uppercase tracking-wider text-left transition-all cursor-pointer shrink-0 ${
                     isCurrent 
                       ? 'bg-blue-600 text-white font-black shadow-md border-0' 
                       : theme === 'dark'
@@ -876,34 +972,57 @@ export default function App() {
                         : 'text-slate-550 hover:text-slate-900 hover:bg-slate-100'
                   }`}
                 >
-                  <Icon className="w-4 h-4 shrink-0" /> {link.title}
+                  <Icon className="w-3.5 h-3.5 shrink-0" /> {link.title}
                 </button>
               );
             })}
           </nav>
         </div>
 
-        {/* Advance week progress button & Exit Launcher link */}
-        <div className="space-y-3.5">
+        {/* Advance week progress button, Pedir Demissão & Sair da Carreira action links */}
+        <div className="space-y-2 border-t pt-3.5">
           <button
             onClick={advanceWeekHandler}
             disabled={!gameState.roundsPlayedThisWeek}
-            className={`w-full py-3.5 px-4 font-display text-xs font-black uppercase tracking-widest rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            className={`w-full py-2 px-3 font-display text-[10px] font-black uppercase tracking-widest rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               gameState.roundsPlayedThisWeek
                 ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-500/10'
-                : 'bg-slate-100 text-slate-400 border border-slate-205 cursor-not-allowed'
+                : 'bg-slate-100 dark:bg-slate-900/40 text-slate-400 dark:text-slate-600 border border-slate-205 dark:border-slate-800 cursor-not-allowed'
             }`}
           >
-            AVANÇAR SEMANA <ChevronRight className="w-4 h-4 shrink-0" />
+            AVANÇAR SEMANA <ChevronRight className="w-3.5 h-3.5 shrink-0" />
           </button>
+
+          {gameState.playerTeamId && (
+            <button
+              onClick={() => {
+                const currentTeam = gameState.teams.find(t => t.id === gameState.playerTeamId)!;
+                if (confirm(`🚨 TEM CERTEZA de que deseja pedir demissão do cargo de Manager de ${currentTeam.name}? Isso o deixará livre no mercado profissional como um Free Agent para buscar outras propostas.`)) {
+                  const nextTeams = gameState.teams.map(t => t.id === gameState.playerTeamId ? { ...t, isPlayerControlled: false } : t);
+                  setGameState({
+                    ...gameState,
+                    playerTeamId: '',
+                    teams: nextTeams
+                  });
+                  setActiveTab('Central de Empregos');
+                  triggerNotification("⚠️ Demissão Declarada!", `Você rescindiu unilateralmente o contrato com a ${currentTeam.name}. Agora você é um Free Agent!`);
+                }
+              }}
+              className={`w-full py-1.5 text-center text-[9px] uppercase font-bold tracking-widest flex items-center justify-center gap-1.5 transition-colors cursor-pointer rounded-md ${
+                theme === 'dark' ? 'text-slate-400 hover:text-red-400 hover:bg-slate-850/40' : 'text-slate-500 hover:text-red-500 hover:bg-slate-100'
+              }`}
+            >
+              PEDIR DEMISSÃO
+            </button>
+          )}
 
           <button
             onClick={() => setScreen('LAUNCHER')}
-            className={`w-full py-2 text-center text-[10px] uppercase font-bold tracking-widest flex items-center justify-center gap-1.5 transition-colors border-t pt-3.5 cursor-pointer ${
-              theme === 'dark' ? 'border-[#1e2d44] text-slate-500 hover:text-red-400' : 'border-slate-100 text-slate-400 hover:text-red-500'
+            className={`w-full py-1.5 text-center text-[9px] uppercase font-bold tracking-widest flex items-center justify-center gap-1.5 transition-colors cursor-pointer rounded-md ${
+              theme === 'dark' ? 'text-slate-400 hover:text-red-400 hover:bg-slate-850/40' : 'text-slate-500 hover:text-red-500 hover:bg-slate-100'
             }`}
           >
-            <LogOut className="w-3.5 h-3.5 shrink-0" /> SAIR DA CARREIRA
+            SAIR DA CARREIRA
           </button>
         </div>
       </div>
@@ -995,7 +1114,7 @@ export default function App() {
               <span className="text-[9px] text-slate-400 uppercase tracking-widest font-black font-mono block leading-none">Saldo da Org</span>
               <p className={`font-display font-black text-[13px] mt-1 ${
                 theme === 'dark' ? 'text-slate-100' : 'text-slate-800'
-              }`}>{formatMoney(pTeamObj.budget)}</p>
+              }`}>{pTeamObj ? formatMoney(pTeamObj.budget) : 'N/A'}</p>
             </div>
 
             {/* Separator */}

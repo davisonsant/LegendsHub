@@ -13,14 +13,34 @@ interface DashboardTabProps {
   onNextWeek: () => void;
   onSelectTab: (tab: string) => void;
   onAnswerInterview: (question: InterviewQuestion, optionIndex: number) => void;
+  theme?: 'light' | 'dark';
 }
 
 export default function DashboardTab({
   gameState,
   onNextWeek,
   onSelectTab,
-  onAnswerInterview
+  onAnswerInterview,
+  theme
 }: DashboardTabProps) {
+  const isDark = theme === 'dark';
+  
+  const getS = () => {
+    return {
+      bgPage: isDark ? 'space-y-6 font-sans bg-slate-950 select-none text-slate-100 p-0' : 'space-y-6 font-sans bg-[#f5f7fa] select-none text-slate-800 p-0',
+      bgCard: isDark ? 'bg-[#0a1424] border border-[#1e2d44] rounded-xl p-5 relative overflow-hidden flex flex-col justify-between shadow-sm text-white' : 'bg-white border border-slate-200 rounded-xl p-5 relative overflow-hidden flex flex-col justify-between shadow-sm text-slate-800',
+      bgCardNoFlex: isDark ? 'bg-[#0a1424] border border-[#1e2d44] rounded-xl p-5 shadow-sm text-white' : 'bg-white border border-slate-200 rounded-xl p-5 shadow-sm text-slate-800',
+      bgCardNoFlexP6: isDark ? 'bg-[#0a1424] border border-[#1e2d44] rounded-xl p-6 shadow-sm text-white' : 'bg-white border border-slate-200 rounded-xl p-6 shadow-sm text-slate-850',
+      textMuted: isDark ? 'text-slate-450' : 'text-slate-500',
+      textMain: isDark ? 'text-white' : 'text-slate-800',
+      bgInner: isDark ? 'bg-[#070d19]/85 border border-[#1e2d44]/55' : 'bg-slate-50 border border-slate-100',
+      divider: isDark ? 'divide-[#1e2d44]/50' : 'divide-slate-200/50',
+      borderLine: isDark ? 'border-[#1e2d44]/50' : 'border-slate-100',
+      textWhiteOrSlate: isDark ? 'text-white' : 'text-slate-850',
+    };
+  };
+  const s = getS();
+
   const { week, stage, season, teams, playerTeamId, currentPatch, roundsPlayedThisWeek, socialFeed } = gameState;
   const playerTeam = teams.find(t => t.id === playerTeamId)!;
   
@@ -54,22 +74,22 @@ export default function DashboardTab({
   };
 
   return (
-    <div className="space-y-6 font-sans bg-[#f5f7fa] select-none text-slate-800">
+    <div className={s.bgPage}>
       
       {/* Upper Grid: Fast Core Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         
         {/* Weekly Header Card */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 relative overflow-hidden flex flex-col justify-between shadow-sm">
+        <div className={s.bgCard}>
           <div className="absolute top-0 right-0 p-3 opacity-5">
-            <Calendar className="w-12 h-12 text-blue-600" />
+            <Calendar className={`w-12 h-12 ${isDark ? 'text-sky-400' : 'text-blue-600'}`} />
           </div>
           <div>
-            <p className="text-[10px] uppercase text-slate-400 tracking-wider font-extrabold">Temporada {season}</p>
-            <h2 className="font-display text-blue-600 text-2xl font-black mt-1">SEMANA {week}</h2>
+            <p className={`text-[10px] uppercase ${s.textMuted} tracking-wider font-extrabold`}>Temporada {season}</p>
+            <h2 className={`font-display ${isDark ? 'text-sky-400' : 'text-blue-600'} text-2xl font-black mt-1`}>SEMANA {week}</h2>
           </div>
           <div className="mt-4 flex items-center gap-2">
-            <span className="px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 font-mono text-[9px] rounded font-extrabold uppercase">
+            <span className={`px-2 py-0.5 ${isDark ? 'bg-sky-500/10 text-sky-400 border-sky-500/20' : 'bg-blue-50 text-blue-600 border border-blue-100'} font-mono text-[9px] rounded font-extrabold uppercase`}>
               {stage.replace('_', ' ')}
             </span>
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -77,12 +97,12 @@ export default function DashboardTab({
         </div>
 
         {/* Board Trust Level */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col justify-between shadow-sm">
+        <div className={s.bgCard}>
           <div>
-            <p className="text-[10px] uppercase text-slate-400 tracking-wider font-extrabold">Confiança da Diretoria</p>
-            <h2 className="font-display text-slate-850 text-2xl font-black mt-1">{playerTeam.boardTrust}%</h2>
+            <p className={`text-[10px] uppercase ${s.textMuted} tracking-wider font-extrabold`}>Confiança da Diretoria</p>
+            <h2 className={`font-display ${s.textWhiteOrSlate} text-2xl font-black mt-1`}>{playerTeam.boardTrust}%</h2>
           </div>
-          <div className="w-full bg-slate-100 h-1.5 rounded-full mt-4 overflow-hidden">
+          <div className={`w-full ${isDark ? 'bg-slate-800' : 'bg-slate-100'} h-1.5 rounded-full mt-4 overflow-hidden`}>
             <div 
               className="h-full bg-emerald-500 transition-all duration-500"
               style={{ width: `${playerTeam.boardTrust}%` }}
@@ -91,12 +111,12 @@ export default function DashboardTab({
         </div>
 
         {/* Torcida / Public Fans Support */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col justify-between shadow-sm">
+        <div className={s.bgCard}>
           <div>
-            <p className="text-[10px] uppercase text-slate-400 tracking-wider font-extrabold">Apoio Popular</p>
-            <h2 className="font-display text-slate-850 text-2xl font-black mt-1">{playerTeam.fansSupport}%</h2>
+            <p className={`text-[10px] uppercase ${s.textMuted} tracking-wider font-extrabold`}>Apoio Popular</p>
+            <h2 className={`font-display ${s.textWhiteOrSlate} text-2xl font-black mt-1`}>{playerTeam.fansSupport}%</h2>
           </div>
-          <div className="w-full bg-slate-100 h-1.5 rounded-full mt-4 overflow-hidden">
+          <div className={`w-full ${isDark ? 'bg-slate-800' : 'bg-slate-100'} h-1.5 rounded-full mt-4 overflow-hidden`}>
             <div 
               className="h-full bg-blue-500 transition-all duration-500 hover:opacity-90"
               style={{ width: `${playerTeam.fansSupport}%` }}
@@ -105,14 +125,14 @@ export default function DashboardTab({
         </div>
 
         {/* Core Roster Chemistry */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col justify-between shadow-sm">
+        <div className={s.bgCard}>
           <div>
-            <p className="text-[10px] uppercase text-slate-400 tracking-wider font-extrabold">Química com o Time</p>
-            <h2 className="font-display text-slate-850 text-2xl font-black mt-1 text-ellipsis whitespace-nowrap overflow-hidden">
+            <p className={`text-[10px] uppercase ${s.textMuted} tracking-wider font-extrabold`}>Química com o Time</p>
+            <h2 className={`font-display ${s.textWhiteOrSlate} text-2xl font-black mt-1 text-ellipsis whitespace-nowrap overflow-hidden`}>
               {Math.round(playerTeam.roster.reduce((a, b) => a + b.chemistry, 0) / 5)}%
             </h2>
           </div>
-          <div className="w-full bg-slate-100 h-1.5 rounded-full mt-4 overflow-hidden">
+          <div className={`w-full ${isDark ? 'bg-slate-800' : 'bg-slate-100'} h-1.5 rounded-full mt-4 overflow-hidden`}>
             <div 
               className="h-full bg-pink-500 transition-all duration-500"
               style={{ width: `${Math.round(playerTeam.roster.reduce((a, b) => a + b.chemistry, 0) / 5)}%` }}
@@ -127,14 +147,14 @@ export default function DashboardTab({
         <div className="lg:col-span-8 space-y-6">
           
           {/* Active Opponent Widget / Next Match Info */}
-          <div className="bg-white border border-slate-200 rounded-xl p-6 relative overflow-hidden flex flex-col justify-between shadow-sm">
+          <div className={s.bgCard}>
             {/* Header top row */}
-            <div className="flex justify-between items-center mb-5 border-b border-slate-100 pb-4">
+            <div className={`flex justify-between items-center mb-5 border-b ${s.borderLine} pb-4`}>
               <div>
-                <h3 className="font-display text-sm font-extrabold uppercase tracking-wider text-slate-800">
+                <h3 className={`font-display text-sm font-extrabold uppercase tracking-wider ${s.textWhiteOrSlate}`}>
                   Próximo Desafio do Split
                 </h3>
-                <p className="text-[10px] text-slate-400 font-medium">Fase de Grupos • Série Melhor de 3</p>
+                <p className={`text-[10px] ${s.textMuted} font-medium`}>Fase de Grupos • Série Melhor de 3</p>
               </div>
               <span className="bg-pink-50 text-pink-600 border border-pink-100 text-[9px] font-mono font-extrabold px-2.5 py-1 rounded uppercase tracking-wider leading-none">
                 {stage === 'SPLIT_PLAYOFFS' ? 'PLAYOFF FINALS' : `RODADA ${week}`}
@@ -148,21 +168,21 @@ export default function DashboardTab({
                 {/* Home Team */}
                 <div className="flex flex-col items-center text-center">
                   <div 
-                    className="w-16 h-16 rounded-full bg-slate-50 border-2 border-blue-500 flex items-center justify-center font-bold text-xl relative"
+                    className={`w-16 h-16 rounded-full ${isDark ? 'bg-slate-900 border-sky-400' : 'bg-slate-50 border-blue-500'} border-2 flex items-center justify-center font-bold text-xl relative`}
                   >
-                    <Shield className="w-7 h-7 text-blue-500" />
+                    <Shield className={`w-7 h-7 ${isDark ? 'text-sky-400' : 'text-blue-500'}`} />
                   </div>
-                  <p className="font-display text-xs font-bold text-slate-800 uppercase mt-3 tracking-wider leading-tight max-w-[120px] truncate">
+                  <p className={`font-display text-xs font-bold ${s.textWhiteOrSlate} uppercase mt-3 tracking-wider leading-tight max-w-[120px] truncate`}>
                     {playerTeam.name}
                   </p>
-                  <p className="text-[10px] text-blue-600 uppercase tracking-widest font-extrabold mt-1">
+                  <p className={`text-[10px] ${isDark ? 'text-sky-400' : 'text-blue-600'} uppercase tracking-widest font-extrabold mt-1`}>
                     {playerTeam.wins}V - {playerTeam.losses}D
                   </p>
                 </div>
 
                 {/* VS Indicator */}
                 <div className="flex flex-col items-center">
-                  <div className="px-5 py-2.5 bg-slate-50 border border-slate-200 text-blue-600 font-mono text-xs font-black tracking-widest rounded-lg">
+                  <div className={`px-5 py-2.5 ${isDark ? 'bg-slate-900 border-slate-700 text-sky-455' : 'bg-slate-50 border-slate-200 text-blue-600'} border font-mono text-xs font-black tracking-widest rounded-lg`}>
                     VS
                   </div>
                   <button
@@ -182,7 +202,7 @@ export default function DashboardTab({
                 {/* Away Team */}
                 <div className="flex flex-col items-center text-center">
                   <div 
-                    className="w-16 h-16 rounded-full bg-slate-50 border-2 flex items-center justify-center font-bold text-xl relative"
+                    className={`w-16 h-16 rounded-full ${isDark ? 'bg-slate-900' : 'bg-slate-50'} border-2 flex items-center justify-center font-bold text-xl relative`}
                     style={{ borderColor: opponentTeamObj.primaryColor }}
                   >
                     <Shield 
@@ -190,7 +210,7 @@ export default function DashboardTab({
                       style={{ color: opponentTeamObj.primaryColor }}
                     />
                   </div>
-                  <p className="font-display text-xs font-bold text-slate-800 uppercase mt-3 tracking-wider max-w-[120px] truncate">
+                  <p className={`font-display text-xs font-bold ${s.textWhiteOrSlate} mt-3 tracking-wider max-w-[120px] truncate uppercase`}>
                     {opponentTeamObj.name}
                   </p>
                   <p 
@@ -202,7 +222,7 @@ export default function DashboardTab({
                 </div>
               </div>
             ) : (
-              <div className="text-center py-10 text-slate-400 text-xs font-semibold uppercase tracking-widest flex flex-col items-center gap-4 justify-center">
+              <div className={`text-center py-10 ${s.textMuted} text-xs font-semibold uppercase tracking-widest flex flex-col items-center gap-4 justify-center`}>
                 <span>Nenhuma partida agendada para esta semana de offseason. Pronto para iniciar o Split!</span>
                 <button
                   onClick={onNextWeek}
@@ -215,13 +235,13 @@ export default function DashboardTab({
 
             {/* Advance week quick action banner */}
             {roundsPlayedThisWeek && opponentTeamObj && (
-              <div className="mt-4 p-4 rounded-xl border border-emerald-100 bg-emerald-50/50 animate-fade-in flex flex-col md:flex-row justify-between items-center gap-4">
+              <div className={`mt-4 p-4 rounded-xl border ${isDark ? 'border-emerald-500/15 bg-emerald-500/5' : 'border-emerald-100 bg-emerald-50/50'} animate-fade-in flex flex-col md:flex-row justify-between items-center gap-4`}>
                 <div className="space-y-1 text-center md:text-left">
                   <div className="flex items-center gap-1.5 justify-center md:justify-start">
                     <Check className="w-4 h-4 text-emerald-600" />
                     <p className="text-emerald-700 text-xs font-bold uppercase tracking-wider">RODADA CONCLUÍDA</p>
                   </div>
-                  <p className="text-xs text-slate-600 max-w-xl">
+                  <p className={`text-xs ${s.textMuted} max-w-xl`}>
                     Todas as obrigações e confrontos desta semana foram finalizados. Avance a semana para coletar os dinheiros dos patrocinadores, sofrer patches e evoluir seu time!
                   </p>
                 </div>
@@ -237,21 +257,21 @@ export default function DashboardTab({
 
           {/* ACTIVE INTERVIEWS HUD CONFERENCES */}
           {activeInterview && (
-            <div className="bg-white border-2 border-blue-500/10 rounded-xl p-6 shadow-md relative animate-fade-in">
-              <div className="absolute top-4 right-4 bg-blue-50 text-blue-600 px-3 py-1 font-mono text-[9px] font-bold rounded uppercase tracking-wider border border-blue-100 flex items-center gap-1">
+            <div className={`${s.bgCardNoFlexP6} border-2 border-blue-500/10 shadow-md relative animate-fade-in`}>
+              <div className={`absolute top-4 right-4 ${isDark ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20' : 'bg-blue-50 text-blue-600 border border-blue-100'} px-3 py-1 font-mono text-[9px] font-bold rounded uppercase tracking-wider flex items-center gap-1`}>
                 <MessageSquare className="w-3 h-3" /> SALA DE IMPRENSA
               </div>
-              <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest mb-1.5">{activeInterview.context}</p>
-              <h4 className="font-display text-sm text-slate-800 font-extrabold leading-relaxed mb-6">
+              <p className={`text-[10px] ${s.textMuted} font-extrabold uppercase tracking-widest mb-1.5`}>{activeInterview.context}</p>
+              <h4 className={`font-display text-sm ${s.textWhiteOrSlate} font-extrabold leading-relaxed mb-6`}>
                 "{activeInterview.question}"
               </h4>
 
               {interviewAnswered ? (
-                <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg p-4 animate-fade-in">
+                <div className={`flex items-center gap-3 ${s.bgInner} rounded-lg p-4 animate-fade-in`}>
                   <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
                     <Check className="w-4 h-4" />
                   </div>
-                  <p className="text-emerald-700 text-xs font-bold uppercase tracking-wider">
+                  <p className="text-emerald-700 text-xs font-bold uppercase tracking-wider animate-pulse">
                     Suas respostas influenciaram o prestígio da equipe e as opiniões táticas nas redes sociais!
                   </p>
                 </div>
@@ -261,7 +281,7 @@ export default function DashboardTab({
                     <button
                       key={i}
                       onClick={() => handleSelectAnswer(i)}
-                      className="w-full bg-slate-50 hover:bg-blue-50/20 border border-slate-200 hover:border-blue-350 p-4 rounded-lg text-left text-xs font-bold text-slate-700 hover:text-blue-600 transition-all block leading-normal cursor-pointer"
+                      className={`w-full ${isDark ? 'bg-slate-900 border-slate-700 hover:bg-sky-950/20 text-slate-300 hover:text-sky-400 hover:border-slate-600' : 'bg-slate-50 border-slate-200 hover:border-blue-350 hover:bg-blue-50/20 text-slate-700 hover:text-blue-600'} border p-4 rounded-lg text-left text-xs font-bold transition-all block leading-normal cursor-pointer`}
                     >
                       {opt.text}
                     </button>
@@ -272,20 +292,20 @@ export default function DashboardTab({
           )}
 
           {/* Dynamic Active Patch Notes */}
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-            <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
+          <div className={s.bgCardNoFlexP6}>
+            <div className={`flex justify-between items-center mb-4 pb-3 border-b ${s.borderLine}`}>
               <div className="flex items-center gap-2">
                 <Zap className="text-blue-600 w-4 h-4" />
-                <h4 className="font-display text-xs font-bold uppercase tracking-wider text-slate-700">
+                <h4 className={`font-display text-xs font-bold uppercase tracking-wider ${s.textWhiteOrSlate}`}>
                   Ajustes da Atualização de Summoner's Rift
                 </h4>
               </div>
-              <span className="text-[10px] font-mono font-bold text-slate-400 tracking-wider">VERSÃO {currentPatch.version}</span>
+              <span className={`text-[10px] font-mono font-bold ${s.textMuted} tracking-wider`}>VERSÃO {currentPatch.version}</span>
             </div>
-            <p className="text-slate-500 text-xs leading-relaxed mb-4">{currentPatch.metaDescription}</p>
+            <p className={`${s.textMuted} text-xs leading-relaxed mb-4`}>{currentPatch.metaDescription}</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Buffed */}
-              <div className="bg-slate-50 p-3.5 rounded-lg border border-emerald-100">
+              <div className={`${isDark ? 'bg-emerald-500/5 border-emerald-500/10' : 'bg-slate-50 border-emerald-100'} p-3.5 rounded-lg border`}>
                 <p className="text-emerald-700 font-mono text-[9px] font-black uppercase tracking-wider mb-2">BUFFADOS (+4 Tático)</p>
                 <div className="flex gap-1.5 flex-wrap">
                   {currentPatch.buffedChampions.map((cid, i) => {
@@ -299,7 +319,7 @@ export default function DashboardTab({
                 </div>
               </div>
               {/* Nerfed */}
-              <div className="bg-slate-50 p-3.5 rounded-lg border border-pink-100">
+              <div className={`${isDark ? 'bg-pink-500/5 border-pink-500/10' : 'bg-slate-50 border-pink-100'} p-3.5 rounded-lg border`}>
                 <p className="text-pink-700 font-mono text-[9px] font-black uppercase tracking-wider mb-2">NERFADOS (-4 Tático)</p>
                 <div className="flex gap-1.5 flex-wrap">
                   {currentPatch.nerfedChampions.map((cid, i) => {
@@ -318,10 +338,10 @@ export default function DashboardTab({
 
         {/* Right Column: Social feed (Span 4) */}
         <div className="lg:col-span-4 space-y-6">
-          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col justify-between h-[525px]">
+          <div className={`${isDark ? 'bg-[#0a1424] border border-[#1e2d44]' : 'bg-white border border-slate-200'} rounded-xl p-5 shadow-sm flex flex-col justify-between h-[525px]`}>
             <div>
-              <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
-                <h4 className="font-display text-xs font-bold uppercase tracking-wider text-slate-800">
+              <div className={`flex justify-between items-center mb-4 pb-3 border-b ${s.borderLine}`}>
+                <h4 className={`font-display text-xs font-bold uppercase tracking-wider ${s.textWhiteOrSlate}`}>
                   CBLOL FANS FEED
                 </h4>
                 <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
@@ -330,25 +350,25 @@ export default function DashboardTab({
               {/* Feed lists */}
               <div className="space-y-4 max-h-[385px] overflow-y-auto pr-1">
                 {socialFeed.slice(0, newsFeedCount).map((post, i) => (
-                  <div key={post.id} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2 relative overflow-hidden group hover:border-blue-300 transition-colors">
+                  <div key={post.id} className={`${isDark ? 'bg-slate-900/60 border-slate-700/60 hover:border-blue-500' : 'bg-slate-50 border-slate-200 hover:border-blue-300'} border rounded-xl p-4 space-y-2 relative overflow-hidden group transition-colors`}>
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-md overflow-hidden border border-slate-200 shrink-0">
                         <img src={post.avatarUrl} referrerPolicy="no-referrer" alt="avatar" className="w-full h-full object-cover" />
                       </div>
                       <div>
                         <div className="flex items-center gap-1 truncate">
-                          <p className="text-[11px] font-bold text-slate-800 leading-tight truncate">{post.username}</p>
+                          <p className={`text-[11px] font-bold ${s.textWhiteOrSlate} leading-tight truncate`}>{post.username}</p>
                           {post.verified && (
                             <span className="text-[7.5px] bg-blue-50 text-blue-600 border border-blue-100 rounded px-1 shrink-0 scale-90">✓</span>
                           )}
                         </div>
-                        <p className="text-[9px] text-slate-400 tracking-tight font-medium">{post.handle}</p>
+                        <p className={`text-[9px] ${s.textMuted} tracking-tight font-medium`}>{post.handle}</p>
                       </div>
                     </div>
-                    <p className="text-slate-600 text-xs leading-normal">
+                    <p className={`${isDark ? 'text-slate-300' : 'text-slate-600'} text-xs leading-normal`}>
                       {post.content}
                     </p>
-                    <div className="flex justify-between text-[10px] text-slate-400 pt-1.5 border-t border-slate-200/60 font-medium">
+                    <div className={`flex justify-between text-[10px] ${s.textMuted} pt-1.5 border-t ${isDark ? 'border-slate-800' : 'border-slate-200/60'} font-medium`}>
                       <span>❤️ {post.likes}</span>
                       <span>🔄 {post.retweets}</span>
                       <span>⏱ {post.timeAgo}</span>
@@ -359,7 +379,7 @@ export default function DashboardTab({
             </div>
 
             {/* Load more news feeds */}
-            <div className="pt-4 border-t border-slate-100 flex justify-center">
+            <div className={`pt-4 border-t ${s.borderLine} flex justify-center`}>
               <button
                 onClick={() => setNewsFeedCount(c => Math.min(socialFeed.length, c + 3))}
                 className="text-xs text-blue-600 hover:underline uppercase font-bold tracking-widest flex items-center gap-1 cursor-pointer"

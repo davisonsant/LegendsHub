@@ -8,9 +8,35 @@ import {
   Keyboard, Trophy, Shield, Building2, Store, Users, DollarSign, 
   TrendingUp, BarChart3, Tv, Award, Play, Sliders, Zap, Gamepad2, 
   Calendar, Check, AlertCircle, Sparkles, ChevronRight, Heart, Crown, 
-  Medal, Save, HardDrive, Trash2, Import, Download, User
+  Medal, Save, HardDrive, Trash2, Import, Download, User, Briefcase, Megaphone
 } from 'lucide-react';
 import { GameState, Team, Player, Sponsor, Champion, MatchSeries, Position } from '../types';
+
+// ==========================================
+// THEME COLORS UTILITY
+// ==========================================
+export function getThemeStyles(theme?: 'light' | 'dark') {
+  const isDark = theme !== 'light';
+  return {
+    isDark,
+    bgCard: isDark ? 'bg-[#0a1424] border border-[#1e2d44] text-white' : 'bg-white border border-slate-200 shadow-sm text-slate-850',
+    bgInnerCard: isDark ? 'bg-[#070d19] border border-[#1e2d44]' : 'bg-slate-50 border border-slate-210 text-slate-700',
+    bgInnerNoBorder: isDark ? 'bg-[#070d19]' : 'bg-slate-50',
+    textMain: isDark ? 'text-white' : 'text-slate-850',
+    textMuted: isDark ? 'text-slate-400' : 'text-slate-500',
+    borderMuted: isDark ? 'border-[#1e2d44]' : 'border-slate-205',
+    borderSemiMuted: isDark ? 'border-[#1e2d44]/50' : 'border-slate-100',
+    borderLighter: isDark ? 'border-[#1e2d44]/30' : 'border-slate-200/60',
+    divider: isDark ? 'divide-[#1e2d44]/50' : 'divide-slate-200/60',
+    bgHeaderRow: isDark ? 'bg-[#070d19]/40' : 'bg-slate-100',
+    bgHeader: isDark ? 'bg-[#070d19] text-white' : 'bg-slate-100 text-slate-800',
+    textTitle: isDark ? 'text-[#00d2fd]' : 'text-blue-600',
+    textAccent: isDark ? 'text-[#00cbd6]' : 'text-cyan-600',
+    hoverBg: isDark ? 'hover:bg-[#070d19]/40' : 'hover:bg-slate-100/65',
+    tagClass: isDark ? 'bg-slate-500/10 text-[#00d2fd]' : 'bg-blue-50 text-blue-650 border border-blue-100',
+    textWhiteOrSlate: isDark ? 'text-white' : 'text-slate-800',
+  };
+}
 
 // ==========================================
 // 1. GAMING OFFICE TAB
@@ -19,9 +45,11 @@ interface GamingOfficeProps {
   gameState: GameState;
   onUpdateGameState: (state: GameState) => void;
   triggerNotification: (title: string, desc: string) => void;
+  theme?: 'light' | 'dark';
 }
 
-export function GamingOfficeTab({ gameState, onUpdateGameState, triggerNotification }: GamingOfficeProps) {
+export function GamingOfficeTab({ gameState, onUpdateGameState, triggerNotification, theme }: GamingOfficeProps) {
+  const s = getThemeStyles(theme);
   const { teams, playerTeamId } = gameState;
   const playerTeam = teams.find(t => t.id === playerTeamId)!;
 
@@ -92,10 +120,10 @@ export function GamingOfficeTab({ gameState, onUpdateGameState, triggerNotificat
 
   return (
     <div className="space-y-6 select-none font-sans">
-      <div className="bg-[#0a1424] border border-[#1e2d44] p-6 rounded-xl flex items-center justify-between">
+      <div className={`${s.bgCard} p-6 rounded-xl flex items-center justify-between`}>
         <div>
-          <h3 className="font-display text-white text-base font-black uppercase tracking-wider">Sede Corporativa (Gaming Office)</h3>
-          <p className="text-xs text-slate-400 mt-1 max-w-xl">
+          <h3 className={`font-display ${s.textWhiteOrSlate} text-base font-black uppercase tracking-wider`}>Sede Corporativa (Gaming Office)</h3>
+          <p className={`text-xs ${s.textMuted} mt-1 max-w-xl`}>
             Invista na modernização das instalações do escritório tático. Salas bem equipadas aumentam o bem-estar da diretoria e estamina dos jogadores.
           </p>
         </div>
@@ -107,28 +135,28 @@ export function GamingOfficeTab({ gameState, onUpdateGameState, triggerNotificat
           const Icon = item.icon;
           const isMaxed = item.level >= item.max;
           return (
-            <div key={item.id} className="bg-[#0a1424] border border-[#1e2d44] hover:border-[#1e2d44]/80 p-5 rounded-xl flex flex-col justify-between shadow-md space-y-4">
+            <div key={item.id} className={`${s.bgCard} p-5 rounded-xl flex flex-col justify-between shadow-md space-y-4`}>
               <div className="space-y-3">
                 <div className="flex justify-between items-start">
                   <div className="p-2.5 bg-blue-500/10 rounded-lg text-blue-400">
                     <Icon className="w-5 h-5" />
                   </div>
-                  <span className="text-[10px] font-mono p-1 bg-slate-500/10 text-[#00d2fd] rounded font-bold uppercase">
+                  <span className={`text-[10px] font-mono p-1 rounded font-bold uppercase ${s.tagClass}`}>
                     Level {item.level} / {item.max}
                   </span>
                 </div>
                 <div>
-                  <h4 className="text-xs uppercase font-extrabold text-white">{item.name}</h4>
-                  <p className="text-[10.5px] text-slate-400 mt-1.5 leading-relaxed">{item.desc}</p>
+                  <h4 className={`text-xs uppercase font-extrabold ${s.textWhiteOrSlate}`}>{item.name}</h4>
+                  <p className={`text-[10.5px] ${s.textMuted} mt-1.5 leading-relaxed`}>{item.desc}</p>
                 </div>
-                <div className="text-[10px] font-semibold text-emerald-400 uppercase bg-emerald-500/5 p-2 rounded border border-emerald-500/10">
+                <div className="text-[10px] font-semibold text-emerald-450 uppercase bg-emerald-500/5 p-2 rounded border border-emerald-500/10">
                   ⚡ {item.benefit}
                 </div>
               </div>
 
               <div>
                 {isMaxed ? (
-                  <button disabled className="w-full py-2 bg-gray-800 text-gray-500 text-[10px] uppercase font-black tracking-widest rounded-lg border border-gray-700 cursor-not-allowed">
+                  <button disabled className={`w-full py-2 ${theme === 'light' ? 'bg-slate-205 text-slate-400 border-slate-200' : 'bg-gray-800 text-gray-500 border-gray-700'} text-[10px] uppercase font-black tracking-widest rounded-lg border cursor-not-allowed`}>
                     MELHORIA MÁXIMA
                   </button>
                 ) : (
@@ -153,10 +181,12 @@ export function GamingOfficeTab({ gameState, onUpdateGameState, triggerNotificat
 // ==========================================
 interface LigaTabProps {
   gameState: GameState;
+  theme?: 'light' | 'dark';
 }
 
-export function LigaTab({ gameState }: LigaTabProps) {
+export function LigaTab({ gameState, theme }: LigaTabProps) {
   const { teams } = gameState;
+  const s = getThemeStyles(theme);
 
   const sortedLeaderboard = [...teams].sort((a, b) => {
     if (b.wins !== a.wins) return b.wins - a.wins;
@@ -167,16 +197,16 @@ export function LigaTab({ gameState }: LigaTabProps) {
 
   return (
     <div className="space-y-6 font-sans select-none">
-      <div className="bg-[#0a1424] border border-[#1e2d44] rounded-xl overflow-hidden shadow-lg">
-        <div className="px-5 py-4 border-b border-[#1e2d44] bg-[#070d19] flex justify-between items-center">
+      <div className={`${s.bgCard} rounded-xl overflow-hidden shadow-lg`}>
+        <div className={`px-5 py-4 border-b ${s.borderMuted} ${s.bgHeader} flex justify-between items-center`}>
           <div className="flex gap-2 items-center">
             <Trophy className="text-[#00d2fd] w-5 h-5 animate-bounce" />
-            <span className="font-display font-black text-sm uppercase tracking-wider text-white">Classificação CBLOL - Temporada Regular</span>
+            <span className={`font-display font-black text-sm uppercase tracking-wider ${s.textWhiteOrSlate}`}>Classificação CBLOL - Temporada Regular</span>
           </div>
           <span className="text-[10px] text-gray-500 font-extrabold uppercase tracking-widest">Summer Split</span>
         </div>
 
-        <div className="grid grid-cols-12 gap-1 px-5 py-3 border-b border-[#1e2d44] text-[9.5px] text-[#00d2fd] font-extrabold tracking-widest uppercase bg-[#070d19]/40">
+        <div className={`grid grid-cols-12 gap-1 px-5 py-3 border-b ${s.borderSemiMuted} text-[9.5px] ${theme === 'light' ? 'text-blue-600' : 'text-[#00d2fd]'} font-extrabold tracking-widest uppercase ${s.bgHeaderRow}`}>
           <div className="col-span-1">#</div>
           <div className="col-span-4">NOME DO CLUBE</div>
           <div className="col-span-2 text-center">VITÓRIAS</div>
@@ -185,7 +215,7 @@ export function LigaTab({ gameState }: LigaTabProps) {
           <div className="col-span-2 text-right">STREAK</div>
         </div>
 
-        <div className="divide-y divide-[#1e2d44]/50">
+        <div className={`divide-y ${s.divider}`}>
           {sortedLeaderboard.map((team, idx) => {
             const isUserTeam = team.id === gameState.playerTeamId;
             const rank = idx + 1;
@@ -194,14 +224,14 @@ export function LigaTab({ gameState }: LigaTabProps) {
               <div
                 key={team.id}
                 className={`grid grid-cols-12 gap-1 px-5 py-4 items-center transition-colors ${
-                  isUserTeam ? 'bg-[#00d2fd]/5 border-l-4 border-[#00d2fd]' : 'hover:bg-[#070d19]/40'
+                  isUserTeam ? (theme === 'light' ? 'bg-blue-50 border-l-4 border-blue-600' : 'bg-[#00d2fd]/5 border-l-4 border-[#00d2fd]') : s.hoverBg
                 }`}
               >
                 <div className="col-span-1">
                   <span className={`w-5.5 h-5.5 rounded flex items-center justify-center font-bold text-[10px] ${
                     inPlayoffs 
-                      ? 'bg-blue-500/15 text-[#00d2fd] border border-[#00d2fd]/30' 
-                      : 'bg-slate-800 text-gray-500'
+                      ? (theme === 'light' ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-blue-500/15 text-[#00d2fd] border border-[#00d2fd]/30') 
+                      : (theme === 'light' ? 'bg-slate-100 text-slate-400' : 'bg-slate-800 text-gray-500')
                   }`}>
                     {rank}
                   </span>
@@ -209,18 +239,18 @@ export function LigaTab({ gameState }: LigaTabProps) {
 
                 <div className="col-span-4 flex items-center gap-2.5">
                   <div className="w-1.5 h-6 rounded" style={{ backgroundColor: team.primaryColor || '#00cbd6' }} />
-                  <span className="text-xs uppercase font-extrabold text-white tracking-wide">{team.name}</span>
+                  <span className={`text-xs uppercase font-extrabold ${s.textWhiteOrSlate} tracking-wide`}>{team.name}</span>
                 </div>
 
-                <div className="col-span-2 text-center font-mono font-black text-white text-xs">
+                <div className={`col-span-2 text-center font-mono font-black ${s.textWhiteOrSlate} text-xs`}>
                   {team.wins}
                 </div>
 
-                <div className="col-span-2 text-center font-mono text-slate-400 text-xs">
+                <div className={`col-span-2 text-center font-mono ${s.textMuted} text-xs`}>
                   {team.losses}
                 </div>
 
-                <div className="col-span-1 text-center font-mono text-[11px] text-slate-400">
+                <div className={`col-span-1 text-center font-mono text-[11px] ${s.textMuted}`}>
                   {team.gameWins - team.gameLosses > 0 ? `+${team.gameWins - team.gameLosses}` : team.gameWins - team.gameLosses}
                 </div>
 
@@ -247,10 +277,13 @@ export function LigaTab({ gameState }: LigaTabProps) {
 // ==========================================
 interface TimesTabProps {
   gameState: GameState;
+  theme?: 'light' | 'dark';
+  onSelectPlayer?: (playerId: string) => void;
 }
 
-export function TimesTab({ gameState }: TimesTabProps) {
+export function TimesTab({ gameState, theme, onSelectPlayer }: TimesTabProps) {
   const { teams } = gameState;
+  const s = getThemeStyles(theme);
   const [selectedTeamId, setSelectedTeamId] = useState(teams[0]?.id || '');
 
   const activeTeam = teams.find(t => t.id === selectedTeamId) || teams[0];
@@ -258,7 +291,7 @@ export function TimesTab({ gameState }: TimesTabProps) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 select-none font-sans">
       <div className="lg:col-span-4 space-y-2.5">
-        <span className="block text-[9px] uppercase font-bold text-slate-400 tracking-wider">Selecione o Clube rivals</span>
+        <span className={`block text-[9px] uppercase font-bold ${s.textMuted} tracking-wider`}>Selecione o Clube rivals</span>
         <div className="space-y-1.5 max-h-[480px] overflow-y-auto pr-1">
           {teams.map(t => {
             const isSel = t.id === selectedTeamId;
@@ -268,28 +301,28 @@ export function TimesTab({ gameState }: TimesTabProps) {
                 onClick={() => setSelectedTeamId(t.id)}
                 className={`w-full p-2.5 text-left rounded-lg border uppercase tracking-wider flex justify-between items-center transition-all cursor-pointer ${
                   isSel 
-                    ? 'border-sky-500 bg-sky-500/15 font-black' 
-                    : 'border-[#1e2d44] bg-[#0a1424] text-slate-400 hover:text-slate-100 hover:bg-slate-800/40'
+                    ? 'border-sky-500 bg-sky-500/15 font-black text-sky-650' 
+                    : `${s.borderMuted} ${s.bgCard} text-slate-400 ${s.hoverBg}`
                 }`}
               >
                 <div className="flex items-center gap-2 truncate">
                   <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: t.primaryColor }} />
                   <span className="text-xs truncate">{t.name}</span>
                 </div>
-                <span className="text-[10px] font-mono text-slate-500">OVR {Math.floor(t.roster.reduce((a, b) => a + b.overallRating, 0) / 5)}</span>
+                <span className={`text-[10px] font-mono ${s.textMuted}`}>OVR {Math.floor(t.roster.reduce((a, b) => a + b.overallRating, 0) / 5)}</span>
               </button>
             );
           })}
         </div>
       </div>
 
-      <div className="lg:col-span-8 bg-[#0a1424] border border-[#1e2d44] rounded-xl p-5 shadow-lg space-y-6">
+      <div className={`lg:col-span-8 ${s.bgCard} rounded-xl p-5 shadow-lg space-y-6`}>
         {activeTeam && (
           <>
-            <div className="flex justify-between items-center border-b border-[#1e2d44] pb-4">
+            <div className={`flex justify-between items-center border-b ${s.borderMuted} pb-4`}>
               <div>
-                <h3 className="font-display text-white text-base font-black uppercase tracking-wider">{activeTeam.name} ({activeTeam.acronym})</h3>
-                <p className="text-[10px] text-slate-400 mt-1 uppercase">Região Oficial: {activeTeam.region || 'CBLOL'} • Fans: {activeTeam.popularity}%</p>
+                <h3 className={`font-display ${s.textWhiteOrSlate} text-base font-black uppercase tracking-wider`}>{activeTeam.name} ({activeTeam.acronym})</h3>
+                <p className={`text-[10px] ${s.textMuted} mt-1 uppercase`}>Região Oficial: {activeTeam.region || 'CBLOL'} • Fans: {activeTeam.popularity}%</p>
               </div>
               <div className="px-3 py-1.5 bg-sky-500/10 rounded border border-sky-400/25">
                 <span className="text-[10px] font-mono text-[#00cbd6] font-bold">OVR TEAM: {Math.floor(activeTeam.roster.reduce((a, b) => a + b.overallRating, 0) / 5)}</span>
@@ -297,27 +330,37 @@ export function TimesTab({ gameState }: TimesTabProps) {
             </div>
 
             <div className="space-y-3.5">
-              <span className="block text-[9.5px] uppercase font-bold text-slate-400">Escalação Atleta de Rote</span>
+              <span className={`block text-[9.5px] uppercase font-bold ${s.textMuted}`}>Escalação Atleta de Rote</span>
               <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
-                {activeTeam.roster.map((player) => (
-                  <div key={player.id} className="bg-[#070d19] border border-[#1e2d44] p-3 rounded-lg text-center space-y-2 relative">
-                    <span className="absolute top-1 right-1 text-[#00cbd6] font-mono text-[9px] font-extrabold">OVR {player.overallRating}</span>
-                    <div className="w-10 h-10 rounded-full mx-auto bg-slate-500/10 flex items-center justify-center font-bold text-blue-400 border border-blue-500/20 text-xs">
-                      {player.name.substring(0,2).toUpperCase()}
-                    </div>
-                    <div>
-                      <h4 className="text-[11px] font-black text-white truncate uppercase" title={player.name}>{player.name}</h4>
-                      <p className="text-[8px] font-mono text-slate-500 font-extrabold mt-0.5">{player.position}</p>
-                    </div>
-                  </div>
-                ))}
+                {activeTeam.roster.map((player) => {
+                  const CardComponent = onSelectPlayer ? 'button' : 'div';
+                  return (
+                    <CardComponent 
+                      key={player.id} 
+                      onClick={onSelectPlayer ? () => onSelectPlayer(player.id) : undefined}
+                      className={`w-full text-center ${s.bgInnerCard} p-3 rounded-lg text-center space-y-2 relative group focus:outline-none focus:ring-1 focus:ring-sky-400/50 ${onSelectPlayer ? 'cursor-pointer hover:bg-slate-100/55 dark:hover:bg-slate-900/55 transition-all hover:scale-[1.02]' : ''}`}
+                    >
+                      <span className="absolute top-1 right-1 text-[#00cbd6] font-mono text-[9px] font-extrabold">OVR {player.overallRating}</span>
+                      <div className="w-10 h-10 rounded-full mx-auto bg-slate-500/10 flex items-center justify-center font-bold text-blue-400 border border-blue-500/20 text-xs group-hover:scale-105 duration-200">
+                        {player.name.substring(0,2).toUpperCase()}
+                      </div>
+                      <div>
+                        <h4 className={`text-[11px] font-black ${s.textWhiteOrSlate} truncate uppercase group-hover:text-sky-400 transition-colors`} title={player.name}>{player.name}</h4>
+                        <p className={`text-[8px] font-mono ${s.textMuted} font-extrabold mt-0.5`}>{player.position}</p>
+                        {onSelectPlayer && (
+                          <span className="text-[7.5px] text-sky-400 font-bold uppercase mt-1 block opacity-0 group-hover:opacity-100 transition-opacity">Ver Perfil</span>
+                        )}
+                      </div>
+                    </CardComponent>
+                  );
+                })}
               </div>
             </div>
 
-            <div className="p-4 bg-[#070d19] border border-[#1e2d44]/60 rounded-xl space-y-2">
+            <div className={`p-4 ${s.bgInnerCard} rounded-xl space-y-2`}>
               <h4 className="text-[10px] text-sky-400 uppercase tracking-wider font-extrabold">Sede Operacional</h4>
-              <p className="text-[10.5px] text-slate-400 leading-relaxed">
-                Nível estrutural de Gaming House: {activeTeam.infrastructure.gamingHouseLevel} • Centro de Jogos: {activeTeam.infrastructure.trainingCenterLevel}. Caixa aproximado de Orçamento: <strong className="text-white">$ {(activeTeam.budget / 1000).toLocaleString('pt-BR')}k</strong>.
+              <p className={`text-[10.5px] ${s.textMuted} leading-relaxed`}>
+                Nível estrutural de Gaming House: {activeTeam.infrastructure.gamingHouseLevel} • Centro de Jogos: {activeTeam.infrastructure.trainingCenterLevel}. Caixa aproximado de Orçamento: <strong className={s.textWhiteOrSlate}>$ {(activeTeam.budget / 1000).toLocaleString('pt-BR')}k</strong>.
               </p>
             </div>
           </>
@@ -579,9 +622,10 @@ export function FinancasTab({ gameState }: FinancasTabProps) {
 // ==========================================
 interface EstatisticasTabProps {
   gameState: GameState;
+  onSelectPlayer?: (playerId: string) => void;
 }
 
-export function EstatisticasTab({ gameState }: EstatisticasTabProps) {
+export function EstatisticasTab({ gameState, onSelectPlayer }: EstatisticasTabProps) {
   const { teams } = gameState;
 
   // Gathering all players
@@ -616,15 +660,22 @@ export function EstatisticasTab({ gameState }: EstatisticasTabProps) {
         </div>
 
         <div className="divide-y divide-[#1e2d44]/50 text-[11px] font-semibold text-white">
-          {topRating.map((p, idx) => (
-            <div key={p.id} className="grid grid-cols-12 px-5 py-3.5 items-center hover:bg-[#070d19]/40">
-              <div className="col-span-1 font-mono text-slate-500 font-bold">{idx + 1}</div>
-              <div className="col-span-4 flex items-center gap-1.5 font-bold">{p.name}</div>
-              <div className="col-span-2 text-center text-sky-400 font-mono font-bold font-extrabold">{p.position}</div>
-              <div className="col-span-3 text-slate-400 uppercase font-bold">{p.customPlayer as any}</div>
-              <div className="col-span-2 text-right font-mono font-black text-[#00cbd6]">OVR {p.overallRating}</div>
-            </div>
-          ))}
+          {topRating.map((p, idx) => {
+            const RowComponent = onSelectPlayer ? 'button' : 'div';
+            return (
+              <RowComponent 
+                key={p.id} 
+                onClick={onSelectPlayer ? () => onSelectPlayer(p.id) : undefined}
+                className={`grid grid-cols-12 px-5 py-3.5 items-center hover:bg-[#070d19]/60 w-full text-left border-none focus:outline-none focus:ring-1 focus:ring-[#00cbd6]/30 ${onSelectPlayer ? 'cursor-pointer group' : ''}`}
+              >
+                <div className="col-span-1 font-mono text-slate-500 font-bold">{idx + 1}</div>
+                <div className={`col-span-4 flex items-center gap-1.5 font-bold ${onSelectPlayer ? 'text-sky-400 group-hover:text-[#00cbd6] transition-colors' : ''}`}>{p.name}</div>
+                <div className="col-span-2 text-center text-sky-400 font-mono font-bold font-extrabold">{p.position}</div>
+                <div className="col-span-3 text-slate-400 uppercase font-bold">{p.customPlayer as any}</div>
+                <div className="col-span-2 text-right font-mono font-black text-[#00cbd6]">OVR {p.overallRating}</div>
+              </RowComponent>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -638,9 +689,10 @@ interface SoloQueueTabProps {
   gameState: GameState;
   onUpdateGameState: (state: GameState) => void;
   triggerNotification: (title: string, desc: string) => void;
+  onSelectPlayer?: (playerId: string) => void;
 }
 
-export function SoloQueueTab({ gameState, onUpdateGameState, triggerNotification }: SoloQueueTabProps) {
+export function SoloQueueTab({ gameState, onUpdateGameState, triggerNotification, onSelectPlayer }: SoloQueueTabProps) {
   const { teams, playerTeamId } = gameState;
   const playerTeam = teams.find(t => t.id === playerTeamId)!;
 
@@ -735,7 +787,19 @@ export function SoloQueueTab({ gameState, onUpdateGameState, triggerNotification
         <div className="divide-y divide-[#1e2d44]/50 font-semibold text-white">
           {soloStats.map(item => (
             <div key={item.playerId} className="grid grid-cols-12 px-5 py-4 items-center">
-              <div className="col-span-3 flex items-center gap-1.5">{item.name}</div>
+              <div className="col-span-3 flex items-center gap-1.5">
+                {onSelectPlayer ? (
+                  <button
+                    type="button"
+                    onClick={() => onSelectPlayer(item.playerId)}
+                    className="hover:underline hover:text-sky-305 font-bold focus:outline-none transition-colors duration-150 cursor-pointer text-left flex items-center gap-1 bg-transparent border-none text-sky-400"
+                  >
+                    {item.name}
+                  </button>
+                ) : (
+                  <span>{item.name}</span>
+                )}
+              </div>
               <div className="col-span-2 text-center font-mono font-bold text-slate-400">{item.pos}</div>
               <div className="col-span-3 text-center">
                 <span className="text-[#00cbd6] font-black uppercase">Challenger 💎 {item.lp} LP</span>
@@ -1115,6 +1179,307 @@ export function SalvarJogoTab({ gameState, onManualSave, triggerNotification }: 
         >
           <Download className="w-4 h-4" /> Exportar Dados (.json)
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 12. COMUNIDADE TAB (Fans Board & Marketing)
+// ==========================================
+interface ComunidadeTabProps {
+  gameState: GameState;
+  onUpdateGameState: (state: GameState) => void;
+  triggerNotification: (title: string, desc: string) => void;
+}
+
+export function ComunidadeTab({ gameState, onUpdateGameState, triggerNotification }: ComunidadeTabProps) {
+  const { teams, playerTeamId } = gameState;
+  const playerTeam = teams.find(t => t.id === playerTeamId);
+
+  if (!playerTeam) {
+    return (
+      <div className="text-center py-10 bg-[#0a1424] border border border-[#1e2d44] rounded-xl p-8">
+        <p className="text-slate-400 font-bold uppercase tracking-wider">Você não possui um clube de eSports ativo.</p>
+      </div>
+    );
+  }
+
+  // Active campaigns or fan boost events
+  const executeCampaign = (campaignId: string, cost: number, supportBoost: number, popBoost: number, label: string) => {
+    if (playerTeam.budget < cost) {
+      triggerNotification("❌ Saldo Insuficiente", "Seu clube não possui fundos suficientes para lançar este evento comunitário.");
+      return;
+    }
+
+    playerTeam.budget -= cost;
+    playerTeam.fansSupport = Math.min(100, playerTeam.fansSupport + supportBoost);
+    playerTeam.popularity = Math.min(100, playerTeam.popularity + popBoost);
+
+    const nextTeams = teams.map(t => t.id === playerTeamId ? { ...playerTeam } : t);
+    onUpdateGameState({
+      ...gameState,
+      teams: nextTeams
+    });
+
+    triggerNotification("📣 Campanha Concluída!", `Sucesso ao lançar "${label}"! Satisfação dos torcedores subiu +${supportBoost}% e popularidade +${popBoost}%.`);
+  };
+
+  const socioTorcedores = Math.round(playerTeam.popularity * 145);
+
+  return (
+    <div className="space-y-6 select-none font-sans text-xs">
+      <div className="bg-[#0a1424] border border-[#1e2d44] p-5 rounded-xl flex items-center justify-between">
+        <div>
+          <h3 className="font-display text-white text-sm font-black uppercase tracking-wider">Centro de Gestão de Comunidades e Torcidas</h3>
+          <p className="text-[10.5px] text-slate-400 mt-1 max-w-xl">
+            Monitore o humor dos fãs, controle o apoio popular da torcida organizada e execute campanhas exclusivas de engajamento social.
+          </p>
+        </div>
+        <Users className="w-12 h-12 text-blue-500 opacity-20 shrink-0" />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-[#0a1424] border border-[#1e2d44] p-5 rounded-xl space-y-3.5 shadow-md">
+          <span className="text-[9px] text-blue-400 font-bold uppercase tracking-wider block">Satisfação da Torcida</span>
+          <div className="flex justify-between items-end border-b border-[#1e2d44] pb-3">
+            <h4 className="font-display font-black text-white text-2xl">{playerTeam.fansSupport}%</h4>
+            <span className="text-[10px] text-slate-400 uppercase font-bold">{playerTeam.fansSupport >= 80 ? 'EXCELENTE 🔥' : playerTeam.fansSupport >= 50 ? 'ESTÁVEL 🤝' : 'PRESSIONADO ⏳'}</span>
+          </div>
+          <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+            <div className="h-full bg-blue-500" style={{ width: `${playerTeam.fansSupport}%` }} />
+          </div>
+          <p className="text-[10px] text-slate-400 leading-relaxed pt-1">Torcedores felizes apoiam o time mesmo na adversidade e lotam a arena, aumentando a receita de bilheteria e vendas de camisas.</p>
+        </div>
+
+        <div className="bg-[#0a1424] border border-[#1e2d44] p-5 rounded-xl space-y-3.5 shadow-md">
+          <span className="text-[9px] text-blue-400 font-bold uppercase tracking-wider block">Quadro de Sócio-Torcedores</span>
+          <div className="flex justify-between items-end border-b border-[#1e2d44] pb-3">
+            <h4 className="font-display font-black text-white text-2xl">{socioTorcedores.toLocaleString('pt-BR')}</h4>
+            <span className="text-[10px] text-slate-400 uppercase font-bold">INSCRITOS</span>
+          </div>
+          <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+            <div className="h-full bg-[#00cbd6]" style={{ width: `${playerTeam.popularity}%` }} />
+          </div>
+          <p className="text-[10px] text-slate-400 leading-relaxed pt-1">O tamanho da fã-base cresce em conformidade com sua popularidade na mídia geral e os resultados de vitórias consecutivas.</p>
+        </div>
+
+        <div className="bg-[#0a1424] border border-[#1e2d44] p-5 rounded-xl space-y-3.5 shadow-md">
+          <span className="text-[9px] text-blue-400 font-bold uppercase tracking-wider block">Mídia & Sentimento Geral</span>
+          <div className="flex justify-between items-end border-b border-[#1e2d44] pb-3">
+            <h4 className="font-display font-black text-white text-2xl">{playerTeam.popularity}%</h4>
+            <span className="text-[10px] text-slate-400 uppercase font-bold">REPUTAÇÃO</span>
+          </div>
+          <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+            <div className="h-full bg-indigo-500" style={{ width: `${playerTeam.popularity}%` }} />
+          </div>
+          <p className="text-[10px] text-slate-400 leading-relaxed pt-1">A percepção externa atrai novos patrocinadores de elite e possibilita a contratação de astros ou veteranos badalados.</p>
+        </div>
+      </div>
+
+      <div className="bg-[#0a1424] border border-[#1e2d44] rounded-xl p-5 shadow-sm space-y-4">
+        <h4 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-2 border-b border-[#1e2d44] pb-3">
+          <Sparkles className="w-4 h-4 text-amber-400" /> Ações Ativas de Marketing Comunitário
+        </h4>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-[#070d19] border border-[#1e2d44] p-4 rounded-lg flex flex-col justify-between space-y-4 shadow">
+            <div>
+              <h5 className="font-bold text-white uppercase text-xs">Encontro de Fãs Presencial</h5>
+              <p className="text-[10.5px] text-slate-400 mt-1">Promova uma sessão de autógrafos e fotos entre os torcedores e o elenco na Gaming House.</p>
+            </div>
+            <div className="flex justify-between items-center pt-2">
+              <span className="font-mono font-bold text-blue-400">$4.000 (Custo)</span>
+              <button 
+                onClick={() => executeCampaign('meetup', 4000, 6, 2, 'Encontro de Fãs Presencial')}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-[9px] uppercase tracking-wider rounded cursor-pointer transition-colors"
+              >
+                Lançar Campanha
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-[#070d19] border border-[#1e2d44] p-4 rounded-lg flex flex-col justify-between space-y-4 shadow">
+            <div>
+              <h5 className="font-bold text-white uppercase text-xs">Distribuição de Ingressos Sociais</h5>
+              <p className="text-[10.5px] text-slate-400 mt-1">Compre e distribua cargas de ingressos de arquibancada para estudantes e fãs de baixa renda.</p>
+            </div>
+            <div className="flex justify-between items-center pt-2">
+              <span className="font-mono font-bold text-blue-400">$8.000 (Custo)</span>
+              <button 
+                onClick={() => executeCampaign('tickets', 8000, 11, 1, 'Distribuição de Ingressos Sociais')}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-[9px] uppercase tracking-wider rounded cursor-pointer transition-colors"
+              >
+                Lançar Campanha
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-[#070d19] border border-[#1e2d44] p-4 rounded-lg flex flex-col justify-between space-y-4 shadow">
+            <div>
+              <h5 className="font-bold text-white uppercase text-xs">Ação Social Solidária</h5>
+              <p className="text-[10.5px] text-slate-400 mt-1">Engaje sua organização em campanhas locais de doação e patrocínio filantrópico.</p>
+            </div>
+            <div className="flex justify-between items-center pt-2">
+              <span className="font-mono font-bold text-blue-400">$5.000 (Custo)</span>
+              <button 
+                onClick={() => executeCampaign('charity', 5000, 8, 3, 'Ação Social Solidária')}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-[9px] uppercase tracking-wider rounded cursor-pointer transition-colors"
+              >
+                Lançar Campanha
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-[#070d19] border border-[#1e2d44] p-4 rounded-lg flex flex-col justify-between space-y-4 shadow">
+            <div>
+              <h5 className="font-bold text-white uppercase text-xs">Transmissão com Influenciadores</h5>
+              <p className="text-[10.5px] text-slate-400 mt-1">Contrate streamers de elite para transmitir treinos abertos de sábado e reações ao vivo.</p>
+            </div>
+            <div className="flex justify-between items-center pt-2">
+              <span className="font-mono font-bold text-blue-400">$12.000 (Custo)</span>
+              <button 
+                onClick={() => executeCampaign('streamers', 12000, 4, 10, 'Transmissão com Influenciadores')}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-[9px] uppercase tracking-wider rounded cursor-pointer transition-colors"
+              >
+                Lançar Campanha
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 13. CENTRAL DE EMPREGOS TAB (Job Center & Resignation)
+// ==========================================
+interface CentralDeEmpregosTabProps {
+  gameState: GameState;
+  onUpdateGameState: (state: GameState) => void;
+  triggerNotification: (title: string, desc: string) => void;
+}
+
+export function CentralDeEmpregosTab({ gameState, onUpdateGameState, triggerNotification }: CentralDeEmpregosTabProps) {
+  const { teams, playerTeamId } = gameState;
+  const playerTeam = teams.find(t => t.id === playerTeamId);
+
+  const applyForJob = (targetTeam: Team) => {
+    // Logic to sign with local team
+    const updatedTeams = teams.map(t => {
+      if (t.id === playerTeamId) {
+        return { ...t, isPlayerControlled: false };
+      }
+      if (t.id === targetTeam.id) {
+        return { ...t, isPlayerControlled: true, boardTrust: 70 };
+      }
+      return t;
+    });
+
+    onUpdateGameState({
+      ...gameState,
+      playerTeamId: targetTeam.id,
+      teams: updatedTeams
+    });
+
+    triggerNotification("✍️ Novo Vínculo Contratual!", `Parabéns! Contrato firmado com êxito! Você assumiu o cargo de Manager Oficial da organização "${targetTeam.name}" com metas revisadas.`);
+  };
+
+  return (
+    <div className="space-y-6 select-none font-sans text-xs">
+      <div className="bg-[#0a1424] border border-[#1e2d44] p-5 rounded-xl flex items-center justify-between">
+        <div>
+          <h3 className="font-display text-white text-sm font-black uppercase tracking-wider">Central Profissional de Oportunidades & Empregos</h3>
+          <p className="text-[10.5px] text-slate-400 mt-1 max-w-xl">
+            Encontre propostas corporativas de outras equipes na liga de eSports ou peça demissão de forma imediata do seu cargo atual.
+          </p>
+        </div>
+        <Briefcase className="w-12 h-12 text-[#00cbd6] opacity-20 shrink-0" />
+      </div>
+
+      {playerTeam ? (
+        <div className="bg-red-500/5 border border-red-500/25 p-4 rounded-xl flex items-center justify-between">
+          <div>
+            <h4 className="font-extrabold uppercase text-white mb-0.5 tracking-wide text-xs">Você está Ativo na Organização: <span className="text-red-400 font-bold">{playerTeam.name}</span></h4>
+            <p className="text-[10px] text-slate-400">Se você desejar abandonar seu time e buscar novos desafios pelo cenário livre, peça demissão no botão ao lado.</p>
+          </div>
+          <button 
+            onClick={() => {
+              if (confirm("🚨 ATENÇÃO: Tem certeza de que deseja pedir demissão de forma imediata de seu clube? Você perderá todo seu crédito e prestígio de liderança local!")) {
+                const nextTeams = teams.map(t => t.id === playerTeamId ? { ...t, isPlayerControlled: false } : t);
+                onUpdateGameState({
+                  ...gameState,
+                  playerTeamId: '',
+                  teams: nextTeams
+                });
+                triggerNotification("⚠️ Demissão Declarada!", `Você rescindiu unilateralmente o contrato com a ${playerTeam.name}. Agora você é um Free Agent!`);
+              }
+            }}
+            className="px-4 py-2 bg-red-650 hover:bg-red-500 text-white font-extrabold text-[10px] uppercase rounded-lg tracking-wider transition-colors cursor-pointer shrink-0"
+          >
+            Pedir Demissão Imediata
+          </button>
+        </div>
+      ) : (
+        <div className="bg-amber-600/10 border border-amber-500/30 p-4 rounded-xl flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 animate-bounce" />
+          <div>
+            <h4 className="font-extrabold uppercase text-amber-500 tracking-wide text-xs">Você é Atualmente um Free Agent (Desempregado)</h4>
+            <p className="text-[10.5px] text-slate-300">Escolha uma das organizações operacionais abaixo para aceitar sua proposta contratual e liderar o clube a glórias na Superliga!</p>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-4">
+        <h4 className="text-xs font-black uppercase tracking-wider text-white">Vagas Disponíveis na Liga</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {teams.map((t) => {
+            const isCurrent = t.id === playerTeamId;
+            return (
+              <div key={t.id} className={`p-4 rounded-xl border flex flex-col justify-between space-y-4 shadow transition-all ${
+                isCurrent 
+                  ? 'bg-blue-500/5 border-blue-500/40' 
+                  : 'bg-[#0a1424] border-[#1e2d44] hover:border-slate-700'
+              }`}>
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-white uppercase text-xs shadow" 
+                      style={{ backgroundColor: t.primaryColor || '#1e293b' }}
+                    >
+                      {t.acronym || t.name.slice(0, 3)}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-white text-[11px] uppercase tracking-wide">{t.name}</h4>
+                      <p className="text-[9px] text-slate-400 mt-0.5 font-mono">Orçamento: $ {t.budget.toLocaleString('pt-BR')} | Pop: {t.popularity}%</p>
+                    </div>
+                  </div>
+                  {isCurrent && (
+                    <span className="text-[8px] bg-blue-500/15 border border-blue-500/35 text-blue-400 px-2 py-0.5 rounded-full font-black uppercase font-mono animate-pulse">
+                      SEU CLUBE ATUAL
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between border-t border-[#1e2d44] pt-3">
+                  <div className="space-y-0.5">
+                    <span className="text-[8px] text-slate-450 uppercase font-bold block">Status da Vaga</span>
+                    <span className="text-[10px] text-emerald-450 font-bold uppercase font-mono">Disponível</span>
+                  </div>
+                  {!isCurrent && (
+                    <button 
+                      onClick={() => applyForJob(t)}
+                      className="px-4.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-[9px] uppercase tracking-wider rounded cursor-pointer transition-colors"
+                    >
+                      Assinar Contrato
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

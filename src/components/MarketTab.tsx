@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Filter, Shield, Sparkles, AlertCircle, TrendingUp, DollarSign, ArrowUpRight, HelpCircle, Bell, MessageSquare, ChevronDown } from 'lucide-react';
 import { GameState, Player, Position } from '../types';
 import { generateProceduralPlayer } from '../utils/generators';
+import { formatMoney } from '../utils/currency';
 
 interface MarketTabProps {
   gameState: GameState;
@@ -186,7 +187,7 @@ export default function MarketTab({
         <div className="flex items-center gap-4 self-end md:self-auto uppercase tracking-wide">
           <div className="text-right">
             <span className="text-[9px] font-bold text-slate-400 block leading-none">TEAM BUDGET</span>
-            <span className="font-display font-black text-blue-600 text-lg">$2.4M</span>
+            <span className="font-display font-black text-blue-600 text-lg">{formatMoney(playerTeam.budget)}</span>
           </div>
           <Bell className="w-4 h-4 text-slate-400 cursor-pointer hover:text-slate-600" />
           <div className="w-8 h-8 rounded-full overflow-hidden border border-slate-200">
@@ -382,7 +383,7 @@ export default function MarketTab({
                       <div>
                         <span className="text-[7px] font-mono font-bold text-slate-400 block uppercase leading-none">VALUE</span>
                         <span className="font-display font-black text-[#0ea5e9] text-xs leading-none">
-                          ${(player.marketValue / 1000).toLocaleString('en-US')}k
+                          {formatMoney(player.marketValue)}
                         </span>
                       </div>
 
