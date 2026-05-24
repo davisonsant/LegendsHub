@@ -134,7 +134,7 @@ export default function HomeLauncher({
             LEGENDS HUB
           </h1>
           <p className="text-[10px] text-blue-500/80 font-mono tracking-widest font-bold uppercase mt-1">
-            TACTICAL EDITION
+            MANAGER DE LEAGUE OF LEGENDS
           </p>
         </div>
       </div>
@@ -518,10 +518,10 @@ export default function HomeLauncher({
       {/* Footer release brandings matching Screenshot #4 exactly */}
       <div className="text-center z-10 select-none pb-4">
         <p className="text-[10px] font-mono font-bold text-slate-400 tracking-[0.2em] uppercase">
-          V12.4 STABLE RELEASE BUILD PRO
+          Versão 1.0.1 - Release Beta
         </p>
         <p className="text-[9px] text-slate-400 font-medium tracking-wide mt-1">
-          © 2024 LegendHub Studios
+          LegendsHub 1.0.1  •  2026  •  DESENVOLVIDO POR DAVISON SANT
         </p>
       </div>
     </div>

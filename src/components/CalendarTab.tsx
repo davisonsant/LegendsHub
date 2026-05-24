@@ -9,11 +9,17 @@ import { GameState, Team, MatchSeries } from '../types';
 
 interface CalendarTabProps {
   gameState: GameState;
+  theme?: string;
+  selectedCalendarWeek?: number;
+  setSelectedCalendarWeek?: (week: number) => void;
 }
 
-export default function CalendarTab({ gameState }: CalendarTabProps) {
+export default function CalendarTab({ gameState, selectedCalendarWeek, setSelectedCalendarWeek }: CalendarTabProps) {
   const { teams, week, calendarSchedule, selectedRegion } = gameState;
-  const [selectedCalendarWeek, setSelectedCalendarWeek] = useState(week);
+  const [localWeek, setLocalWeek] = useState(week);
+
+  const currentSelectedWeek = selectedCalendarWeek !== undefined ? selectedCalendarWeek : localWeek;
+  const changeSelectedWeek = setSelectedCalendarWeek !== undefined ? setSelectedCalendarWeek : setLocalWeek;
 
   // Filter teams list so we only display standings for the active region!
   const regionalTeams = teams.filter(t => t.region === (selectedRegion || 'CBLOL'));
@@ -39,7 +45,7 @@ export default function CalendarTab({ gameState }: CalendarTabProps) {
     return t ? t.primaryColor : '#1e2d44';
   };
 
-  const weekMatches = calendarSchedule[selectedCalendarWeek] || [];
+  const weekMatches = calendarSchedule[currentSelectedWeek] || [];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -146,8 +152,8 @@ export default function CalendarTab({ gameState }: CalendarTabProps) {
             
             {/* Quick dropdown select week */}
             <select
-              value={selectedCalendarWeek}
-              onChange={(e) => setSelectedCalendarWeek(parseInt(e.target.value))}
+              value={currentSelectedWeek}
+              onChange={(e) => changeSelectedWeek(parseInt(e.target.value))}
               className="bg-[#070d19] border border-[#1e2d44] text-[10px] font-display-lg font-bold uppercase text-[#00d2fd] rounded px-2.5 py-1 focus:outline-none"
             >
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17].map(wk => (

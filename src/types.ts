@@ -47,6 +47,13 @@ export interface Player {
     gamesPlayed: number;
     mvps: number;
   };
+  signOnFee?: number; // Luvas
+  isImported?: boolean;
+  visaApproved?: boolean;
+  consecutiveBenchCount?: number;
+  isMvpBonusExigido?: boolean;
+  isTitularidadeExigida?: boolean;
+  contractWeeksRemaining?: number;
 }
 
 export type StaffRole = 'Coach' | 'Analyst' | 'Psychologist' | 'StreamManager' | 'PerformanceCoach';
@@ -115,6 +122,14 @@ export interface Team {
   matchHistoryIds: string[];
   region?: 'CBLOL' | 'LCK' | 'LPL' | 'LEC' | 'LCS' | 'LCP';
   description?: string;
+  loans?: { id: string; type: 'Pessoal' | 'Empresarial' | 'Risco'; amount: number; remainingWeeks: number; interestRate: number; totalToPay: number }[];
+  creditScore?: number;
+  investments?: { fixedIncome: number; sportsFund: number; sharesRivals: number; advancedSponsorWeeks: number; advancedSponsorBudget: number };
+  installmentPlans?: { id: string; playerName: string; totalAmount: number; remainingWeeks: number; installmentAmount: number }[];
+  vistasAwaiting?: { id: string; playerId: string; name: string; type: 'P-1' | 'EB-1'; weeksRemaining: number; hasDocumentationRequest: boolean }[];
+  poachingPenaltiesWeeks?: number;
+  ticketPrice?: number;
+  jerseyPrice?: number;
 }
 
 export interface Champion {

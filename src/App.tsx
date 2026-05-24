@@ -3,13 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   Shield, Compass, Sparkles, Trophy, Calendar, 
   Settings, LogOut, DollarSign, Award, ChevronRight, Play, Sliders, Briefcase, Zap, Heart, Target,
   Users, Building2, TrendingUp, BarChart3, Medal, Save, History, ArrowLeftRight,
-  Sun, Moon, RefreshCw, Bug
+  Sun, Moon, RefreshCw, Bug, Mail, Bell, Map
 } from 'lucide-react';
 import { formatMoney, getCurrencySymbol } from './utils/currency';
 
@@ -38,12 +38,25 @@ import {
   EstatisticasTab, SoloQueueTab, UltimasPartidasTab, MetaTab, CarreiraTab, SalvarJogoTab,
   ComunidadeTab, CentralDeEmpregosTab
 } from './components/NewTabs';
+import InboxTab from './components/InboxTab';
+import NotificationsTab from './components/NotificationsTab';
+import RoadmapTab from './components/RoadmapTab';
 
 export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('legendshub_theme') as 'light' | 'dark') || 'light';
   });
   const [currencyVersion, setCurrencyVersion] = useState(0);
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.body.classList.add('dark-mode');
+      document.body.classList.remove('light-mode');
+    } else {
+      document.body.classList.add('light-mode');
+      document.body.classList.remove('dark-mode');
+    }
+  }, [theme]);
 
   useEffect(() => {
     const handleCurrencyChanged = () => {
@@ -62,6 +75,59 @@ export default function App() {
   // Shared state for selected player and detailed profile visibility
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
   const [isDetailedProfileOpen, setIsDetailedProfileOpen] = useState<boolean>(false);
+  const [selectedCalendarWeek, setSelectedCalendarWeek] = useState<number | undefined>(undefined);
+  const [isCalDropdownOpen, setIsCalDropdownOpen] = useState<boolean>(false);
+  const [isBudgetDropdownOpen, setIsBudgetDropdownOpen] = useState<boolean>(false);
+
+  // Refs for click outside detection and hover delays
+  const calContainerRef = useRef<HTMLDivElement>(null);
+  const budgetContainerRef = useRef<HTMLDivElement>(null);
+  const calTimerRef = useRef<any>(null);
+  const budgetTimerRef = useRef<any>(null);
+
+  // Handles click outside behavior
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (calContainerRef.current && !calContainerRef.current.contains(event.target as Node)) {
+        setIsCalDropdownOpen(false);
+      }
+      if (budgetContainerRef.current && !budgetContainerRef.current.contains(event.target as Node)) {
+        setIsBudgetDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const openCalDropdown = () => {
+    if (calTimerRef.current) clearTimeout(calTimerRef.current);
+    setIsBudgetDropdownOpen(false);
+    if (budgetTimerRef.current) clearTimeout(budgetTimerRef.current);
+    setIsCalDropdownOpen(true);
+  };
+
+  const closeCalDropdownWithDelay = () => {
+    if (calTimerRef.current) clearTimeout(calTimerRef.current);
+    calTimerRef.current = setTimeout(() => {
+      setIsCalDropdownOpen(false);
+    }, 500);
+  };
+
+  const openBudgetDropdown = () => {
+    if (budgetTimerRef.current) clearTimeout(budgetTimerRef.current);
+    setIsCalDropdownOpen(false);
+    if (calTimerRef.current) clearTimeout(calTimerRef.current);
+    setIsBudgetDropdownOpen(true);
+  };
+
+  const closeBudgetDropdownWithDelay = () => {
+    if (budgetTimerRef.current) clearTimeout(budgetTimerRef.current);
+    budgetTimerRef.current = setTimeout(() => {
+      setIsBudgetDropdownOpen(false);
+    }, 500);
+  };
 
   const [activeBluePicks, setActiveBluePicks] = useState<{ [key: string]: string }>({});
   const [activeRedPicks, setActiveRedPicks] = useState<{ [key: string]: string }>({});
@@ -622,7 +688,14 @@ export default function App() {
           />
         );
       case 'Calendário':
-        return <CalendarTab {...({ gameState, theme } as any)} />;
+        return (
+          <CalendarTab 
+            gameState={gameState} 
+            theme={theme} 
+            selectedCalendarWeek={selectedCalendarWeek}
+            setSelectedCalendarWeek={setSelectedCalendarWeek}
+          />
+        );
       case 'Jogadores':
       case 'Gerenciar Jogadores':
         return (
@@ -783,6 +856,33 @@ export default function App() {
          return <MetaTab {...({ gameState, theme } as any)} />;
       case 'Carreira':
          return <CarreiraTab {...({ gameState, theme } as any)} />;
+      case 'Inbox':
+        return (
+          <InboxTab 
+            gameState={gameState} 
+            theme={theme} 
+            onSelectTab={(tab) => {
+              setActiveTab(tab);
+              triggerNotification?.("📬 Navegação", `Direcionado para a seção: ${tab}`);
+            }}
+            triggerNotification={triggerNotification}
+          />
+        );
+      case 'Notificações':
+        return (
+          <NotificationsTab 
+            gameState={gameState} 
+            theme={theme} 
+          />
+        );
+      case 'Roadmap':
+        return (
+          <RoadmapTab 
+            gameState={gameState} 
+            theme={theme} 
+            triggerNotification={triggerNotification}
+          />
+        );
       case 'Salvar Jogo':
          return (
           <SalvarJogoTab
@@ -930,7 +1030,7 @@ export default function App() {
               } bg-clip-text text-transparent`}>LEGENDS HUB</h2>
               <span className={`text-[8px] font-extrabold tracking-widest uppercase ${
                 theme === 'dark' ? 'text-sky-300' : 'text-slate-400'
-              }`}>TACTICAL EDITION</span>
+              }`}>MANAGER DE LEAGUE OF LEGENDS</span>
             </div>
           </div>
 
@@ -1041,101 +1141,518 @@ export default function App() {
             }`}>{activeTab} Panel</h1>
           </div>
           
-          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-xs font-semibold">
-            {/* Dark Mode, Verificar Atualizações, Reportar Bug buttons */}
-            <div className="flex items-center gap-2">
-              {/* Dark Mode button */}
-              <button
-                onClick={() => {
-                  const nextTheme = theme === 'dark' ? 'light' : 'dark';
-                  setTheme(nextTheme);
-                  localStorage.setItem('legendshub_theme', nextTheme);
-                }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-bold uppercase transition-all duration-150 cursor-pointer ${
-                  theme === 'dark' 
+          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-5 text-xs font-semibold">
+            {/* 1. INBOX Button (Mail icon, icon-only) */}
+            <button
+              onClick={() => {
+                setActiveTab('Inbox');
+                triggerNotification?.("📬 Inbox", "Acessando sua caixa de e-mails recebidos.");
+              }}
+              className={`flex items-center justify-center p-2 rounded-lg border transition-all duration-150 cursor-pointer ${
+                activeTab === 'Inbox'
+                  ? 'bg-sky-500/10 border-sky-400 text-sky-400 shadow-md'
+                  : theme === 'dark' 
                     ? 'bg-slate-900/40 border-[#1e2d44] text-slate-350 hover:text-white hover:bg-slate-800/40' 
                     : 'bg-slate-50 border-slate-205 text-slate-600 hover:text-slate-850 hover:bg-slate-100'
-                }`}
-                title="Alternar Modo Escuro / Claro"
-              >
-                {theme === 'dark' ? (
-                  <>
-                    <Moon className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                    <span className="hidden sm:inline">Dark Mode</span>
-                  </>
-                ) : (
-                  <>
-                    <Sun className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                    <span className="hidden sm:inline">Light Mode</span>
-                  </>
-                )}
-              </button>
+              }`}
+              title="Inbox - E-mails da Direção, Jogadores e Propostas"
+            >
+              <Mail className="w-4 h-4 shrink-0" />
+            </button>
 
-              {/* Verificar Atualizações */}
-              <button
-                onClick={handleCheckUpdates}
-                disabled={isCheckingUpdates}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-bold uppercase transition-all duration-150 cursor-pointer ${
-                  theme === 'dark' 
+            {/* 2. NOTIFICAÇÕES Button (Bell icon, icon-only) */}
+            <button
+              onClick={() => {
+                setActiveTab('Notificações');
+                triggerNotification?.("🔔 Notificações", "Exibindo notícias do cenário competitivo.");
+              }}
+              className={`flex items-center justify-center p-2 rounded-lg border transition-all duration-150 cursor-pointer ${
+                activeTab === 'Notificações'
+                  ? 'bg-sky-500/10 border-sky-400 text-sky-400 shadow-md'
+                  : theme === 'dark' 
                     ? 'bg-slate-900/40 border-[#1e2d44] text-slate-350 hover:text-white hover:bg-slate-800/40' 
                     : 'bg-slate-50 border-slate-205 text-slate-600 hover:text-slate-850 hover:bg-slate-100'
-                }`}
-                title="Buscar atualizações de código no GitHub"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 text-sky-450 shrink-0 ${isCheckingUpdates ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">{isCheckingUpdates ? 'Verificando...' : 'Verificar Atualizações'}</span>
-                <span className="sm:hidden">Update</span>
-              </button>
+              }`}
+              title="Notificações & Notícias do Cenário Mundial"
+            >
+              <Bell className="w-4 h-4 shrink-0" />
+            </button>
 
-              {/* Reportar Bug */}
-              <button
-                onClick={() => {
-                  setShowBugModal(true);
-                  setBugSuccess(false);
-                }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-bold uppercase transition-all duration-150 cursor-pointer ${
-                  theme === 'dark' 
+            {/* 3. ROADMAP Button (Map icon, icon-only) */}
+            <button
+              onClick={() => {
+                setActiveTab('Roadmap');
+                triggerNotification?.("🗺️ Roadmap", "Abrindo programação de atualizações e correções.");
+              }}
+              className={`flex items-center justify-center p-2 rounded-lg border transition-all duration-150 cursor-pointer ${
+                activeTab === 'Roadmap'
+                  ? 'bg-sky-500/10 border-sky-400 text-sky-400 shadow-md'
+                  : theme === 'dark' 
                     ? 'bg-slate-900/40 border-[#1e2d44] text-slate-350 hover:text-white hover:bg-slate-800/40' 
                     : 'bg-slate-50 border-slate-205 text-slate-600 hover:text-slate-850 hover:bg-slate-100'
-                }`}
-                title="Bugs, falhas ou sugestões"
-              >
-                <Bug className="w-3.5 h-3.5 text-red-400 shrink-0" />
-                <span className="hidden sm:inline">Reportar Bug</span>
-                <span className="sm:hidden">Bug</span>
-              </button>
-            </div>
+              }`}
+              title="Roadmap & Linha do Tempo de Atualizações"
+            >
+              <Map className="w-4 h-4 shrink-0" />
+            </button>
 
-            {/* Separator */}
+            {/* 4. DARK MODE Button (Moon/Sun icon, icon-only) */}
+            <button
+              onClick={() => {
+                const nextTheme = theme === 'dark' ? 'light' : 'dark';
+                setTheme(nextTheme);
+                localStorage.setItem('legendshub_theme', nextTheme);
+              }}
+              className={`flex items-center justify-center p-2 rounded-lg border transition-all duration-150 cursor-pointer ${
+                theme === 'dark' 
+                  ? 'bg-slate-900/40 border-[#1e2d44] text-slate-350 hover:text-white hover:bg-slate-800/40' 
+                  : 'bg-slate-50 border-slate-205 text-slate-600 hover:text-slate-850 hover:bg-slate-100'
+              }`}
+              title="Alternar Modo Escuro / Claro"
+            >
+              {theme === 'dark' ? (
+                <Moon className="w-4 h-4 text-indigo-400 shrink-0" />
+              ) : (
+                <Sun className="w-4 h-4 text-amber-500 shrink-0" />
+              )}
+            </button>
+
+            {/* 5. VERIFICAR ATUALIZAÇÕES Button (RefreshCw icon, icon-only) */}
+            <button
+              onClick={handleCheckUpdates}
+              disabled={isCheckingUpdates}
+              className={`flex items-center justify-center p-2 rounded-lg border transition-all duration-150 cursor-pointer ${
+                theme === 'dark' 
+                  ? 'bg-slate-900/40 border-[#1e2d44] text-slate-350 hover:text-white hover:bg-slate-800/40' 
+                  : 'bg-slate-50 border-slate-205 text-slate-600 hover:text-slate-850 hover:bg-slate-100'
+              }`}
+              title={isCheckingUpdates ? 'Buscando atualizações de código...' : 'Verificar Atualizações no GitHub'}
+            >
+              <RefreshCw className={`w-4 h-4 text-sky-450 shrink-0 ${isCheckingUpdates ? 'animate-spin' : ''}`} />
+            </button>
+
+            {/* 6. REPORTAR BUG Button (Bug icon, icon-only) */}
+            <button
+              onClick={() => {
+                setShowBugModal(true);
+                setBugSuccess(false);
+              }}
+              className={`flex items-center justify-center p-2 rounded-lg border transition-all duration-150 cursor-pointer ${
+                theme === 'dark' 
+                  ? 'bg-slate-900/40 border-[#1e2d44] text-slate-350 hover:text-white hover:bg-slate-800/40' 
+                  : 'bg-slate-50 border-slate-205 text-slate-600 hover:text-slate-850 hover:bg-slate-100'
+              }`}
+              title="Reportar Bug / Falha Tática"
+            >
+              <Bug className="w-4 h-4 text-red-500 shrink-0" />
+            </button>
+
+            {/* Spacer separator */}
             <div className={`hidden sm:block h-6 w-px ${theme === 'dark' ? 'bg-[#1e2d44]' : 'bg-slate-200'}`} />
 
-            {/* Budget / Saldo */}
-            <div className="text-center sm:text-left">
-              <span className="text-[9px] text-slate-400 uppercase tracking-widest font-black font-mono block leading-none">Saldo da Org</span>
-              <p className={`font-display font-black text-[13px] mt-1 ${
-                theme === 'dark' ? 'text-slate-100' : 'text-slate-800'
-              }`}>{pTeamObj ? formatMoney(pTeamObj.budget) : 'N/A'}</p>
+            {/* 7. ORÇAMENTO (Coin/DollarSign icon + formatted dynamic cash value with hover effects and dropdown) */}
+            <div 
+              ref={budgetContainerRef}
+              className="relative"
+              onMouseEnter={openBudgetDropdown}
+              onMouseLeave={closeBudgetDropdownWithDelay}
+            >
+              <div 
+                onClick={() => {
+                  if (isBudgetDropdownOpen) {
+                    setIsBudgetDropdownOpen(false);
+                  } else {
+                    openBudgetDropdown();
+                  }
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border shadow-xs select-none cursor-pointer transition-all duration-200 group ${
+                  isBudgetDropdownOpen
+                    ? theme === 'dark' 
+                      ? 'bg-white/8 border-[#00cbd6] text-[#FFFFFF]' 
+                      : 'bg-slate-205 border-slate-400 text-slate-900 font-bold'
+                    : theme === 'dark' 
+                      ? 'bg-[#070d19] border-[#1e2d44] text-slate-350 hover:bg-white/8 hover:border-[#00cbd6] hover:text-[#FFFFFF]' 
+                      : 'bg-slate-50 border-slate-205 text-slate-600 hover:bg-black/6 hover:text-slate-900 hover:border-slate-350'
+                }`} 
+                title="Saldo da Org / Orçamento Técnico"
+              >
+                <DollarSign className={`w-4 h-4 shrink-0 transition-colors duration-200 ${
+                  isBudgetDropdownOpen
+                    ? theme === 'dark' ? 'text-[#FFFFFF]' : 'text-slate-900'
+                    : theme === 'dark' ? 'text-emerald-500 group-hover:text-[#FFFFFF]' : 'text-emerald-600 group-hover:text-slate-900'
+                }`} />
+                <span className="font-mono font-black text-[11.5px] leading-tight transition-colors duration-200">
+                  {pTeamObj ? formatMoney(pTeamObj.budget) : 'N/A'}
+                </span>
+              </div>
+
+              {/* Budget Dropdown Panel */}
+              <AnimatePresence>
+                {isBudgetDropdownOpen && gameState && pTeamObj && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 12, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 12, scale: 0.97 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    className={`absolute right-0 mt-2 w-72 rounded-xl border p-4 shadow-2xl z-55 ${
+                      theme === 'dark' 
+                        ? 'bg-[#0d1726] border-[#1e2d44] text-white shadow-black/80' 
+                        : 'bg-white border-slate-200 text-slate-800 shadow-slate-350/50'
+                    }`}
+                  >
+                    {/* Header */}
+                    <div className="flex justify-between items-center mb-3 border-b border-slate-100 dark:border-slate-800/65 pb-2">
+                      <div>
+                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100">
+                          Resumo Financeiro
+                        </h4>
+                        <p className="text-[9px] font-bold text-slate-450 uppercase tracking-widest leading-none mt-0.5">
+                          Extrato Rápido do Clube
+                        </p>
+                      </div>
+                      <span className="text-[9px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 font-extrabold uppercase font-mono tracking-widest">
+                        ATIVO
+                      </span>
+                    </div>
+
+                    {/* Content List */}
+                    <div className="space-y-3.5 my-3">
+                      {(() => {
+                        const sponsorWeekly = pTeamObj.sponsors?.filter(s => s.isSigned).reduce((acc, s) => acc + s.incomePerWeek, 0) || 0;
+                        const athleteCostsWeekly = (pTeamObj.roster?.reduce((acc, p) => acc + p.salary, 0) || 0) + (pTeamObj.substitutes?.reduce((acc, p) => acc + p.salary, 0) || 0);
+                        const staffCostsWeekly = gameState.availableStaff?.filter(s => s.hired).reduce((acc, s) => acc + s.salary, 0) || 0;
+
+                        const estimatedRevenuesSponsor = sponsorWeekly * 4;
+                        const estimatedMerchandising = 20000 + (pTeamObj.popularity || 50) * 120;
+                        const estimatedPrizes = 15000;
+
+                        const playerSalariesMonthly = athleteCostsWeekly * 4;
+                        const staffSalariesMonthly = staffCostsWeekly * 4;
+                        const housingCosts = 12000;
+                        const marketingCommissions = 3000;
+
+                        const totalRevenues = estimatedRevenuesSponsor + estimatedMerchandising + estimatedPrizes;
+                        const totalExpenses = playerSalariesMonthly + staffSalariesMonthly + housingCosts + marketingCommissions;
+                        const netBalance = totalRevenues - totalExpenses;
+
+                        return (
+                          <>
+                            {/* Receitas section */}
+                            <div>
+                              <div className="text-[9px] font-black text-slate-400 dark:text-slate-505 uppercase tracking-widest mb-1.5">
+                                Receitas Estimadas / Mês
+                              </div>
+                              <div className="space-y-1 pl-1.5 border-l-2 border-emerald-500/40">
+                                <div className="flex justify-between items-center text-[11px]">
+                                  <span className="dark:text-slate-300 text-slate-650">Patrocínios:</span>
+                                  <span className="font-mono font-bold text-emerald-500">+{formatMoney(estimatedRevenuesSponsor)}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-[11px]">
+                                  <span className="dark:text-slate-300 text-slate-650">Merch & Ingressos:</span>
+                                  <span className="font-mono font-bold text-emerald-500">+{formatMoney(estimatedMerchandising)}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-[11px]">
+                                  <span className="dark:text-slate-300 text-slate-650">Premiações / Licenças:</span>
+                                  <span className="font-mono font-bold text-emerald-500">+{formatMoney(estimatedPrizes)}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Despesas section */}
+                            <div>
+                              <div className="text-[9px] font-black text-slate-400 dark:text-slate-505 uppercase tracking-widest mb-1.5">
+                                Despesas Estimadas / Mês
+                              </div>
+                              <div className="space-y-1 pl-1.5 border-l-2 border-rose-500/40">
+                                <div className="flex justify-between items-center text-[11px]">
+                                  <span className="dark:text-slate-300 text-slate-650">Salários dos Atletas:</span>
+                                  <span className="font-mono font-bold text-rose-500">-{formatMoney(playerSalariesMonthly)}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-[11px]">
+                                  <span className="dark:text-slate-300 text-slate-650">Staff & Coaches:</span>
+                                  <span className="font-mono font-bold text-rose-500">-{formatMoney(staffSalariesMonthly)}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-[11px]">
+                                  <span className="dark:text-slate-300 text-slate-650">Gaming House & Custos:</span>
+                                  <span className="font-mono font-bold text-rose-500">-{formatMoney(housingCosts + marketingCommissions)}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Balanço Mensal */}
+                            <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800/60 font-semibold">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                                  Balanço Mensal:
+                                </span>
+                                <span className={`font-mono text-xs font-black ${
+                                  netBalance >= 0 ? "text-emerald-500" : "text-rose-500"
+                                }`}>
+                                  {netBalance >= 0 ? "+" : ""}{formatMoney(netBalance)}
+                                </span>
+                              </div>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Redirect Footer */}
+                    <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800/60 text-center">
+                      <button
+                        onClick={() => {
+                          setActiveTab('Finanças');
+                          setIsBudgetDropdownOpen(false);
+                          triggerNotification?.("🪙 Finanças", "Carregando área financeira da organização.");
+                        }}
+                        className="text-[10px] font-black uppercase tracking-wider text-sky-450 hover:text-sky-350 transition-colors cursor-pointer select-none inline-block duration-150"
+                      >
+                        Ver Finanças Completas
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
-            {/* Separator */}
-            <div className={`h-6 w-px ${theme === 'dark' ? 'bg-[#1e2d44]' : 'bg-slate-200'}`} />
+            {/* Spacer separator */}
+            <div className={`hidden sm:block h-6 w-px ${theme === 'dark' ? 'bg-[#1e2d44]' : 'bg-slate-200'}`} />
 
-            {/* Season split week info */}
-            <div className="text-center sm:text-left">
-              <span className="text-[9px] text-slate-400 uppercase tracking-widest font-black font-mono block leading-none font-semibold">Split (Ano {gameState.season})</span>
-              <p className={`font-display font-black text-[13px] mt-1 ${
-                theme === 'dark' ? 'text-slate-100' : 'text-slate-800'
-              }`}>Semana {gameState.week - 1}</p>
+            {/* 8. CALENDÁRIO (Red calendar header, transforming into modern dropdown calendar) */}
+            <div 
+              ref={calContainerRef}
+              className="relative"
+              onMouseEnter={openCalDropdown}
+              onMouseLeave={closeCalDropdownWithDelay}
+            >
+              <div 
+                onClick={() => {
+                  if (isCalDropdownOpen) {
+                    setIsCalDropdownOpen(false);
+                  } else {
+                    openCalDropdown();
+                  }
+                }}
+                className={`flex items-center gap-3 px-3 py-1.5 rounded-lg border text-left shadow-xs transition-colors duration-150 cursor-pointer select-none ${
+                  isCalDropdownOpen
+                    ? theme === 'dark' ? 'bg-[#1e2d44] border-[#00cbd6]' : 'bg-slate-205 border-slate-400'
+                    : theme === 'dark' ? 'bg-[#0c1a30] border-[#1e2d44] hover:bg-[#152744]' : 'bg-[#eef2f6] border-slate-205 hover:bg-slate-200'
+                }`}
+                title="Calendário e Cronograma do Jogo"
+              >
+                <Calendar className="w-4.5 h-4.5 text-[#fc4b6c] shrink-0" />
+                <div className="flex flex-col leading-none">
+                  <div className="flex items-center gap-1 text-[9.5px] font-black uppercase tracking-wider text-slate-400">
+                    <span>SEMANA</span>
+                    <span className="text-[#fc4b6c] font-black font-mono">
+                      S{gameState ? (gameState.week <= 18 ? 1 : 2) : 1} • W{gameState?.week || 1} - {
+                        gameState ? (
+                          gameState.week <= 4 ? "Janeiro" :
+                          gameState.week <= 8 ? "Fevereiro" :
+                          gameState.week <= 12 ? "Março" :
+                          gameState.week <= 16 ? "Abril" :
+                          gameState.week <= 20 ? "Maio" :
+                          gameState.week <= 24 ? "Junho" :
+                          gameState.week <= 28 ? "Julho" : "Agosto"
+                        ) : "Abril"
+                      }
+                    </span>
+                  </div>
+                  <span className={`text-[9px] mt-0.5 font-bold font-mono ${theme === 'dark' ? 'text-slate-450' : 'text-slate-650'}`}>
+                    Dom, {gameState ? (10 + (gameState.week * 2) % 19) : 19} - {2025 + (gameState?.season || 1)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Dropdown panel */}
+              <AnimatePresence>
+                {isCalDropdownOpen && gameState && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 12, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 12, scale: 0.97 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    className={`absolute right-0 mt-2 w-72 rounded-xl border p-4 shadow-2xl z-55 ${
+                      theme === 'dark' 
+                        ? 'bg-[#0d1726] border-[#1e2d44] text-white shadow-black/80' 
+                        : 'bg-white border-slate-200 text-slate-800 shadow-slate-350/50'
+                    }`}
+                  >
+                    {/* Header: Month and Split */}
+                    <div className="flex justify-between items-center mb-3 border-b border-slate-100 dark:border-slate-800/60 pb-2">
+                      <div>
+                        {(() => {
+                          const getExtendedMonthInfo = (weekNum: number) => {
+                            if (weekNum <= 4)   return { name: "Janeiro", weeks: [1, 2, 3, 4], totalDays: 31, prevTotalDays: 31 };
+                            if (weekNum <= 8)   return { name: "Fevereiro", weeks: [5, 6, 7, 8], totalDays: 28, prevTotalDays: 31 };
+                            if (weekNum <= 12)  return { name: "Março", weeks: [9, 10, 11, 12], totalDays: 31, prevTotalDays: 28 };
+                            if (weekNum <= 16)  return { name: "Abril", weeks: [13, 14, 15, 16], totalDays: 30, prevTotalDays: 31 };
+                            if (weekNum <= 20)  return { name: "Maio", weeks: [17, 18, 19, 20], totalDays: 31, prevTotalDays: 30 };
+                            if (weekNum <= 24)  return { name: "Junho", weeks: [21, 22, 23, 24], totalDays: 30, prevTotalDays: 31 };
+                            if (weekNum <= 28)  return { name: "Julho", weeks: [25, 26, 27, 28], totalDays: 31, prevTotalDays: 30 };
+                            return { name: "Agosto", weeks: [29, 30, 31, 32], totalDays: 31, prevTotalDays: 31 };
+                          };
+                          const mInfo = getExtendedMonthInfo(gameState.week);
+                          return (
+                            <>
+                              <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100">
+                                {mInfo.name} {2025 + (gameState?.season || 1)}
+                              </h4>
+                              <p className="text-[9px] font-bold text-slate-450 uppercase tracking-widest leading-none mt-0.5">
+                                Split {gameState.week <= 18 ? 1 : 2} • Semana {gameState.week}
+                              </p>
+                            </>
+                          );
+                        })()}
+                      </div>
+                      <span className="text-[9px] px-2 py-0.5 rounded bg-[#fc4b6c]/10 text-[#fc4b6c] font-extrabold uppercase font-mono tracking-widest">
+                        AGENDA
+                      </span>
+                    </div>
+
+                    {/* Weekday Labels Grid (Seg-Dom) */}
+                    <div className="grid grid-cols-7 gap-1 mb-1 text-center font-semibold select-none">
+                      {['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'].map((lbl) => (
+                        <span key={lbl} className="text-[9px] font-black tracking-widest text-slate-400 dark:text-slate-500 font-mono">
+                          {lbl}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Day Grid */}
+                    <div className="grid grid-cols-7 gap-1">
+                      {/* 1. Days generation */}
+                      {(() => {
+                        const getExtendedMonthInfo = (weekNum: number) => {
+                          if (weekNum <= 4)   return { name: "Janeiro", weeks: [1, 2, 3, 4], totalDays: 31, prevTotalDays: 31 };
+                          if (weekNum <= 8)   return { name: "Fevereiro", weeks: [5, 6, 7, 8], totalDays: 28, prevTotalDays: 31 };
+                          if (weekNum <= 12)  return { name: "Março", weeks: [9, 10, 11, 12], totalDays: 31, prevTotalDays: 28 };
+                          if (weekNum <= 16)  return { name: "Abril", weeks: [13, 14, 15, 16], totalDays: 30, prevTotalDays: 31 };
+                          if (weekNum <= 20)  return { name: "Maio", weeks: [17, 18, 19, 20], totalDays: 31, prevTotalDays: 30 };
+                          if (weekNum <= 24)  return { name: "Junho", weeks: [21, 22, 23, 24], totalDays: 30, prevTotalDays: 31 };
+                          if (weekNum <= 28)  return { name: "Julho", weeks: [25, 26, 27, 28], totalDays: 31, prevTotalDays: 30 };
+                          return { name: "Agosto", weeks: [29, 30, 31, 32], totalDays: 31, prevTotalDays: 31 };
+                        };
+                        const mInfo = getExtendedMonthInfo(gameState.week);
+                        const cDayNum = 10 + (gameState.week * 2) % 19;
+                        const sOff = (6 - (cDayNum - 1) % 7 + 7) % 7;
+                        
+                        const cells = [];
+                        
+                        // Previous Month Days
+                        for (let i = sOff - 1; i >= 0; i--) {
+                          const prevDay = mInfo.prevTotalDays - i;
+                          cells.push(
+                            <div 
+                              key={`prev-${prevDay}`} 
+                              className="text-[10.5px] font-mono text-center font-bold text-slate-350/30 dark:text-slate-600/40 py-2 select-none"
+                            >
+                              {prevDay}
+                            </div>
+                          );
+                        }
+
+                        // Core Days logic
+                        for (let d = 1; d <= mInfo.totalDays; d++) {
+                          const isToday = d === cDayNum;
+                          const dayOfWeek = (sOff + d - 1) % 7;
+                          const hasCampeonato = dayOfWeek === 6; // Sunday
+                          const hasScrim = dayOfWeek === 4 || dayOfWeek === 5; // Fri, Sat
+
+                          // compute corresponding game week for redirection
+                          const weekIndexInMonth = Math.min(3, Math.floor((d - 1) / 7));
+                          const targetWeek = mInfo.weeks[weekIndexInMonth];
+
+                          cells.push(
+                            <div
+                              key={`day-${d}`}
+                              onClick={() => {
+                                setSelectedCalendarWeek(targetWeek);
+                                setActiveTab('Calendário');
+                                setIsCalDropdownOpen(false);
+                                triggerNotification?.("📅 Calendário", `Visualizando rodadas detalhadas da Semana ${targetWeek}.`);
+                              }}
+                              className={`relative text-[11px] font-mono font-bold flex flex-col items-center justify-center rounded-lg h-8 w-8 mx-auto cursor-pointer select-none transition-all duration-150 ${
+                                isToday
+                                  ? theme === 'dark'
+                                    ? 'border-2 border-[#00cbd6] text-[#00cbd6] font-extrabold bg-[#00cbd6]/10 shadow-[0_0_10px_rgba(0,203,214,0.3)]'
+                                    : 'bg-blue-600 text-white font-extrabold shadow-md border border-blue-700'
+                                  : theme === 'dark'
+                                    ? 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                                    : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-transparent'
+                              }`}
+                            >
+                              <span>{d}</span>
+                              {/* Agenda dots under number spacing */}
+                              {!isToday && hasCampeonato && (
+                                <span className="absolute bottom-[2px] w-1 h-1 rounded-full bg-blue-500 animate-pulse" />
+                              )}
+                              {!isToday && hasScrim && (
+                                <span className="absolute bottom-[2px] w-1 h-1 rounded-full bg-amber-500" />
+                              )}
+                            </div>
+                          );
+                        }
+
+                        // Next list padding
+                        const totalGridSoFar = sOff + mInfo.totalDays;
+                        const finalCount = totalGridSoFar <= 35 ? 35 : 42;
+                        const nextMonthPadding = finalCount - totalGridSoFar;
+                        for (let i = 1; i <= nextMonthPadding; i++) {
+                          cells.push(
+                            <div 
+                              key={`next-${i}`} 
+                              className="text-[10.5px] font-mono text-center font-bold text-slate-350/30 dark:text-slate-600/40 py-2 select-none"
+                            >
+                              {i}
+                            </div>
+                          );
+                        }
+
+                        return cells;
+                      })()}
+                    </div>
+
+                    {/* Bottom Legend details */}
+                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100 dark:border-slate-800/60 text-[8.5px] font-black select-none text-slate-450 uppercase">
+                      <div className="flex gap-2.5 items-center">
+                        <div className="flex gap-1 items-center">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                          <span>Campeonato</span>
+                        </div>
+                        <div className="flex gap-1 items-center">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                          <span>Scrim</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Redirect button footer */}
+                    <div className="mt-3 text-center">
+                      <button
+                        onClick={() => {
+                          setActiveTab('Calendário');
+                          setIsCalDropdownOpen(false);
+                          triggerNotification?.("📅 Calendário", "Carregando Calendário Geral.");
+                        }}
+                        className="text-[10px] font-black uppercase tracking-wider text-sky-450 hover:text-sky-350 transition-colors cursor-pointer select-none inline-block duration-150"
+                      >
+                        Ver Calendário Completo
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
-            {/* Separator */}
-            <div className={`h-6 w-px ${theme === 'dark' ? 'bg-[#1e2d44]' : 'bg-slate-200'}`} />
+            {/* Spacer separator */}
+            <div className={`hidden sm:block h-6 w-px ${theme === 'dark' ? 'bg-[#1e2d44]' : 'bg-slate-200'}`} />
 
-            {/* Manager profile avatar photo (clickable redirects to Carreira tab) */}
+            {/* 9. AVATAR (Circular manager profile photo) */}
             <div 
               onClick={() => {
                 setActiveTab('Carreira');
-                triggerNotification("👤 Central da Carreira", "Exibindo seu perfil profissional de manager.");
+                triggerNotification?.("👤 Central da Carreira", "Exibindo seu perfil profissional de manager.");
               }}
               className="relative cursor-pointer hover:scale-105 active:scale-95 transition-all group shrink-0"
               title="Acessar painel de Carreira"
@@ -1148,8 +1665,8 @@ export default function App() {
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <div className="w-9 h-9 rounded-full bg-slate-500/10 flex items-center justify-center border border-slate-400/20 font-black text-sky-400 text-xs shrink-0 select-none group-hover:border-sky-300 transition-colors">
-                  {gameState.managerName.charAt(0).toUpperCase()}
+                <div className="w-9 h-9 rounded-full bg-slate-500/10 flex items-center justify-center border border-slate-400/20 font-black text-sky-450 text-xs shrink-0 select-none group-hover:border-sky-300 transition-colors">
+                  {(gameState?.managerName || 'M').charAt(0).toUpperCase()}
                 </div>
               )}
               {/* Online indicator */}

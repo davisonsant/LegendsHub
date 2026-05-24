@@ -230,21 +230,306 @@ export function advanceGameWeek(gameState: GameState): GameState {
     });
   }
 
-  // 2. Financial weekly accounting
-  // Weekly incomes
-  const sponsorsIncome = playerTeam.sponsors.reduce((acc, s) => acc + s.incomePerWeek, 0);
-  const ticketsPopularitySale = playerTeam.popularity * 1500; // ticket and shirt merch sales
+  // 2. Financial weekly accounting & Game Engine Ticking Module
+  if (playerTeam.creditScore === undefined) playerTeam.creditScore = 720;
+  if (!playerTeam.loans) playerTeam.loans = [];
+  if (!playerTeam.investments) {
+    playerTeam.investments = { fixedIncome: 0, sportsFund: 0, sharesRivals: 0, advancedSponsorWeeks: 0, advancedSponsorBudget: 0 };
+  }
+  if (!playerTeam.installmentPlans) playerTeam.installmentPlans = [];
+  if (!playerTeam.vistasAwaiting) playerTeam.vistasAwaiting = [];
+  if (playerTeam.poachingPenaltiesWeeks === undefined) playerTeam.poachingPenaltiesWeeks = 0;
+
+  // Safeguard custom contract structure on every roster/substitute player
+  const initContractProps = (p: Player) => {
+    if (p.signOnFee === undefined) p.signOnFee = Math.round(p.marketValue * 0.25);
+    if (p.isImported === undefined) p.isImported = p.nationality !== 'Brasil';
+    if (p.visaApproved === undefined) p.visaApproved = p.nationality === 'Brasil';
+    if (p.consecutiveBenchCount === undefined) p.consecutiveBenchCount = 0;
+    if (p.isMvpBonusExigido === undefined) p.isMvpBonusExigido = Math.random() < 0.2;
+    if (p.isTitularidadeExigida === undefined) p.isTitularidadeExigida = Math.random() < 0.15;
+  };
+  playerTeam.roster.forEach(initContractProps);
+  playerTeam.substitutes.forEach(initContractProps);
+
+  const sponsorsInflow = playerTeam.sponsors.reduce((acc, s) => acc + s.incomePerWeek, 0);
   
-  // Weekly costs
-  const playerPayroll = [...playerTeam.roster, ...playerTeam.substitutes].reduce((acc, p) => acc + p.salary / 24, 0); // monthly salary normalized weekly
-  const infrastructureOperatingExpenses = (playerTeam.infrastructure.gamingHouseLevel * 8000) + 
-                                          (playerTeam.infrastructure.trainingCenterLevel * 6000) +
-                                          (playerTeam.infrastructure.mediaTeamLevel * 4000);
+  // Custom user ticket and merchandising fan shop pricing calculations:
+  const usrJerseyPrice = playerTeam.jerseyPrice || 69;
+  const usrTicketPrice = playerTeam.ticketPrice || 25;
+  const merchSalesAmount = Math.round(playerTeam.popularity * usrJerseyPrice * 18);
+  const ticketsSalesAmount = Math.round(playerTeam.popularity * usrTicketPrice * 22);
+  const coreEarningsTotal = sponsorsInflow + merchSalesAmount + ticketsSalesAmount;
 
-  const activeStaffHiredPayroll = updatedState.availableStaff.filter(s => s.hired).reduce((acc, s) => acc + s.salary, 0);
+  const basePlayerPayrollWeekly = [...playerTeam.roster, ...playerTeam.substitutes].reduce((acc, p) => acc + p.salary / 24, 0);
+  const infrastructureCostsExpenses = (playerTeam.infrastructure.gamingHouseLevel * 8000) + 
+                                       (playerTeam.infrastructure.trainingCenterLevel * 6000) +
+                                       (playerTeam.infrastructure.mediaTeamLevel * 4000);
+  const hiredStaffCostsWeekly = updatedState.availableStaff.filter(s => s.hired).reduce((acc, s) => acc + s.salary, 0);
+  const coreSpendingTotal = basePlayerPayrollWeekly + infrastructureCostsExpenses + hiredStaffCostsWeekly;
 
-  const netWeeklyGoldChange = sponsorsIncome + ticketsPopularitySale - playerPayroll - infrastructureOperatingExpenses - activeStaffHiredPayroll;
-  playerTeam.budget = Math.round(playerTeam.budget + netWeeklyGoldChange);
+  let extraEarningsInflow = 0;
+  let extraSpendingOutflow = 0;
+
+  // A. Bank Loans Weekly Ticking (Empréstimos)
+  const updatedLoansList = [];
+  for (const loan of playerTeam.loans) {
+    if (loan.remainingWeeks > 0) {
+      const weeklyPaymentValue = Math.round(loan.totalToPay / loan.remainingWeeks);
+      extraSpendingOutflow += weeklyPaymentValue;
+      loan.totalToPay -= weeklyPaymentValue;
+      loan.remainingWeeks--;
+      
+      if (loan.remainingWeeks > 0 && loan.totalToPay > 0) {
+        updatedLoansList.push(loan);
+      } else {
+        // Loan paid off!
+        playerTeam.creditScore = Math.min(1000, playerTeam.creditScore + 50);
+        playerTeam.boardTrust = Math.min(100, playerTeam.boardTrust + 3);
+        updatedState.socialFeed.unshift({
+          id: 'payoff_' + generateId(),
+          username: 'Rivals_Financial_Desk',
+          handle: '@BancoRivals',
+          avatarUrl: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?auto=format&fit=crop&q=80&w=100',
+          content: `✅ [QUITAÇÃO] O clube ${playerTeam.name} quitou integralmente seu Empréstimo do tipo "${loan.type}". Excelente sinal de responsabilidade financeira! Score de crédito reajustado para cima.`,
+          likes: 512,
+          retweets: 95,
+          timeAgo: 'Agora',
+          sentiment: 'positive',
+          verified: true
+        });
+      }
+    }
+  }
+  playerTeam.loans = updatedLoansList;
+
+  // B. Investments Returns Weekly Ticking
+  // B1. Renda Fixa (+2% per split, split is 14 weeks. Growth = +0.14% per week on alocated)
+  if (playerTeam.investments.fixedIncome > 0) {
+    const fixedInterestAdd = Math.round(playerTeam.investments.fixedIncome * 0.0014);
+    playerTeam.investments.fixedIncome += fixedInterestAdd;
+  }
+  // B2. Fundo Esportivo (+5% if playerTeam won last match)
+  if (playerTeam.investments.sportsFund > 0) {
+    const lastPlayedWeek = currentWeek; // checking player team score in current week before incrementing week
+    const matchesList = updatedState.calendarSchedule[lastPlayedWeek];
+    const playerMatch = matchesList?.find(m => m.teamBlueId === playerTeam.id || m.teamRedId === playerTeam.id);
+    if (playerMatch && playerMatch.isFinished) {
+      const isPlayerBlue = playerMatch.teamBlueId === playerTeam.id;
+      const didPlayerWinMatch = (isPlayerBlue && playerMatch.scoreBlue > playerMatch.scoreRed) || (!isPlayerBlue && playerMatch.scoreRed > playerMatch.scoreBlue);
+      if (didPlayerWinMatch) {
+        const dividendAmount = Math.round(playerTeam.investments.sportsFund * 0.05);
+        extraEarningsInflow += dividendAmount;
+        updatedState.socialFeed.unshift({
+          id: 'sports_fund_' + generateId(),
+          username: 'Fundo_Consilium',
+          handle: '@FundoEsportivoRivals',
+          avatarUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=100',
+          content: `💰 [FUNDO ESPORTIVO] Vitória na rodada pagou dividendos de +$ ${dividendAmount.toLocaleString('pt-BR')} (5% de ganho sobre o capital do ${playerTeam.name}). A Diretoria parabeniza o Manager pela pressão suportada!`,
+          likes: 420,
+          retweets: 62,
+          timeAgo: 'Agora',
+          sentiment: 'positive',
+          verified: true
+        });
+      }
+    }
+  }
+  // B3. Ações de Rivais (+10% or -5% volatility)
+  if (playerTeam.investments.sharesRivals > 0) {
+    const rateFluct = (Math.random() * 0.15) - 0.05; // -5% to +10%
+    const sharesChange = Math.round(playerTeam.investments.sharesRivals * rateFluct);
+    playerTeam.investments.sharesRivals += sharesChange;
+    // Moral Dilemma
+    if (playerTeam.investments.sharesRivals > 40000) {
+      playerTeam.boardTrust = Math.max(1, playerTeam.boardTrust - 1);
+      playerTeam.fansSupport = Math.max(1, playerTeam.fansSupport - 1);
+    }
+  }
+  // B4. Patrocínio Antecipado Ticking
+  if (playerTeam.investments.advancedSponsorWeeks > 0) {
+    playerTeam.investments.advancedSponsorWeeks--;
+    const paybackValue = 6500;
+    extraSpendingOutflow += paybackValue;
+    if (playerTeam.investments.advancedSponsorWeeks <= 0) {
+      playerTeam.investments.advancedSponsorWeeks = 0;
+      playerTeam.investments.advancedSponsorBudget = 0;
+    }
+  }
+
+  // C. Installment Payments for Sign-ons (Financiamento de Contratações)
+  const remainingInstallments = [];
+  for (const installment of playerTeam.installmentPlans) {
+    if (installment.remainingWeeks > 0) {
+      extraSpendingOutflow += installment.installmentAmount;
+      installment.remainingWeeks--;
+      if (installment.remainingWeeks > 0) {
+        remainingInstallments.push(installment);
+      } else {
+        updatedState.socialFeed.unshift({
+          id: 'inst_complete_' + generateId(),
+          username: 'Juridico_Rivals',
+          handle: '@JuridicoRivals',
+          avatarUrl: 'https://images.unsplash.com/photo-1450133064473-71024230f91b?auto=format&fit=crop&q=80&w=100',
+          content: `📜 [CONTRATO QUITADO] Concluído o pagamento das luvas financiadas do atleta ${installment.playerName}. Caixa jurídica limpo!`,
+          likes: 180,
+          retweets: 24,
+          timeAgo: 'Agora',
+          sentiment: 'positive',
+          verified: true
+        });
+      }
+    }
+  }
+  playerTeam.installmentPlans = remainingInstallments;
+
+  // D. Visa Approvals Ticking (Centro de Processamento de Vistos)
+  const activeAwaitingVisas = [];
+  for (const app of playerTeam.vistasAwaiting) {
+    if (app.weeksRemaining > 0) {
+      app.weeksRemaining--;
+      // Standard P-1 Visa has 15% random delay chance
+      if (app.type === 'P-1' && Math.random() < 0.15 && !app.hasDocumentationRequest) {
+        app.weeksRemaining += 1;
+        app.hasDocumentationRequest = true;
+        updatedState.socialFeed.unshift({
+          id: 'visa_doc_needed_' + generateId(),
+          username: 'Consulado_Rivals',
+          handle: '@ImigracaoGlobal',
+          avatarUrl: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&q=80&w=100',
+          content: `⚠️ [DOCUMENTO ADICIONAL] Imigração emitiu restrição temporária para liberação do Visto P-1 de ${app.name}. Tempo estimado de processamento acrescido em +1 semana.`,
+          likes: 1200,
+          retweets: 480,
+          timeAgo: 'Agora',
+          sentiment: 'negative',
+          verified: true
+        });
+      }
+
+      if (app.weeksRemaining <= 0) {
+        // Find player and approve visa
+        const matchPlayer = [...playerTeam.roster, ...playerTeam.substitutes, ...playerTeam.academy].find(p => p.id === app.playerId);
+        if (matchPlayer) {
+          matchPlayer.visaApproved = true;
+          updatedState.socialFeed.unshift({
+            id: 'visa_approved_' + generateId(),
+            username: 'Rival_Press_News',
+            handle: '@RiftNoticias',
+            avatarUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=100',
+            content: `✈️ [LIBERADO] Aprovado o visto governamental para o coreano/estrangeiro ${matchPlayer.name}! Atleta oficialmente inscrito na liga e pronto para jogar.`,
+            likes: 5400,
+            retweets: 990,
+            timeAgo: 'Agora',
+            sentiment: 'positive',
+            verified: true
+          });
+        }
+      } else {
+        activeAwaitingVisas.push(app);
+      }
+    }
+  }
+  playerTeam.vistasAwaiting = activeAwaitingVisas;
+
+  // E. Salary Cap Regulatory Audits (Compliance)
+  const salaryCapThreshold = 120000;
+  if (basePlayerPayrollWeekly > salaryCapThreshold) {
+    const exceededAmount = basePlayerPayrollWeekly - salaryCapThreshold;
+    const luxuryTaxFine = Math.round(exceededAmount * 1.50);
+    extraSpendingOutflow += luxuryTaxFine;
+    playerTeam.creditScore = Math.max(0, playerTeam.creditScore - 20);
+    updatedState.socialFeed.unshift({
+      id: 'salary_cap_audit_' + generateId(),
+      username: 'Compliance_Officer_League',
+      handle: '@AuditoriaRivals',
+      avatarUrl: 'https://images.unsplash.com/photo-1450133064473-71024230f91b?auto=format&fit=crop&q=80&w=100',
+      content: `🚨 [VIOLAÇÃO REGULATÓRIA] O clube ${playerTeam.name} excedeu o teto salarial da liga ($120.000). Uma Taxa de Luxo de multa de $ ${luxuryTaxFine.toLocaleString('pt-BR')} foi cobrada e o Score de Crédito caiu.`,
+      likes: 4100,
+      retweets: 930,
+      timeAgo: 'Agora',
+      sentiment: 'negative',
+      verified: true
+    });
+  }
+
+  // F. Poaching Penalty reduction
+  if (playerTeam.poachingPenaltiesWeeks && playerTeam.poachingPenaltiesWeeks > 0) {
+    playerTeam.poachingPenaltiesWeeks--;
+  }
+
+  // Calculate Net Profit and assign to cash
+  const finalWeeklyInflowSum = coreEarningsTotal + extraEarningsInflow;
+  const finalWeeklyOutflowSum = coreSpendingTotal + extraSpendingOutflow;
+  const netProfitTotalCalculated = finalWeeklyInflowSum - finalWeeklyOutflowSum;
+
+  playerTeam.budget = Math.round(playerTeam.budget + netProfitTotalCalculated);
+
+  // Bench check clause
+  // "Se o jogador ficar no banco por mais de 2 rodadas consecutivas, a multa cai para zero."
+  playerTeam.substitutes.forEach(p => {
+    p.consecutiveBenchCount = (p.consecutiveBenchCount || 0) + 1;
+  });
+  playerTeam.roster.forEach(p => {
+    p.consecutiveBenchCount = 0;
+  });
+
+  // G. Out Of Cash & Debt Consequences (Cobrança, Inadimplência, Recuperação Judicial)
+  if (playerTeam.budget < 0) {
+    const debtAmount = Math.abs(playerTeam.budget);
+    const debtFee = Math.round(debtAmount * 0.08); // 8% overdraft penalty fee
+    playerTeam.budget = Math.round(playerTeam.budget - debtFee);
+    playerTeam.creditScore = Math.max(0, playerTeam.creditScore - 50);
+    playerTeam.boardTrust = Math.max(1, playerTeam.boardTrust - 15);
+
+    updatedState.socialFeed.unshift({
+      id: 'overdraft_alert_' + generateId(),
+      username: 'Rivals_Financial_Desk',
+      handle: '@BancoRivals',
+      avatarUrl: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?auto=format&fit=crop&q=80&w=100',
+      content: `⚠️ [INDIPLÊNCIA] O orçamento do clube ${playerTeam.name} atingiu saldo vermelho de $ -${debtAmount.toLocaleString('pt-BR')}! Juros de cheque especial cobrados. A Diretoria estuda severas intervenções administrativas em splits futuros.`,
+      likes: 1250,
+      retweets: 350,
+      timeAgo: 'Agora',
+      sentiment: 'negative',
+      verified: true
+    });
+
+    // Forced recuperation if deep in debt
+    if (playerTeam.budget < -120000) {
+      updatedState.socialFeed.unshift({
+        id: 'recup_judicial_' + generateId(),
+        username: 'Tribunal_Esportivo',
+        handle: '@AuditoriaRivals',
+        avatarUrl: 'https://images.unsplash.com/photo-1450133064473-71024230f91b?auto=format&fit=crop&q=80&w=100',
+        content: `⚖️ [RECUPERAÇÃO JUDICIAL] Organização ${playerTeam.name} declarou insolvência parcial! O controle financeiro foi assumido por split regulatório, e o Manager teve sua autoridade restrita.`,
+        likes: 9200,
+        retweets: 2400,
+        timeAgo: 'Agora',
+        sentiment: 'negative',
+        verified: true
+      });
+      // Force sell highest-value bench athlete to recover cash immediately to show consequences
+      const valuableSubstitute = [...playerTeam.substitutes, ...playerTeam.academy].sort((a, b) => b.marketValue - a.marketValue)[0];
+      if (valuableSubstitute) {
+        playerTeam.budget += Math.round(valuableSubstitute.marketValue * 0.75); // liquid sell
+        // Remove player
+        playerTeam.substitutes = playerTeam.substitutes.filter(p => p.id !== valuableSubstitute.id);
+        playerTeam.academy = playerTeam.academy.filter(p => p.id !== valuableSubstitute.id);
+        updatedState.socialFeed.unshift({
+          id: 'forced_sell_' + generateId(),
+          username: 'Rival_Transfer_Desk',
+          handle: '@TransfersRivals',
+          avatarUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=100',
+          content: `💸 [VENDA INVOLUNTÁRIA] Para conter juros do cheque especial e insolvência judicial, o clube vendeu forçadamente o atleta ${valuableSubstitute.name} pelo valor liquidado de $ ${(valuableSubstitute.marketValue * 0.75).toLocaleString()}`,
+          likes: 2100,
+          retweets: 480,
+          timeAgo: 'Agora',
+          sentiment: 'neutral',
+          verified: true
+        });
+      }
+    }
+  }
 
   // 3. Player stamina recovery & minor training boosts
   playerTeam.roster.forEach(p => {
