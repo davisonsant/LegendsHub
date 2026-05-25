@@ -1,0 +1,1544 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { 
+  Shield, Activity, Trophy, Play, FastForward, ChevronRight, Sparkles, 
+  Ban, Award, HelpCircle, Check, CheckCircle, TrendingUp, X, 
+  Tv, Compass, Map, Sun, Moon, Info, RefreshCw, BarChart2
+} from 'lucide-react';
+import { 
+  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, 
+  Tooltip as RechartsTooltip, ReferenceLine, BarChart, Bar, Cell 
+} from 'recharts';
+import { GameState, Team, Champion, Position, PickBan, MatchLog, MatchStats } from '../types';
+import { CHAMPIONS_LIST } from '../data/initialDatabase';
+import { analyzeComposition, generateGameStep } from '../utils/matchSimulator';
+
+interface MatchSimulatorFlowProps {
+  gameState: GameState;
+  onFinishMatchSeries: (scoreBlue: number, scoreRed: number, logs: MatchLog[]) => void;
+  onBackToHub: () => void;
+  theme?: 'light' | 'dark';
+}
+
+type StepType = 'BRIEFING' | 'DRAFT' | 'MATCH' | 'REPORT';
+
+// Strategic choices cards from reference JPGs
+interface StrategicCard {
+  id: 'aggressive' | 'defensive' | 'objectives' | 'focusBot' | 'focusTop';
+  title: string;
+  description: string;
+}
+
+const STRATEGIC_CARDS: StrategicCard[] = [
+  { id: 'aggressive', title: 'Dominar Early Game', description: 'Besodica apres stratego sees munocolones.' },
+  { id: 'defensive', title: 'Teamfight de Mid Game', description: 'Boscadice teennlich de cenforto Game.' },
+  { id: 'objectives', title: 'Split Push', description: 'Rollmenna de de foho sou anereninontes.' },
+  { id: 'focusBot', title: 'Poke/Siege', description: 'Pectanimeme de traepão com hero evalidade.' }
+];
+
+const DRAGON_FILES = ['dg-infernal.png', 'dg-montanha.png', 'dg-nuvem.png', 'dg-oceano.png'];
+
+export default function MatchSimulatorFlow({
+  gameState,
+  onFinishMatchSeries,
+  onBackToHub,
+  theme = 'dark'
+}: MatchSimulatorFlowProps) {
+  const { currentPatch, playerTeamId, teams, week, champions } = gameState;
+  const playerTeam = teams.find(t => t.id === playerTeamId)!;
+  const championsToUse = champions && champions.length > 0 ? champions : CHAMPIONS_LIST;
+
+  // Local theme toggle state so the user can change live
+  const [localTheme, setLocalTheme] = useState<'light' | 'dark'>(theme);
+  const isDark = localTheme === 'dark';
+
+  // Opponent Calculation
+  const currentWeekMatches = gameState.calendarSchedule[week];
+  const playerNextOpponentMatch = currentWeekMatches?.find(
+    m => m.teamBlueId === playerTeamId || m.teamRedId === playerTeamId
+  );
+
+  let fallbackOpponent = teams.find(t => t.id !== playerTeamId)!;
+  let defaultPlayerBlue = true;
+
+  if (playerNextOpponentMatch) {
+    const oppId = playerNextOpponentMatch.teamBlueId === playerTeamId 
+      ? playerNextOpponentMatch.teamRedId 
+      : playerNextOpponentMatch.teamBlueId;
+    fallbackOpponent = teams.find(t => t.id === oppId) || fallbackOpponent;
+    defaultPlayerBlue = playerNextOpponentMatch.teamBlueId === playerTeamId;
+  }
+
+  // Series state (MD3)
+  const [currentGameIndex, setCurrentGameIndex] = useState(1); // 1, 2 or 3
+  const [blueSeriesScore, setBlueSeriesScore] = useState(0);
+  const [redSeriesScore, setRedSeriesScore] = useState(0);
+  const [selectedChampsInSeries, setSelectedChampsInSeries] = useState<string[]>([]);
+  const [allLogsSeries, setAllLogsSeries] = useState<MatchLog[]>([]);
+
+  // Linear flow step for the CURRENT game
+  const [currentStep, setCurrentStep] = useState<StepType>('BRIEFING');
+
+  // X-1 BRIEFING STATE
+  const [isPlayerBlue, setIsPlayerBlue] = useState(defaultPlayerBlue);
+  const [activeStrategy, setActiveStrategy] = useState<'aggressive' | 'defensive' | 'objectives' | 'focusBot' | 'focusTop'>('objectives');
+
+  // X-2 DRAFT STATE
+  const draftSteps = [
+    'BAN_B1', 'BAN_R1', 'BAN_B2', 'BAN_R2',
+    'PICK_TOP_B', 'PICK_TOP_R',
+    'PICK_JNG_B', 'PICK_JNG_R',
+    'PICK_MID_B', 'PICK_MID_R',
+    'PICK_ADC_B', 'PICK_ADC_R',
+    'PICK_SUP_B', 'PICK_SUP_R'
+  ];
+  const [draftStepIndex, setDraftStepIndex] = useState(0);
+  const [bans, setBans] = useState<string[]>([]);
+  const [bluePicks, setBluePicks] = useState<{ [key in Position]?: string }>({});
+  const [redPicks, setRedPicks] = useState<{ [key in Position]?: string }>({});
+  const [focusedChampId, setFocusedChampId] = useState<string | null>(null);
+  const [routeFilter, setRouteFilter] = useState<Position | 'ALL'>('ALL');
+
+  // X-3 REALTIME STATE
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [activeMinute, setActiveMinute] = useState(0);
+  const [speedMs, setSpeedMs] = useState(800);
+  const [gameLogs, setGameLogs] = useState<MatchLog[]>([]);
+  const [stats, setStats] = useState<MatchStats>({
+    killsBlue: 0, killsRed: 0,
+    deathsBlue: 0, deathsRed: 0,
+    assistsBlue: 0, assistsRed: 0,
+    towersBlue: 0, towersRed: 0,
+    dragonsBlue: 0, dragonsRed: 0,
+    baronsBlue: 0, baronsRed: 0
+  });
+  const [goldDelta, setGoldDelta] = useState(0);
+  const [advantageHistory, setAdvantageHistory] = useState<{ minute: number; gold: number; xp: number }[]>([
+    { minute: 0, gold: 0, xp: 0 }
+  ]);
+  const [activeChartTab, setActiveChartTab] = useState<'gold' | 'xp'>('gold');
+  const [currentClashArea, setCurrentClashArea] = useState<string | null>(null);
+
+  // X-4 REPORT SPECIAL FEEDBACK & DATA
+  const [mapWinners, setMapWinners] = useState<string[]>([]);
+  const [finalGoldHistory, setFinalGoldHistory] = useState<{ minute: number; gold: number; xp: number }[]>([]);
+  const [gameOutcome, setGameOutcome] = useState<'victory' | 'defeat'>('victory');
+
+  const logsEndRef = useRef<HTMLDivElement>(null);
+
+  // Scroll narration box to bottom
+  useEffect(() => {
+    if (logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [gameLogs]);
+
+  // Blue / Red teams for the current layout
+  const currentBlueTeam = isPlayerBlue ? playerTeam : fallbackOpponent;
+  const currentRedTeam = isPlayerBlue ? fallbackOpponent : playerTeam;
+
+  const blueAnalysis = useMemo(() => {
+    return analyzeComposition(bluePicks, currentBlueTeam, currentPatch.buffedChampions, currentPatch.nerfedChampions, championsToUse);
+  }, [bluePicks, currentBlueTeam, currentPatch, championsToUse]);
+
+  const redAnalysis = useMemo(() => {
+    return analyzeComposition(redPicks, currentRedTeam, currentPatch.buffedChampions, currentPatch.nerfedChampions, championsToUse);
+  }, [redPicks, currentRedTeam, currentPatch, championsToUse]);
+
+  // Automated Drafting bot turns step logic
+  useEffect(() => {
+    if (currentStep !== 'DRAFT') return;
+    if (draftStepIndex >= draftSteps.length) {
+      // Completed, linear transition directly to Realtime engine
+      setDraftStepIndex(0);
+      setupMatchStart();
+      setCurrentStep('MATCH');
+      return;
+    }
+
+    const currentStepStr = draftSteps[draftStepIndex];
+    const isBotTurn = 
+      (currentStepStr.endsWith('R') && isPlayerBlue) || 
+      (currentStepStr.endsWith('B') && !isPlayerBlue) ||
+      (currentStepStr === 'BAN_R1' && isPlayerBlue) ||
+      (currentStepStr === 'BAN_R2' && isPlayerBlue) ||
+      (currentStepStr === 'BAN_B1' && !isPlayerBlue) ||
+      (currentStepStr === 'BAN_B2' && !isPlayerBlue);
+
+    if (isBotTurn) {
+      const timer = setTimeout(() => {
+        executeBotDraftChoice();
+      }, 750);
+      return () => clearTimeout(timer);
+    }
+  }, [currentStep, draftStepIndex, isPlayerBlue]);
+
+  const executeBotDraftChoice = () => {
+    const stepStr = draftSteps[draftStepIndex];
+    const unavailable = [...bans, ...Object.values(bluePicks), ...Object.values(redPicks), ...selectedChampsInSeries].filter(Boolean) as string[];
+    const candidates = championsToUse.filter(c => !unavailable.includes(c.id));
+
+    if (stepStr.startsWith('BAN')) {
+      const sorted = [...candidates].sort((a, b) => b.power - a.power);
+      const chosenBan = sorted[0]?.id || candidates[0]?.id;
+      if (chosenBan) {
+        setBans(prev => [...prev, chosenBan]);
+        setDraftStepIndex(i => i + 1);
+      }
+    } else {
+      const posExtract = stepStr.split('_')[1] as Position;
+      const roleChamps = candidates.filter(c => c.roles.includes(posExtract));
+      const chosenPick = roleChamps[0]?.id || candidates[0]?.id;
+      if (chosenPick) {
+        if (stepStr.endsWith('B')) {
+          setBluePicks(p => ({ ...p, [posExtract]: chosenPick }));
+        } else {
+          setRedPicks(p => ({ ...p, [posExtract]: chosenPick }));
+        }
+        setDraftStepIndex(i => i + 1);
+      }
+    }
+  };
+
+  const handleSelectChampionUser = (champId: string) => {
+    const unavailable = [...bans, ...Object.values(bluePicks), ...Object.values(redPicks), ...selectedChampsInSeries].filter(Boolean) as string[];
+    if (unavailable.includes(champId)) return;
+
+    const stepStr = draftSteps[draftStepIndex];
+    if (stepStr.startsWith('BAN')) {
+      setBans(prev => [...prev, champId]);
+      setDraftStepIndex(i => i + 1);
+    } else {
+      const posExtract = stepStr.split('_')[1] as Position;
+      if (stepStr.endsWith('B')) {
+        setBluePicks(p => ({ ...p, [posExtract]: champId }));
+      } else {
+        setRedPicks(p => ({ ...p, [posExtract]: champId }));
+      }
+      setDraftStepIndex(i => i + 1);
+    }
+  };
+
+  // Realtime Simulation loop parameters
+  useEffect(() => {
+    if (currentStep !== 'MATCH' || !isPlaying) return;
+
+    if (activeMinute >= 30) {
+      setIsPlaying(false);
+      concludeRealtimeGame();
+      return;
+    }
+
+    const timer = setInterval(() => {
+      const stepIndex = activeMinute + 2;
+      const stepResult = generateGameStep(
+        stepIndex,
+        blueAnalysis.draftPower,
+        redAnalysis.draftPower,
+        activeStrategy,
+        currentBlueTeam.name,
+        currentRedTeam.name,
+        bluePicks,
+        redPicks,
+        stats,
+        championsToUse
+      );
+
+      // Track location based on event logs
+      if (stepResult.log.message.includes('baron') || stepResult.log.message.includes('BARÃO')) {
+        setCurrentClashArea('BARON');
+      } else if (stepResult.log.message.includes('dragon') || stepResult.log.message.includes('DRAGÃO')) {
+        setCurrentClashArea('DRAGON');
+      } else if (stepResult.log.message.includes('rota inferior') || stepResult.log.message.includes('botlane')) {
+        setCurrentClashArea('BOT');
+      } else if (stepResult.log.message.includes('rota do topo') || stepResult.log.message.includes('topo')) {
+        setCurrentClashArea('TOP');
+      } else if (Math.random() > 0.5) {
+        setCurrentClashArea('MID');
+      } else {
+        setCurrentClashArea('JUNGLE');
+      }
+
+      setStats(prev => {
+        const nextStats = { ...prev, ...stepResult.statsChange };
+        setAdvantageHistory(h => {
+          const lastH = h[h.length - 1] || { minute: 0, gold: 0, xp: 0 };
+          const nextGold = lastH.gold + stepResult.goldChange;
+          const nextXP = Math.round(nextGold * 0.85 + (Math.random() - 0.5) * 110);
+          return [...h, { minute: stepIndex, gold: nextGold, xp: nextXP }];
+        });
+        return nextStats;
+      });
+
+      setGoldDelta(prev => prev + stepResult.goldChange);
+      setGameLogs(g => [...g, stepResult.log]);
+      setActiveMinute(stepIndex);
+    }, speedMs);
+
+    return () => clearInterval(timer);
+  }, [currentStep, isPlaying, activeMinute, speedMs, stats, goldDelta, blueAnalysis, redAnalysis]);
+
+  const setupMatchStart = () => {
+    setActiveMinute(0);
+    setGoldDelta(0);
+    setAdvantageHistory([{ minute: 0, gold: 0, xp: 0 }]);
+    setGameLogs([
+      {
+        id: 'start-0',
+        timestamp: '00:00',
+        type: 'info',
+        message: '🎙️ Boas-vindas a Summoner\'s Rift! O jogo MD3 está ativado e as lineups estão definidas. [SUCCESS]',
+        goldDelta: 0
+      }
+    ]);
+    setStats({
+      killsBlue: 0, killsRed: 0,
+      deathsBlue: 0, deathsRed: 0,
+      assistsBlue: 0, assistsRed: 0,
+      towersBlue: 0, towersRed: 0,
+      dragonsBlue: 0, dragonsRed: 0,
+      baronsBlue: 0, baronsRed: 0
+    });
+  };
+
+  const triggerInstantMatch = () => {
+    const tempStats = { ...stats };
+    let tempGold = goldDelta;
+    const history = [...advantageHistory];
+    const logsAdded = [...gameLogs];
+
+    for (let m = activeMinute; m < 30; m += 2) {
+      const stepIndex = m + 2;
+      const stepResult = generateGameStep(
+        stepIndex,
+        blueAnalysis.draftPower,
+        redAnalysis.draftPower,
+        activeStrategy,
+        currentBlueTeam.name,
+        currentRedTeam.name,
+        bluePicks,
+        redPicks,
+        tempStats,
+        championsToUse
+      );
+      Object.assign(tempStats, stepResult.statsChange);
+      tempGold += stepResult.goldChange;
+      history.push({
+        minute: stepIndex,
+        gold: tempGold,
+        xp: Math.round(tempGold * 0.85 + (Math.random() - 0.5) * 110)
+      });
+      logsAdded.push(stepResult.log);
+    }
+
+    setStats(tempStats);
+    setGoldDelta(tempGold);
+    setAdvantageHistory(history);
+    setGameLogs(logsAdded);
+    setActiveMinute(30);
+
+    // Dynamic win computation
+    const evalBlue = (tempStats.killsBlue * 350) + (tempStats.towersBlue * 1000) + (tempStats.dragonsBlue * 500) + (tempStats.baronsBlue * 1500) + tempGold;
+    const evalRed = (tempStats.killsRed * 350) + (tempStats.towersRed * 1000) + (tempStats.dragonsRed * 500) + (tempStats.baronsRed * 1500) - tempGold;
+    const blueWon = evalBlue > evalRed;
+
+    // Series update
+    let nextBlueScore = blueSeriesScore;
+    let nextRedScore = redSeriesScore;
+    let victorName = '';
+
+    if (blueWon) {
+      nextBlueScore += 1;
+      setBlueSeriesScore(prev => prev + 1);
+      victorName = currentBlueTeam.name;
+    } else {
+      nextRedScore += 1;
+      setRedSeriesScore(prev => prev + 1);
+      victorName = currentRedTeam.name;
+    }
+
+    const mapOutcome = (blueWon && isPlayerBlue) || (!blueWon && !isPlayerBlue) ? 'victory' : 'defeat';
+    setGameOutcome(mapOutcome);
+    setMapWinners(prev => [...prev, victorName]);
+
+    // Push definitive logs
+    logsAdded.push({
+      id: "nexus-explode",
+      timestamp: "32:00",
+      type: "info",
+      message: `💥 [NEXUS DESTRUÍDO] Vitória consagrada do elenco ${victorName}! Com investidas potentes de cerco, o Nexus racha gerando chamas infinitas!`,
+      goldDelta: 0
+    });
+    setGameLogs(logsAdded);
+
+    // Cache list of used champions for Fearless Draft
+    const picksThisMatch = [...Object.values(bluePicks), ...Object.values(redPicks)].filter(Boolean) as string[];
+    setSelectedChampsInSeries(prev => [...prev, ...picksThisMatch]);
+    setFinalGoldHistory(history);
+    setAllLogsSeries(prev => [...prev, ...logsAdded]);
+
+    setCurrentStep('REPORT');
+  };
+
+  const concludeRealtimeGame = () => {
+    const evalBlue = (stats.killsBlue * 350) + (stats.towersBlue * 1000) + (stats.dragonsBlue * 500) + (stats.baronsBlue * 1500) + goldDelta;
+    const evalRed = (stats.killsRed * 350) + (stats.towersRed * 1000) + (stats.dragonsRed * 500) + (stats.baronsRed * 1500) - goldDelta;
+    const blueWon = evalBlue > evalRed;
+
+    let nextBlueScore = blueSeriesScore;
+    let nextRedScore = redSeriesScore;
+    let victorName = '';
+
+    if (blueWon) {
+      nextBlueScore += 1;
+      setBlueSeriesScore(prev => prev + 1);
+      victorName = currentBlueTeam.name;
+    } else {
+      nextRedScore += 1;
+      setRedSeriesScore(prev => prev + 1);
+      victorName = currentRedTeam.name;
+    }
+
+    const mapOutcome = (blueWon && isPlayerBlue) || (!blueWon && !isPlayerBlue) ? 'victory' : 'defeat';
+    setGameOutcome(mapOutcome);
+    setMapWinners(prev => [...prev, victorName]);
+
+    const updatedLogs = [...gameLogs, {
+      id: "nexus-explode-realtime",
+      timestamp: "32:00",
+      type: "info",
+      message: `💥 [NEXUS DESTRUÍDO] Vitória consagrada do elenco ${victorName}! Com investidas potentes de cerco, o Nexus racha gerando chamas infinitas!`,
+      goldDelta: 0
+    }];
+    setGameLogs(updatedLogs);
+
+    // Cache list of used champions for Fearless Draft
+    const picksThisMatch = [...Object.values(bluePicks), ...Object.values(redPicks)].filter(Boolean) as string[];
+    setSelectedChampsInSeries(prev => [...prev, ...picksThisMatch]);
+    setFinalGoldHistory(advantageHistory);
+    setAllLogsSeries(prev => [...prev, ...updatedLogs]);
+
+    setCurrentStep('REPORT');
+  };
+
+  const advanceNextMatchOrFinish = () => {
+    // If series is finished (one team reached 2 wins in BO3)
+    if (blueSeriesScore >= 2 || redSeriesScore >= 2) {
+      onFinishMatchSeries(blueSeriesScore, redSeriesScore, allLogsSeries);
+    } else {
+      // Loop back with incremented game counter
+      setCurrentGameIndex(idx => idx + 1);
+      setBans([]);
+      setBluePicks({});
+      setRedPicks({});
+      setActiveMinute(0);
+      setGoldDelta(0);
+      setAdvantageHistory([{ minute: 0, gold: 0, xp: 0 }]);
+      setCurrentStep('BRIEFING');
+    }
+  };
+
+  // Split bans
+  const blueBans = bans.filter((_, idx) => idx % 2 === 0);
+  const redBans = bans.filter((_, idx) => idx % 2 === 1);
+
+  // Formatting helpers for narration log rows
+  const formatLogRow = (log: MatchLog) => {
+    let text = log.message;
+    let textColorClass = isDark ? 'text-white' : 'text-slate-800';
+    let isPulsing = false;
+    let label = '';
+
+    const lowercase = text.toLowerCase();
+    if (log.type === 'dragon' || log.type === 'baron' || lowercase.includes('dragão') || lowercase.includes('conquistado') || lowercase.includes('barão')) {
+      if (!text.includes('[SUCCESS]')) {
+        text = `${text} [SUCCESS]`;
+      }
+      text = text.replace('[PULSINGS ALERT]', '').replace('[PULSING ALERT]', '');
+      textColorClass = 'text-emerald-500 font-extrabold bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded block mb-1';
+      label = 'OBJ';
+    } else if (log.type === 'kill' || lowercase.includes('abate') || lowercase.includes('kill') || lowercase.includes('perigo')) {
+      if (!text.includes('[PULSING ALERT]')) {
+        text = `${text} [PULSING ALERT]`;
+      }
+      text = text.replace('[SUCCESS]', '');
+      textColorClass = 'text-red-500 font-extrabold bg-red-500/10 border border-red-500/20 px-2.5 py-1 rounded block mb-1';
+      isPulsing = true;
+      label = 'CLASH';
+    } else {
+      textColorClass = `${isDark ? 'text-[#b4c6ef]' : 'text-slate-700'} font-semibold block mb-1 opacity-95`;
+    }
+
+    return { text, textColorClass, isPulsing, label };
+  };
+
+  const getChampAvatar = (champId: string) => {
+    const champ = championsToUse.find(c => c.id === champId);
+    const seed = champ ? champ.imageSeed : 0;
+    const images = [
+      "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=120", 
+      "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&q=80&w=120", 
+      "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&q=80&w=120", 
+      "https://images.unsplash.com/photo-1538481199705-c710c4e965fc?auto=format&fit=crop&q=80&w=120", 
+      "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80&w=120", 
+      "https://images.unsplash.com/photo-1560253023-3ec5d502959f?auto=format&fit=crop&q=80&w=120", 
+      "https://images.unsplash.com/photo-1552820728-8b83bb6b773f?auto=format&fit=crop&q=80&w=120", 
+      "https://images.unsplash.com/photo-1548685913-fe6574ab8d14?auto=format&fit=crop&q=80&w=120", 
+    ];
+    return images[seed % images.length];
+  };
+
+  const getAIExplainMatchup = (fid: string) => {
+    const ch = championsToUse.find(c => c.id === fid);
+    if (!ch) return "Selecione um campeão para ver a análise estratégica da IA.";
+    const clist = ch.counters.map(c => c.toUpperCase()).join(', ');
+    const slist = ch.synergies.map(s => s.toUpperCase()).join(', ');
+    return `EXPLICAÇÃO SENSÍVEL DE LOCK-IN COM ${ch.name.toUpperCase()}: É forte nas lutas, tendo counters recomendados como: ${clist}. Possui forte sinergia com ${slist}. Playstyle ideal: ${ch.idealPlaystyle}`;
+  };
+
+  const getAICountersRecommended = (fid: string | null) => {
+    const listFallback = [
+      { champion: "Ezreal", role: "Jinx Counter", desc: "Meos monnvester pareielign ses counter assode matchups." },
+      { champion: "Graves", role: "Lee Sin Counter", desc: "Idos Counter, oecepeto de teameleretes matchups." },
+      { champion: "Ezreal", role: "Jinx Counter", desc: "Jins counter, sooxxt atrengico." }
+    ];
+    if (!fid) return listFallback;
+    const ch = championsToUse.find(c => c.id === fid);
+    if (!ch) return listFallback;
+    return [
+      { champion: ch.counters[0] ? ch.counters[0].toUpperCase() : 'EZREAL', role: `${ch.name} Counter`, desc: `Excelente matchup recomendado para conter a presença e mitigação de ${ch.name} no game.` },
+      { champion: ch.synergies[0] ? ch.synergies[0].toUpperCase() : 'GRAVES', role: `${ch.name} Sinergista`, desc: `Parceiro de rota ou selva perfeito que maximiza a agressividade nas skirmishes táticas.` },
+      { champion: 'AETHER', role: 'Flex Pick', desc: 'Opção excelente de neutralização para flexibilizar a rota.' }
+    ];
+  };
+
+  // Dragon PNG lookup corresponding sequentially to index
+  const getDragonConqueredList = (count: number) => {
+    return DRAGON_FILES.slice(0, Math.min(count, 4));
+  };
+
+  const currentOpBannedName = bans.length > 0 ? championsToUse.find(c => c.id === bans[bans.length - 1])?.name || 'LEE SIN' : 'LEE SIN';
+
+  return (
+    <div className={`min-h-screen font-sans select-none relative transition-colors duration-300 ${
+      isDark ? 'bg-[#070d19] text-white' : 'bg-slate-50 text-slate-800'
+    }`}>
+      
+      {/* GLOBAL BANNER HEADER */}
+      <div className={`border-b px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4 ${
+        isDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200'
+      }`}>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+            <Tv className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${isDark ? 'bg-amber-500/10 text-amber-500' : 'bg-amber-100 text-amber-700'}`}>
+                Série MD3 · JOGO {currentGameIndex}
+              </span>
+              <span className={`text-[9px] font-bold ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                FEARLESS DRAFT ATIVO
+              </span>
+            </div>
+            <h1 className={`text-base font-black uppercase tracking-wider ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              {currentBlueTeam.acronym} vs {currentRedTeam.acronym}
+            </h1>
+          </div>
+        </div>
+
+        {/* Global score indicator */}
+        <div className="flex items-center gap-5">
+          <div className="text-center">
+            <span className="text-[8px] font-black tracking-widest text-gray-500 block uppercase mb-1">PLACAR DA SÉRIE</span>
+            <div className={`font-mono text-base font-black px-4 py-1.5 rounded-lg border ${
+              isDark ? 'bg-[#070d19] border-[#1e2d44]' : 'bg-slate-100 border-slate-300'
+            }`}>
+              <span className="text-sky-400">{blueSeriesScore}</span> 
+              <span className="px-1.5 text-gray-500">x</span> 
+              <span className="text-red-500">{redSeriesScore}</span>
+            </div>
+          </div>
+
+          {/* Theme custom toggle */}
+          <button
+            onClick={() => setLocalTheme(isDark ? 'light' : 'dark')}
+            className={`p-2.5 rounded-xl border transition-all hover:scale-105 ${
+              isDark ? 'bg-slate-800/80 border-slate-700 text-yellow-400' : 'bg-slate-200 border-slate-300 text-[#070d19]'
+            }`}
+            title="Alternar Modo Visual"
+          >
+            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+
+          <button
+            onClick={onBackToHub}
+            className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider border transition-colors ${
+              isDark ? 'border-red-500/30 text-red-400 bg-red-500/5 hover:bg-red-500/10' : 'border-slate-300 text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            Abandonar Série
+          </button>
+        </div>
+      </div>
+
+      {/* RENDER CURRENT STAGE TELA */}
+
+      {/* ======================= TELA X-1: BRIEFING & PRÉ-JOGO ======================= */}
+      {currentStep === 'BRIEFING' && (
+        <div className="max-w-4xl mx-auto py-12 px-6">
+          <div className={`p-8 rounded-3xl border shadow-xl ${
+            isDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200'
+          }`}>
+            <span className="text-xs text-sky-400 font-extrabold uppercase tracking-widest block text-center mb-1">
+              Etapa 1 · Digital o Pré-Jogo
+            </span>
+            <h2 className={`text-xl font-display font-black text-center uppercase tracking-wide mb-8 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              Análise Tática e Seleção de Lado
+            </h2>
+
+            {/* Cabeçalho de seleção de lado ("Lado Azul" com moeda central "L" e "Lado Vermelho") */}
+            <div className="flex justify-center items-center gap-6 mb-12">
+              <button
+                onClick={() => setIsPlayerBlue(true)}
+                className={`flex-1 py-4 px-6 rounded-2xl border transition-all text-center relative overflow-hidden ${
+                  isPlayerBlue 
+                    ? 'border-sky-500 bg-sky-500/10 shadow-[0_0_15px_rgba(56,189,248,0.25)]' 
+                    : isDark ? 'border-[#1e2d44] bg-[#070d19]' : 'border-slate-250 bg-slate-50'
+                }`}
+              >
+                <span className="text-xs font-black uppercase tracking-wider text-sky-400 block">LADO AZUL</span>
+                <span className="text-[10px] text-gray-500 block mt-1 uppercase font-bold">First Pick Priority</span>
+                {isPlayerBlue && <div className="absolute top-1 right-2 w-2 h-2 rounded-full bg-sky-500" />}
+              </button>
+
+              {/* Moeda Central "L" */}
+              <div className="w-12 h-12 rounded-full bg-slate-800 border-4 border-slate-700 text-amber-400 text-lg font-display font-black flex items-center justify-center shadow-lg animate-pulse shrink-0">
+                L
+              </div>
+
+              <button
+                onClick={() => setIsPlayerBlue(false)}
+                className={`flex-1 py-4 px-6 rounded-2xl border transition-all text-center relative overflow-hidden ${
+                  !isPlayerBlue 
+                    ? 'border-red-500 bg-red-500/10 shadow-[0_0_15px_rgba(239,68,68,0.25)]' 
+                    : isDark ? 'border-[#1e2d44] bg-[#070d19]' : 'border-slate-250 bg-slate-50'
+                }`}
+              >
+                <span className="text-xs font-black uppercase tracking-wider text-red-400 block">LADO VERMELHO</span>
+                <span className="text-[10px] text-gray-500 block mt-1 uppercase font-bold">Counter Pick Option</span>
+                {!isPlayerBlue && <div className="absolute top-1 right-2 w-2 h-2 rounded-full bg-red-500" />}
+              </button>
+            </div>
+
+            {/* Painel "Escolha sua Macroestratégia" com 4 cards selecionáveis estruturados lado a lado */}
+            <div className={`border-t pt-8 ${isDark ? 'border-[#1e2d44]' : 'border-slate-200'}`}>
+              <h3 className={`text-sm font-black uppercase tracking-wide mb-4 text-center ${isDark ? 'text-gray-300' : 'text-slate-800'}`}>
+                Escolha sua Macroestratégia
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                {STRATEGIC_CARDS.map(card => {
+                  const isSelected = activeStrategy === card.id;
+                  return (
+                    <button
+                      key={card.id}
+                      onClick={() => setActiveStrategy(card.id)}
+                      className={`p-4 rounded-xl border text-left flex flex-col justify-between h-[150px] transition-all hover:scale-102 ${
+                        isSelected 
+                          ? isDark 
+                            ? 'border-amber-500 bg-amber-500/5 shadow-[0_0_12px_rgba(245,158,11,0.15)]' 
+                            : 'border-amber-500 bg-amber-50 border-2'
+                          : isDark ? 'border-[#1e2d44] bg-[#070d19]/60' : 'border-slate-200 bg-slate-50/60'
+                      }`}
+                    >
+                      <div>
+                        {/* Custom vectors / icons representing macro concept */}
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <Activity className={`w-4 h-4 ${isSelected ? 'text-amber-500' : 'text-slate-400'}`} />
+                          <span className="text-[10px] text-slate-500 font-black uppercase font-mono">MACRO</span>
+                        </div>
+                        <h4 className={`text-xs font-black uppercase leading-tight tracking-wide ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                          {card.title}
+                        </h4>
+                      </div>
+                      <p className={`text-[9.5px] leading-snug font-semibold select-none ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                        {card.description}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Rodapé com indicação de prioridade de pick baseado no lado escolhido */}
+            <div className={`border-t pt-6 flex flex-col sm:flex-row justify-between items-center gap-4 ${isDark ? 'border-[#1e2d44]' : 'border-slate-200'}`}>
+              <div className="flex gap-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-sky-500" />
+                  <span className="text-[10px] font-black uppercase tracking-wide text-gray-400">
+                    Lado Azul - First Pick
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-red-500" />
+                  <span className="text-[10px] font-black uppercase tracking-wide text-gray-400">
+                    Lado Vermelho - Counter Pick
+                  </span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setCurrentStep('DRAFT')}
+                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-display text-[11px] font-black tracking-widest uppercase py-3 px-8 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-transform hover:scale-105 active:scale-95 cursor-pointer"
+              >
+                PROSSEGUIR PARA DRAFT <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================= TELA X-2: SIMULADOR DE DRAFT (PICKS & BANS) ======================= */}
+      {currentStep === 'DRAFT' && (
+        <div className="py-8 px-6">
+          
+          {/* Topo: Exibição limpa de exatamente 6 BANIMENTOS totais do oponente */}
+          <div className={`p-4 rounded-xl border mb-6 flex flex-col md:flex-row items-center justify-between gap-4 ${
+            isDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200'
+          }`}>
+            <div className="flex items-center gap-2">
+              <Ban className="w-4 h-4 text-red-500 animate-pulse" />
+              <span className="text-[10px] font-black tracking-widest text-red-500 uppercase">FASE DE BANIMENTOS</span>
+            </div>
+
+            {/* Bans Blue Side */}
+            <div className="flex items-center gap-3">
+              <span className="text-[9px] font-black text-sky-400 uppercase">AZUL BANS:</span>
+              <div className="flex gap-2">
+                {[0, 1, 2].map(idx => {
+                  const bId = blueBans[idx];
+                  return (
+                    <div key={idx} className="relative w-8 h-8 rounded-full border border-red-500/50 bg-red-500/10 overflow-hidden flex items-center justify-center shrink-0">
+                      {bId ? (
+                        <>
+                          <img src={getChampAvatar(bId)} alt="banned" className="w-full h-full object-cover filter grayscale opacity-70" />
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-full h-0.5 bg-red-600 rotate-45 transform" />
+                          </div>
+                        </>
+                      ) : (
+                        <Ban className="w-3.5 h-3.5 text-gray-500/50" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="px-4 py-1.5 bg-red-600/15 border border-red-500/20 rounded-md text-center max-w-[220px]">
+              <span className="text-[10px] font-black tracking-widest text-red-400 block uppercase">
+                OPONENTE BANIOU {currentOpBannedName?.toUpperCase()}
+              </span>
+            </div>
+
+            {/* Bans Red Side */}
+            <div className="flex items-center gap-3">
+              <span className="text-[9px] font-black text-red-400 uppercase">VERMELHO BANS:</span>
+              <div className="flex gap-2">
+                {[0, 1, 2].map(idx => {
+                  const bId = redBans[idx];
+                  return (
+                    <div key={idx} className="relative w-8 h-8 rounded-full border border-red-500/50 bg-red-500/10 overflow-hidden flex items-center justify-center shrink-0">
+                      {bId ? (
+                        <>
+                          <img src={getChampAvatar(bId)} alt="banned" className="w-full h-full object-cover filter grayscale opacity-70" />
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-full h-0.5 bg-red-600 rotate-45 transform" />
+                          </div>
+                        </>
+                      ) : (
+                        <Ban className="w-3.5 h-3.5 text-gray-500/50" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* DRAFT COLUMNS GRID */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
+            
+            {/* Left team card */}
+            <div className={`lg:col-span-3 rounded-2xl p-5 border flex flex-col justify-between h-[550px] shadow-sm ${
+              isDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200'
+            }`}>
+              <div>
+                <div className={`border-b pb-3 mb-4 ${isDark ? 'border-[#1e2d44]' : 'border-slate-200'}`}>
+                  <h4 className="font-display text-xs font-black uppercase tracking-wider text-sky-400">
+                    {currentBlueTeam.name.toUpperCase()}
+                  </h4>
+                  <span className="text-[9px] text-gray-500 block uppercase font-bold mt-1">LADO AZUL</span>
+                </div>
+
+                <div className="space-y-3">
+                  {(['TOP', 'JNG', 'MID', 'ADC', 'SUP'] as Position[]).map(pos => {
+                    const champId = bluePicks[pos];
+                    const champ = championsToUse.find(c => c.id === champId);
+                    const isPicking = draftSteps[draftStepIndex] === `PICK_${pos}_B`;
+
+                    return (
+                      <div key={pos} className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+                        isPicking 
+                          ? 'border-sky-400 bg-sky-400/5 ring-2 ring-sky-400/20' 
+                          : isDark ? 'bg-[#070d19] border-[#1e2d44]' : 'bg-slate-50 border-slate-250'
+                      }`}>
+                        <div className="flex items-center gap-3">
+                          <span className="font-display text-[9px] font-black px-1.5 py-0.5 bg-sky-600 text-white rounded uppercase">{pos}</span>
+                          <strong className={`text-xs uppercase tracking-wider font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                            {champ ? champ.name : isPicking ? 'Escolhendo...' : 'Aguardando'}
+                          </strong>
+                        </div>
+                        {champ && <img src={getChampAvatar(champ.id)} alt="avatar" className="w-7 h-7 rounded-full object-cover border border-sky-400/20" />}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className={`p-3 border rounded-xl ${isDark ? 'border-sky-500/10 bg-sky-500/5' : 'border-slate-200 bg-slate-50'}`}>
+                <div className="flex justify-between items-center text-xs mb-1">
+                  <span className="text-gray-400 font-bold text-[10px]">Poder de Composição:</span>
+                  <strong className="text-sky-400 font-black">{blueAnalysis.draftPower}</strong>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-400 font-bold text-[10px]">Sinergia Geral:</span>
+                  <strong className="text-emerald-500 font-black">{blueAnalysis.synergyLevel}%</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Center Area: grid and explain popover (Span 6) */}
+            <div className={`lg:col-span-6 rounded-2xl p-5 border h-[550px] flex flex-col justify-between shadow-sm ${
+              isDark ? 'bg-[#0A0E17] border-[#1e2d44]' : 'bg-white border-slate-200'
+            }`}>
+              
+              <div>
+                {/* Popover/Tooltip: Balão de sobreposição intitulado "EXPLAIN COMMETA MATCHUPS" */}
+                {focusedChampId && (
+                  <div className={`mb-4 p-4 rounded-xl border transition-all duration-300 ${
+                    isDark 
+                      ? 'bg-black text-slate-100 border-sky-500 shadow-[0_0_15px_rgba(56,189,248,0.25)]' 
+                      : 'bg-sky-50 text-slate-900 border-sky-200 shadow-md'
+                  }`}>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" />
+                      <span className="text-[10px] font-black tracking-widest uppercase text-amber-500">EXPLAIN COMMETA MATCHUPS</span>
+                    </div>
+                    <p className="text-[10.5px] leading-relaxed font-semibold">
+                      {getAIExplainMatchup(focusedChampId)}
+                    </p>
+                  </div>
+                )}
+
+                {/* Filters */}
+                <div className="flex justify-center gap-1.5 mb-4 overflow-x-auto py-1">
+                  {(['ALL', 'TOP', 'JNG', 'MID', 'ADC', 'SUP'] as const).map(role => (
+                    <button
+                      key={role}
+                      onClick={() => setRouteFilter(role)}
+                      className={`px-3 py-1 text-[9px] font-black uppercase rounded border transition-all shrink-0 ${
+                        routeFilter === role 
+                          ? 'bg-sky-400 text-black border-sky-400' 
+                          : isDark ? 'bg-[#070d19] border-[#1e2d44] text-gray-400 hover:text-white' : 'bg-slate-100 border-slate-250 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {role}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Grid com os retratos dos campeões da pool. Se Fearless Draft active, used champs are blocked */}
+                <div className="grid grid-cols-4 sm:grid-cols-5 gap-2.5 max-h-[290px] overflow-y-auto pr-1">
+                  {championsToUse
+                    .filter(c => routeFilter === 'ALL' || c.roles.includes(routeFilter as Position))
+                    .map(champ => {
+                      const isBanned = bans.includes(champ.id);
+                      const isSelected = Object.values(bluePicks).includes(champ.id) || Object.values(redPicks).includes(champ.id);
+                      const isFearlessBanned = selectedChampsInSeries.includes(champ.id);
+                      const isAvailable = !isBanned && !isSelected && !isFearlessBanned;
+
+                      const isFocused = focusedChampId === champ.id;
+                      const activeStepStr = draftSteps[draftStepIndex] || 'PICK_TOP_B';
+                      const posExtract = activeStepStr.split('_')[1] as Position;
+                      const isMatchesRole = champ.roles.includes(posExtract);
+
+                      return (
+                        <button
+                          key={champ.id}
+                          onMouseEnter={() => setFocusedChampId(champ.id)}
+                          onMouseLeave={() => setFocusedChampId(null)}
+                          onClick={() => isAvailable && handleSelectChampionUser(champ.id)}
+                          disabled={!isAvailable}
+                          className={`aspect-square p-2.5 rounded-xl border flex flex-col justify-between relative transition-all overflow-hidden ${
+                            isAvailable 
+                              ? isFocused 
+                                ? 'border-sky-400 bg-sky-400/5 scale-105 shadow-[0_0_12px_rgba(56,189,248,0.7)]' 
+                                : isMatchesRole
+                                  ? 'border-amber-500/50 bg-amber-500/5 hover:border-amber-500'
+                                  : isDark ? 'border-[#1e2d44] bg-[#070d19] hover:border-sky-500/50' : 'border-slate-200 bg-slate-50 hover:border-sky-400'
+                              : isFearlessBanned
+                                ? 'bg-slate-900/60 border-transparent text-gray-600 cursor-not-allowed opacity-30 select-none'
+                                : 'bg-gray-800/20 border-transparent text-gray-600 cursor-not-allowed opacity-40 select-none'
+                          }`}
+                        >
+                          <img 
+                            src={getChampAvatar(champ.id)} 
+                            alt={champ.name} 
+                            className="absolute inset-0 w-full h-full object-cover opacity-20 hover:opacity-45 transition-opacity"
+                          />
+                          <span className="font-display text-[10px] font-black uppercase text-center truncate w-full z-10">
+                            {champ.name}
+                          </span>
+                          
+                          <div className="flex justify-between items-center w-full z-10 mt-auto">
+                            {isFearlessBanned ? (
+                              <span className="text-[7.5px] font-black text-rose-500 px-1 bg-rose-500/15 rounded">FEARLESS</span>
+                            ) : (
+                              <span className="text-[9px] font-bold text-gray-400">{champ.power} Rating</span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
+
+              <div className={`p-3 text-[10px] font-bold uppercase tracking-wider text-center border-t select-none ${
+                isDark ? 'border-[#1e2d44] text-gray-500' : 'border-slate-200 text-slate-400'
+              }`}>
+                📌 Pare o mouse sobre qualquer campeão para obter insights de matchup em tempo real!
+              </div>
+            </div>
+
+            {/* Right team card & IA recommendations (AI COUNTER) */}
+            <div className="lg:col-span-3 h-[550px] flex flex-col justify-between gap-6">
+              
+              {/* Picks Red side */}
+              <div className={`rounded-xl p-4 border flex-1 flex flex-col justify-between ${
+                isDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200'
+              }`}>
+                <div>
+                  <div className={`border-b pb-2 mb-3 ${isDark ? 'border-[#1e2d44]' : 'border-slate-200'}`}>
+                    <h4 className="font-display text-xs font-black uppercase tracking-wider text-red-500">
+                      {currentRedTeam.name.toUpperCase()}
+                    </h4>
+                    <span className="text-[9px] text-gray-450 block uppercase font-bold mt-0.5">LADO VERMELHO</span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {(['TOP', 'JNG', 'MID', 'ADC', 'SUP'] as Position[]).map(pos => {
+                      const champId = redPicks[pos];
+                      const champ = championsToUse.find(c => c.id === champId);
+                      const isPicking = draftSteps[draftStepIndex] === `PICK_${pos}_R`;
+
+                      return (
+                        <div key={pos} className={`p-2.5 rounded-lg border flex items-center justify-between transition-all ${
+                          isPicking 
+                            ? 'border-red-400 bg-red-400/5 ring-2 ring-red-400/20' 
+                            : isDark ? 'bg-[#070d19] border-[#1e2d44]' : 'bg-slate-50 border-slate-250'
+                        }`}>
+                          <div className="flex items-center gap-2">
+                            <span className="font-display text-[9px] font-black px-1.5 py-0.5 bg-red-600 text-white rounded uppercase">{pos}</span>
+                            <span className={`text-[11px] uppercase tracking-wide font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                              {champ ? champ.name : isPicking ? 'Escolhendo...' : 'Aguardando'}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className={`p-2 border rounded-lg text-center ${isDark ? 'border-red-500/10 bg-red-500/5' : 'border-slate-250 bg-slate-50'}`}>
+                  <span className="font-black text-[9px] text-red-400 block">DRAFT PODER: {redAnalysis.draftPower}</span>
+                </div>
+              </div>
+
+              {/* AI Counter cards */}
+              <div className={`rounded-xl p-4 border flex flex-col justify-between h-[230px] ${
+                isDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200'
+              }`}>
+                <div className="border-b pb-1.5 mb-2">
+                  <span className="text-[9.5px] font-black tracking-widest text-sky-400 block uppercase">
+                    AI Recommendations
+                  </span>
+                </div>
+
+                <div className="space-y-2 overflow-y-auto flex-1 pr-1">
+                  {getAICountersRecommended(focusedChampId).map((rec, idx) => (
+                    <div key={idx} className={`p-2 rounded border text-[10px] ${
+                      isDark ? 'bg-[#070d19]/80 border-[#1e2d44]' : 'bg-slate-50 border-slate-200'
+                    }`}>
+                      <div className="flex justify-between items-center mb-0.5">
+                        <span className="font-extrabold text-red-400 text-[9px] uppercase">AI COUNTER</span>
+                        <span className="text-[8px] font-bold text-sky-400">{rec.role}</span>
+                      </div>
+                      <h5 className="font-black text-slate-200 uppercase tracking-wider">{rec.champion}</h5>
+                      <p className="text-[8.5px] leading-snug text-gray-500 w-full mt-0.5 truncate">{rec.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================= TELA X-3: PARTIDA EM TEMPO REAL ======================= */}
+      {currentStep === 'MATCH' && (
+        <div className="py-8 px-6">
+          
+          {/* Header Dashboard stats */}
+          <div className={`grid grid-cols-1 md:grid-cols-3 border p-5 rounded-2xl mb-6 shadow-sm items-center ${
+            isDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200'
+          }`}>
+            <div className="text-left">
+              <span className="text-[9px] text-sky-400 uppercase font-black tracking-wider">LADO AZUL</span>
+              <h4 className={`font-display text-sm font-black uppercase ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                {currentBlueTeam.name}
+              </h4>
+              
+              {/* Sequential Dragon rendering using accurate files */}
+              <div className="flex items-center gap-1.5 mt-2">
+                <span className="text-[8px] font-bold text-slate-500 mr-1">DRAGÕES:</span>
+                {stats.dragonsBlue > 0 ? getDragonConqueredList(stats.dragonsBlue).map((fn, idx) => (
+                  <div key={idx} className="w-6 h-6 rounded-full border border-sky-500 bg-sky-500/15 flex items-center justify-center overflow-hidden shrink-0 shadow-sm" title="Dragão Blue">
+                    <img 
+                      src={fn} 
+                      alt={fn} 
+                      className="w-full h-full object-contain p-1"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent && !parent.querySelector('.dragon-fallback')) {
+                          const fb = document.createElement('span');
+                          fb.className = 'dragon-fallback text-[8px] font-black text-sky-400';
+                          fb.innerText = fn.split('-')[1].split('.')[0].toUpperCase().substring(0,3);
+                          parent.appendChild(fb);
+                        }
+                      }}
+                    />
+                  </div>
+                )) : <span className="text-[8.5px] text-gray-500 font-semibold italic">Nenhum</span>}
+              </div>
+            </div>
+
+            <div className="text-center">
+              <span className="text-[9px] font-mono font-black text-slate-400 tracking-widest block uppercase mb-1">K/D/A DE EQUIPE</span>
+              <div className="flex gap-4 items-center justify-center font-display text-3xl font-black">
+                <span className="text-sky-400">{stats.killsBlue}</span>
+                <span className="text-gray-500 font-normal">/</span>
+                <span className="text-red-500">{stats.killsRed}</span>
+              </div>
+            </div>
+
+            <div className="text-right">
+              <span className="text-[9px] text-red-500 uppercase font-black tracking-wider">LADO VERMELHO</span>
+              <h4 className={`font-display text-sm font-black uppercase ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                {currentRedTeam.name}
+              </h4>
+
+              {/* Sequential Dragon rendering */}
+              <div className="flex items-center gap-1.5 mt-2 justify-end">
+                {stats.dragonsRed > 0 ? getDragonConqueredList(stats.dragonsRed).map((fn, idx) => (
+                  <div key={idx} className="w-6 h-6 rounded-full border border-red-500 bg-red-500/15 flex items-center justify-center overflow-hidden shrink-0 shadow-sm" title="Dragão Red">
+                    <img 
+                      src={fn} 
+                      alt={fn} 
+                      className="w-full h-full object-contain p-1"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent && !parent.querySelector('.dragon-fallback')) {
+                          const fb = document.createElement('span');
+                          fb.className = 'dragon-fallback text-[8px] font-black text-red-400';
+                          fb.innerText = fn.split('-')[1].split('.')[0].toUpperCase().substring(0,3);
+                          parent.appendChild(fb);
+                        }
+                      }}
+                    />
+                  </div>
+                )) : <span className="text-[8.5px] text-gray-500 font-semibold italic">Nenhum</span>}
+                <span className="text-[8px] font-bold text-slate-500 ml-1">DRAGÕES:</span>
+              </div>
+            </div>
+          </div>
+
+          {/* MAIN SIMULATOR VISUAL CONTAINER */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 relative">
+            
+            {/* Lado Esquerdo: O mapa "SummonerRift_Atualizado_Mapa.jpg" DEVE aparecer como background */}
+            <div className="lg:col-span-7">
+              <div className={`p-5 rounded-2xl border shadow-sm flex flex-col justify-between ${
+                isDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200'
+              }`}>
+                <h3 className="font-display text-xs font-black uppercase tracking-wider text-sky-400 mb-3 block">
+                  Summoner's Rift Map View
+                </h3>
+
+                {/* Minimapa Tático with actual image background & clashing SVG overlay */}
+                <div className={`relative overflow-hidden h-[340px] flex items-center justify-center rounded-xl border ${
+                  isDark ? 'bg-black border-slate-800' : 'bg-slate-100 border-slate-350'
+                }`}>
+                  {/* Background absolute img of Rift */}
+                  <img 
+                    src="SummonerRift_Atualizado_Mapa.jpg" 
+                    alt="Map Background" 
+                    className="absolute inset-0 w-full h-full object-cover opacity-35"
+                    onError={(e) => {
+                      // fallback backdrop is nicely stylized SVG gradient!
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                    }}
+                  />
+
+                  {/* SVG paths overlays */}
+                  <div className="absolute inset-0 w-full h-full">
+                    <svg className="w-full h-full" viewBox="0 0 100 100">
+                      
+                      {/* Translucent translation / clash routes */}
+                      {/* TOP rota */}
+                      <path d="M 12 88 L 12 12 L 88 12" fill="none" stroke="rgba(255, 255, 255, 0.08)" strokeWidth="6" strokeLinecap="round" />
+                      <path d="M 12 88 L 12 12 L 88 12" fill="none" stroke={isDark ? "rgba(56, 189, 248, 0.35)" : "rgba(30, 41, 59, 0.25)"} strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 3" />
+
+                      {/* BOT rota */}
+                      <path d="M 12 88 L 88 88 L 88 12" fill="none" stroke="rgba(255, 255, 255, 0.08)" strokeWidth="6" strokeLinecap="round" />
+                      <path d="M 12 88 L 88 88 L 88 12" fill="none" stroke={isDark ? "rgba(239, 68, 68, 0.35)" : "rgba(30, 41, 59, 0.25)"} strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 3" />
+
+                      {/* MID rota */}
+                      <path d="M 12 88 L 88 12" fill="none" stroke="rgba(255, 255, 255, 0.08)" strokeWidth="6" strokeLinecap="round" />
+                      <path d="M 12 88 L 88 12" fill="none" stroke={isDark ? "rgba(168, 85, 247, 0.35)" : "rgba(30, 41, 59, 0.25)"} strokeWidth="1.5" strokeLinecap="round" />
+
+                      {/* Selva pits */}
+                      <circle cx="36" cy="36" r="4.5" fill="none" stroke="#a855f7" strokeWidth="0.8" className="animate-pulse" />
+                      <circle cx="64" cy="64" r="4.5" fill="none" stroke="#eab308" strokeWidth="0.8" className="animate-pulse" />
+
+                      <text x="36" y="30" fontSize="4" textAnchor="middle" fill="#a855f7" className="font-mono font-black">BARÃO</text>
+                      <text x="64" y="73" fontSize="4" textAnchor="middle" fill="#eab308" className="font-mono font-black">DRAGÃO</text>
+
+                      {/* CLASH ANIMATION PIN OR POINTERS SPREADING */}
+                      {currentClashArea === 'BARON' && (
+                        <g transform="translate(36, 36)" className="animate-ping">
+                          <circle cx="0" cy="0" r="8" fill="rgba(168, 85, 247, 0.3)" />
+                        </g>
+                      )}
+                      {currentClashArea === 'DRAGON' && (
+                        <g transform="translate(64, 64)" className="animate-ping">
+                          <circle cx="0" cy="0" r="8" fill="rgba(234, 179, 8, 0.3)" />
+                        </g>
+                      )}
+                      {currentClashArea === 'TOP' && (
+                        <g transform="translate(12, 12)" className="animate-ping">
+                          <circle cx="0" cy="0" r="8" fill="rgba(59, 130, 246, 0.3)" />
+                        </g>
+                      )}
+                      {currentClashArea === 'BOT' && (
+                        <g transform="translate(88, 88)" className="animate-ping">
+                          <circle cx="0" cy="0" r="8" fill="rgba(239, 68, 68, 0.3)" />
+                        </g>
+                      )}
+                      {currentClashArea === 'MID' && (
+                        <g transform="translate(50, 50)" className="animate-ping">
+                          <circle cx="0" cy="0" r="8" fill="rgba(244, 63, 94, 0.3)" />
+                        </g>
+                      )}
+
+                      {/* Standard champion miniature pointers/vectors moving and colliding */}
+                      {/* Active Blue champions */}
+                      <g>
+                        <circle cx="18" cy="20" r="2.2" fill="#3b82f6" stroke="#fff" strokeWidth="0.5" />
+                        <text x="18" y="21.2" fontSize="2.5" textAnchor="middle" fill="#fff" className="font-bold">TOP</text>
+
+                        <circle cx="42" cy="46" r="2.2" fill="#3b82f6" stroke="#fff" strokeWidth="0.5" />
+                        <text x="42" y="47.2" fontSize="2.5" textAnchor="middle" fill="#fff" className="font-bold">JNG</text>
+
+                        <circle cx="48" cy="51" r="2.2" fill="#3b82f6" stroke="#fff" strokeWidth="0.5" className="animate-bounce" />
+                        <text x="48" y="52.2" fontSize="2.5" textAnchor="middle" fill="#fff" className="font-bold">MID</text>
+
+                        <circle cx="70" cy="85" r="2.2" fill="#3b82f6" stroke="#fff" strokeWidth="0.5" />
+                        <text x="70" y="86.2" fontSize="2.5" textAnchor="middle" fill="#fff" className="font-bold">ADC</text>
+
+                        <circle cx="76" cy="80" r="2.2" fill="#3b82f6" stroke="#fff" strokeWidth="0.5" />
+                        <text x="76" y="81.2" fontSize="2.5" textAnchor="middle" fill="#fff" className="font-bold">SUP</text>
+                      </g>
+
+                      {/* Active Red champions */}
+                      <g>
+                        <circle cx="30" cy="14" r="2.2" fill="#ef4444" stroke="#fff" strokeWidth="0.5" />
+                        <text x="30" y="15.2" fontSize="2.5" textAnchor="middle" fill="#fff" className="font-bold">TOP</text>
+
+                        <circle cx="58" cy="42" r="2.2" fill="#ef4444" stroke="#fff" strokeWidth="0.5" />
+                        <text x="58" y="43.2" fontSize="2.5" textAnchor="middle" fill="#fff" className="font-bold">JNG</text>
+
+                        <circle cx="52" cy="48" r="2.2" fill="#ef4444" stroke="#fff" strokeWidth="0.5" className="animate-bounce" />
+                        <text x="52" y="49.2" fontSize="2.5" textAnchor="middle" fill="#fff" className="font-bold">MID</text>
+
+                        <circle cx="82" cy="62" r="2.2" fill="#ef4444" stroke="#fff" strokeWidth="0.5" />
+                        <text x="82" y="63.2" fontSize="2.5" textAnchor="middle" fill="#fff" className="font-bold">ADC</text>
+
+                        <circle cx="76" cy="56" r="2.2" fill="#ef4444" stroke="#fff" strokeWidth="0.5" />
+                        <text x="76" y="57.2" fontSize="2.5" textAnchor="middle" fill="#fff" className="font-bold">SUP</text>
+                      </g>
+
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Macrostrategy and collision control */}
+                <div className="mt-4 pt-4 border-t border-slate-500/15 flex flex-col sm:flex-row justify-between items-center gap-3">
+                  <div className="flex gap-2">
+                    <span className="text-[10px] font-black text-gray-500 uppercase">MACRO ATIVA MARCIAL:</span>
+                    <strong className="text-[10px] text-amber-500 font-extrabold uppercase font-mono">
+                      {activeStrategy.toUpperCase()}
+                    </strong>
+                  </div>
+                  <span className="text-[9.5px] text-slate-400 font-bold">
+                    ⚔️ Suas estratégias estão gerando skirmishes adicionais nas rotas!
+                  </span>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Lado Direito: Gráfico (Linha Cartesiana) + Log de Narração (Caixa de Narração) (Span 5) */}
+            <div className="lg:col-span-5 space-y-6 flex flex-col justify-between">
+              
+              {/* Lado Direito Superior: Gráfico de linha cartesiano em tempo real showing advantage */}
+              <div className={`p-4 rounded-xl border flex flex-col justify-between h-[200px] ${
+                isDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200'
+              }`}>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-[10.5px] text-sky-400 font-bold uppercase tracking-wider">
+                    Análise Cartesiana
+                  </span>
+
+                  {/* Advantage tabs */}
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => setActiveChartTab('gold')}
+                      className={`px-2 py-0.5 text-[8.5px] font-black rounded uppercase ${
+                        activeChartTab === 'gold' ? 'bg-sky-400 text-black' : isDark ? 'bg-[#070d19] text-gray-400' : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      Vantagem Ouro
+                    </button>
+                    <button
+                      onClick={() => setActiveChartTab('xp')}
+                      className={`px-2 py-0.5 text-[8.5px] font-black rounded uppercase ${
+                        activeChartTab === 'xp' ? 'bg-sky-400 text-black' : isDark ? 'bg-[#070d19] text-gray-400' : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      Vantagem XP
+                    </button>
+                  </div>
+                </div>
+
+                {/* Line advantage charting */}
+                <div className="flex-1 w-full min-h-[120px] select-none">
+                  <ResponsiveContainer width="100%" height={125}>
+                    <AreaChart data={advantageHistory} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <XAxis dataKey="minute" stroke={isDark ? "#4b5563" : "#94a3b8"} fontSize={8} />
+                      <YAxis stroke={isDark ? "#4b5563" : "#94a3b8"} fontSize={8} />
+                      <RechartsTooltip 
+                        contentStyle={{ 
+                          backgroundColor: isDark ? '#070d19' : '#ffffff', 
+                          borderColor: isDark ? '#1e2d44' : '#e2e8f0',
+                          color: isDark ? '#ffffff' : '#000000',
+                          fontSize: '10px'
+                        }} 
+                      />
+                      <ReferenceLine y={0} stroke={isDark ? "rgba(255, 255, 255, 0.15)" : "rgba(30, 41, 59, 1.25)"} strokeDasharray="3 3" />
+                      <Area 
+                        type="monotone" 
+                        dataKey={activeChartTab === 'gold' ? 'gold' : 'xp'} 
+                        stroke={goldDelta >= 0 ? '#38bdf8' : '#ef4444'} 
+                        fill={goldDelta >= 0 ? 'rgba(56, 189, 248, 0.12)' : 'rgba(239, 68, 68, 0.12)'} 
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Lado Direito Inferior: "Caixa de Narração" (Log de eventos de texto) */}
+              <div className={`p-4 rounded-xl border flex flex-col justify-between h-[300px] ${
+                isDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200'
+              }`}>
+                <div className="flex justify-between items-center pb-2.5 border-b border-slate-500/10 mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 bg-rose-500 rounded-full animate-ping" />
+                    <span className={`text-[10px] font-black uppercase tracking-wider ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                      Caixa de Narração
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 py-0.5 rounded text-[11px] font-black font-mono ${
+                      isDark ? 'bg-slate-950 text-sky-400' : 'bg-slate-100 text-slate-800'
+                    }`}>
+                      ⏱️ {activeMinute.toString().padStart(2, '0')}:00 M
+                    </span>
+
+                    {activeMinute < 30 ? (
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => setIsPlaying(!isPlaying)}
+                          className="p-1 rounded bg-sky-400 text-[#070d19] hover:scale-105 active:scale-95 transition-transform cursor-pointer"
+                          title={isPlaying ? 'Pausar' : 'Iniciar'}
+                        >
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                        </button>
+                        <button
+                          onClick={triggerInstantMatch}
+                          className="px-2 py-1 bg-slate-800 text-slate-100 border border-slate-700 text-[8px] font-black uppercase rounded hover:text-white"
+                        >
+                          Simular Insta
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-emerald-400 font-black text-[9px] uppercase animate-pulse">TERMINADO</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Event logger wrapper */}
+                <div className={`flex-1 overflow-y-auto p-3 rounded-lg border font-mono text-[10px] space-y-1.5 mb-3 max-h-[180px] ${
+                  isDark ? 'bg-slate-950 border-slate-800 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-900'
+                }`}>
+                  {gameLogs.map((lg, i) => {
+                    const row = formatLogRow(lg);
+                    return (
+                      <div key={lg.id || i} className={`${row.textColorClass} flex items-start gap-1 p-1`}>
+                        <span className="text-gray-500 font-extrabold mr-1 shadow-sm font-mono flex-shrink-0">
+                          [{lg.timestamp}]
+                        </span>
+                        <span className="leading-normal flex-1 capitalize-first whitespace-pre-line">{row.text}</span>
+                      </div>
+                    );
+                  })}
+                  <div ref={logsEndRef} />
+                </div>
+
+                {/* Footer action */}
+                <div>
+                  {activeMinute >= 30 ? (
+                    <button
+                      onClick={concludeRealtimeGame}
+                      className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-display text-[10px] font-black py-2.5 uppercase tracking-widest rounded-xl flex items-center justify-center gap-1 cursor-pointer shadow-lg"
+                    >
+                      FINALIZAR MAPA E VER RELATÓRIO <ChevronRight className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <span className="text-[8px] text-gray-550 font-black tracking-widest block text-center uppercase">
+                      🔧 O controle de velocidade regula a atualização dinâmica minuto a minuto!
+                    </span>
+                  )}
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ======================= TELA X-4: RELATÓRIO PÓS-JOGO ======================= */}
+      {currentStep === 'REPORT' && (
+        <div className="py-8 px-6 max-w-5xl mx-auto">
+          
+          {/* Cabeçalho de confirmação do resultado: "Vitória" ou "Derrota" */}
+          <div className={`p-6 rounded-2xl border mb-6 text-center ${
+            gameOutcome === 'victory' 
+              ? isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.15)]' : 'bg-emerald-50 border-emerald-300 text-emerald-800 shadow'
+              : isDark ? 'bg-red-500/10 border-red-500/20 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.15)]' : 'bg-red-50 border-red-300 text-red-800 shadow'
+          }`}>
+            <span className="text-xs uppercase font-black tracking-widest">
+              FIM DA PARTIDA {currentGameIndex} DE ESPORTS
+            </span>
+            <h2 className="text-3xl font-display font-black uppercase mt-1">
+              {gameOutcome === 'victory' ? '🏆 VITÓRIA CONQUISTADA!' : '🚫 DERROTA NAS ROTAS!'}
+            </h2>
+            <p className="text-xs text-gray-400 mt-1 font-semibold">
+              As estatísticas finais de rendimento geral mostram o proveito tático em Summoner's Rift.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 relative">
+            
+            {/* Gráfico de Área grande detalhando toda a "Variação de Ouro por Minuto" acumulada da partida */}
+            <div className={`md:col-span-7 p-5 rounded-2xl border shadow-sm ${
+              isDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200'
+            }`}>
+              <h3 className={`text-xs font-black uppercase tracking-wider mb-4 ${isDark ? 'text-sky-400' : 'text-blue-600'}`}>
+                Variação de Ouro por Minuto (Histórico Acumulado)
+              </h3>
+
+              <div className="h-[220px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={finalGoldHistory} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <XAxis dataKey="minute" stroke={isDark ? "#4b5563" : "#94a3b8"} fontSize={9} label={{ value: 'Minuto', position: 'insideBottom', offset: -5 }} />
+                    <YAxis stroke={isDark ? "#4b5563" : "#94a3b8"} fontSize={9} label={{ value: 'Ouro Delta', angle: -90, position: 'insideLeft', offset: 10 }} />
+                    <RechartsTooltip 
+                      contentStyle={{ 
+                        backgroundColor: isDark ? '#070d19' : '#ffffff', 
+                        borderColor: isDark ? '#1e2d44' : '#e2e8f0',
+                        color: isDark ? '#ffffff' : '#000000',
+                        fontSize: '10px'
+                      }} 
+                    />
+                    <ReferenceLine y={0} stroke={isDark ? "#374151" : "#cbd5e1"} strokeWidth={1} />
+                    <Area 
+                      type="monotone" 
+                      dataKey="gold" 
+                      stroke={goldDelta >= 0 ? '#10b981' : '#ef4444'} 
+                      fill={goldDelta >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'} 
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Gráfico de Barras Verticais comparando a "Eficiência de Objetivos" (Barão, Dragões, Torres) */}
+            <div className={`md:col-span-5 p-5 rounded-2xl border shadow-sm ${
+              isDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200'
+            }`}>
+              <h3 className={`text-xs font-black uppercase tracking-wider mb-4 ${isDark ? 'text-[#00d2fd]' : 'text-blue-605'}`}>
+                Eficiência de Objetivos (Barão, Dragões, Torres)
+              </h3>
+
+              <div className="h-[220px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={[
+                    { name: 'Barão', valor: (stats.baronsBlue + stats.baronsRed > 0 ? (stats.baronsBlue / (stats.baronsBlue + stats.baronsRed)) * 100 : 50) },
+                    { name: 'Dragões', valor: (stats.dragonsBlue + stats.dragonsRed > 0 ? (stats.dragonsBlue / (stats.dragonsBlue + stats.dragonsRed)) * 100 : 50) },
+                    { name: 'Torres', valor: (stats.towersBlue + stats.towersRed > 0 ? (stats.towersBlue / (stats.towersBlue + stats.towersRed)) * 100 : 50) }
+                  ]} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <XAxis dataKey="name" stroke={isDark ? "#4b5563" : "#94a3b8"} fontSize={9} />
+                    <YAxis stroke={isDark ? "#4b5563" : "#94a3b8"} fontSize={9} unit="%" />
+                    <RechartsTooltip formatter={(v: any) => [`${Math.round(v)}%`, 'Dominação']} />
+                    <Bar dataKey="valor" fill="#3b82f6" radius={[4, 4, 0, 0]}>
+                      <Cell fill="#e11d48" />
+                      <Cell fill="#06b6d4" />
+                      <Cell fill="#3b82f6" />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Widget inferior esquerdo consolidando os números finais: "Final-Objetivos", "CS-Objetivos" */}
+            <div className="md:col-span-6">
+              <div className={`p-5 rounded-2xl border h-full justify-between flex flex-col ${
+                isDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200'
+              }`}>
+                <h4 className="text-xs font-black uppercase tracking-wider text-gray-400 mb-3 block">
+                  Consolidação Oro de Objetivos
+                </h4>
+
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className={`p-3 rounded-xl border ${isDark ? 'bg-[#070d19] border-sky-500/10' : 'bg-slate-50 border-slate-200'}`}>
+                    <span className="text-[9px] font-black text-gray-500 uppercase block">Final-Objetivos</span>
+                    <strong className="text-lg font-mono font-black text-amber-500 mt-1 block">
+                      {3000 + (stats.baronsBlue * 1500 + stats.dragonsBlue * 400 + stats.towersBlue * 500)}
+                    </strong>
+                    <span className="text-[8px] text-gray-450 block font-semibold mt-0.5">Ouro Líquido obtido</span>
+                  </div>
+
+                  <div className={`p-3 rounded-xl border ${isDark ? 'bg-[#070d19] border-sky-500/10' : 'bg-slate-50 border-slate-200'}`}>
+                    <span className="text-[9px] font-black text-gray-500 uppercase block block">CS-Objetivos</span>
+                    <strong className="text-lg font-mono font-black text-sky-400 mt-1 block">
+                      {stats.dragonsBlue + stats.baronsBlue}/{stats.dragonsBlue + stats.baronsBlue + stats.dragonsRed + stats.baronsRed || '0/0'}
+                    </strong>
+                    <span className="text-[8px] text-gray-450 block font-semibold mt-0.5">Controle de Neutros</span>
+                  </div>
+
+                  <div className={`p-3 rounded-xl border ${isDark ? 'bg-[#070d19] border-sky-500/10' : 'bg-slate-50 border-slate-200'}`}>
+                    <span className="text-[9px] font-black text-gray-500 uppercase block">Vitória</span>
+                    <strong className={`text-lg font-black mt-1 block uppercase ${gameOutcome === 'victory' ? 'text-emerald-400' : 'text-rose-500'}`}>
+                      {gameOutcome === 'victory' ? 'SUCESSO' : 'DERROTA'}
+                    </strong>
+                    <span className="text-[8px] text-gray-450 block font-semibold mt-0.5">Resultado</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Seção "AI Feedback IA" gerando 3 bullet points críticos analisando os erros e acertos táticos */}
+            <div className="md:col-span-6">
+              <div className={`p-5 rounded-2xl border ${
+                isDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200 shadow-sm'
+              }`}>
+                <div className="flex items-center gap-1.5 mb-3">
+                  <Sparkles className="w-4 h-4 text-sky-400" />
+                  <h4 className="text-xs font-display font-black uppercase text-sky-300">
+                    AI Feedback IA - Comissões Tácticas
+                  </h4>
+                </div>
+                
+                <ul className="space-y-2.5">
+                  <li className="flex items-start gap-2 text-[11px] leading-relaxed select-text">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 mt-1.5" />
+                    <p className={`font-semibold ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>
+                      <strong>Padrão Tático Correto:</strong> O timing para o controle de {stats.dragonsBlue > stats.dragonsRed ? 'Dragões Elementais' : 'Torres Externas'} foi executado com excelência, expandindo as rotas.
+                    </p>
+                  </li>
+                  <li className="flex items-start gap-2 text-[11px] leading-relaxed select-text">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0 mt-1.5" />
+                    <p className={`font-semibold ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>
+                      <strong>Padrão Tático Errado:</strong> Mid Game Teamfight over-extended na selva retardaram a transição rápida, expondo fragilidades defensivas.
+                    </p>
+                  </li>
+                  <li className="flex items-start gap-2 text-[11px] leading-relaxed select-text">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 mt-1.5" />
+                    <p className={`font-semibold ${isDark ? 'text-gray-300' : 'text-slate-700'}`}>
+                      <strong>Patrão Táctico Ermatos:</strong> Flexibilização e Poke/Siege Eficiência foi alta de acordo com a meta-composição configurada no draft.
+                    </p>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Navigation action Footer */}
+          <div className="mt-8 flex justify-center">
+            <button
+              onClick={advanceNextMatchOrFinish}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-display text-xs font-black py-3 px-10 rounded-xl tracking-widest uppercase flex items-center gap-2 shadow-lg transition-transform hover:scale-105"
+            >
+              {blueSeriesScore >= 2 || redSeriesScore >= 2 ? (
+                <>
+                  CONCLUIR SÉRIE E SALVAR <Trophy className="w-4 h-4" />
+                </>
+              ) : (
+                <>
+                  AVANÇAR PARA JOGO {currentGameIndex + 1} <ChevronRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </div>
+
+        </div>
+      )}
+
+    </div>
+  );
+}

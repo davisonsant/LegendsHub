@@ -229,7 +229,7 @@ const getPlayerAchievements = (player: Player) => {
 
 const getPlayerClauses = (player: Player) => {
   if (player.overallRating >= 88) {
-    return ["Cláusula de rescisão internacional (5M €)", "Bônus por vitória no Worlds (+20% de bônus)", "Direitos de imagem globais"];
+    return ["Cláusula de rescisão internacional ($ 5M)", "Bônus por vitória no Worlds (+20% de bônus)", "Direitos de imagem globais"];
   }
   if (player.overallRating >= 80) {
     return ["Cláusula de rescisão nacional (1.5M R$)", "Bônus por MVP de Split (+15% de bônus)", "Streamings de patrocínio co-garantidos"];
@@ -263,6 +263,7 @@ interface RosterTabProps {
   onTransferListPlayer: (player: Player) => void;
   onReleasePlayer: (player: Player) => void;
   onSelectPlayerTraining: (playerName: string, focusArea: string) => void;
+  onUpdateGameState?: (state: GameState) => void;
   theme?: 'light' | 'dark';
   selectedPlayerId?: string;
   setSelectedPlayerId?: (id: string) => void;
@@ -276,6 +277,7 @@ export default function RosterTab({
   onTransferListPlayer,
   onReleasePlayer,
   onSelectPlayerTraining,
+  onUpdateGameState,
   theme,
   selectedPlayerId: controlledPlayerId,
   setSelectedPlayerId: setControlledPlayerId,
@@ -307,6 +309,87 @@ export default function RosterTab({
   const s = getS();
 
   const userTeam = gameState.teams.find(t => t.id === gameState.playerTeamId)!;
+
+  const handleToggleSquadRole = (player: Player) => {
+    if (!onUpdateGameState) return;
+
+    const nextTeams = gameState.teams.map(t => {
+      if (t.id === gameState.playerTeamId) {
+        let nextRoster = [...t.roster];
+        let nextSubstitutes = [...t.substitutes];
+
+        const rosterIdx = nextRoster.findIndex(p => p.id === player.id);
+        const subIdx = nextSubstitutes.findIndex(p => p.id === player.id);
+
+        if (rosterIdx >= 0) {
+          // Move from starter to reserve
+          const removed = nextRoster.splice(rosterIdx, 1)[0];
+          nextSubstitutes.push(removed);
+        } else if (subIdx >= 0) {
+          // Move from reserve to starter of that position
+          const removed = nextSubstitutes.splice(subIdx, 1)[0];
+          const existingStarterIdx = nextRoster.findIndex(p => p.position === removed.position);
+          if (existingStarterIdx >= 0) {
+            const kicked = nextRoster.splice(existingStarterIdx, 1)[0];
+            nextSubstitutes.push(kicked);
+          }
+          nextRoster.push(removed);
+        }
+
+        return {
+          ...t,
+          roster: nextRoster,
+          substitutes: nextSubstitutes
+        };
+      }
+      return t;
+    });
+
+    onUpdateGameState({
+      ...gameState,
+      teams: nextTeams
+    });
+  };
+
+  const handleRelegatePlayer = (player: Player) => {
+    if (!onUpdateGameState) return;
+
+    if (!window.confirm(`Tem certeza que deseja rebaixar o atleta "${player.name}" para a categoria de base (Academy)?`)) {
+      return;
+    }
+
+    const nextTeams = gameState.teams.map(t => {
+      if (t.id === gameState.playerTeamId) {
+        const nextRoster = t.roster.filter(p => p.id !== player.id);
+        const nextSubstitutes = t.substitutes.filter(p => p.id !== player.id);
+        const nextAcademy = [...(t.academy || [])];
+
+        const clonedPlayer = {
+          ...player,
+          isAcademyStarter: false
+        };
+        nextAcademy.push(clonedPlayer);
+
+        return {
+          ...t,
+          roster: nextRoster,
+          substitutes: nextSubstitutes,
+          academy: nextAcademy
+        };
+      }
+      return t;
+    });
+
+    onUpdateGameState({
+      ...gameState,
+      teams: nextTeams
+    });
+    
+    // Clear selection or select another player to prevent UI from breaking
+    setSelectedPlayerId('');
+    setIsDetailedProfileOpen(false);
+  };
+
   const [localSelectedPlayerId, setLocalSelectedPlayerId] = useState<string>(userTeam.roster[0]?.id || '');
   const [localIsDetailedProfileOpen, setLocalIsDetailedProfileOpen] = useState(false);
 
@@ -315,6 +398,25 @@ export default function RosterTab({
 
   const setSelectedPlayerId = setControlledPlayerId || setLocalSelectedPlayerId;
   const setIsDetailedProfileOpen = setControlledDetailOpen || setLocalIsDetailedProfileOpen;
+
+  // Rule-enforced reactive reset:
+  // We only force local starter fallback if isDetailedProfileOpen is FALSE (to ensure the inline details card
+  // on the right points to a valid corporate player, rather than persisting external/invalid player cache).
+  // When isDetailedProfileOpen is TRUE, we are in an EXTERNAL/DETAILED PROFILE CONTEXT, meaning we must 
+  // allow displaying external team athletes (like Faker) without force-resetting them.
+  useEffect(() => {
+    if (!isDetailedProfileOpen) {
+      const isPlayerOwned = userTeam.roster.some(p => p.id === selectedPlayerId) || 
+                            userTeam.substitutes.some(p => p.id === selectedPlayerId);
+      
+      if (!selectedPlayerId || !isPlayerOwned) {
+        const topStarter = userTeam.roster.find(p => p.position === 'TOP') || userTeam.roster[0];
+        if (topStarter) {
+          setSelectedPlayerId(topStarter.id);
+        }
+      }
+    }
+  }, [isDetailedProfileOpen, selectedPlayerId, userTeam.roster, userTeam.substitutes]);
   
   // Custom view toggle: 'profile' (Screenshot 1) vs 'training' (Screenshot 2)
   const [panelViewMode, setPanelViewMode] = useState<'profile' | 'training'>('profile');
@@ -602,14 +704,29 @@ export default function RosterTab({
                 <div className="pt-3 border-t border-slate-200/50 dark:border-slate-800/50 flex flex-col gap-2">
                   <button
                     onClick={() => onRenewContract(activePlayer.name)}
-                    className="w-full bg-[#006e80] hover:bg-[#005c6c] text-white text-[10.5px] font-extrabold py-3 uppercase tracking-wider rounded-lg transition-all cursor-pointer shadow-sm text-center"
+                    className="w-full bg-[#006e80] hover:bg-[#005c6c] text-white text-[10.5px] font-extrabold py-3 uppercase tracking-wider rounded-lg transition-all cursor-pointer shadow-sm text-center font-semibold"
                   >
                     Renovar Vínculo Contratual de {activePlayer.name}
                   </button>
+
+                  <button
+                    onClick={() => handleToggleSquadRole(activePlayer)}
+                    className="w-full bg-[#007BFF] hover:bg-blue-600 text-white text-[10.5px] font-extrabold py-3 uppercase tracking-wider rounded-lg transition-all cursor-pointer shadow-sm text-center font-semibold"
+                  >
+                    {userTeam.roster.some(p => p.id === activePlayer.id) ? 'Mover para a Reserva / Substituto' : 'Escalar como Titular (Time Principal)'}
+                  </button>
+
+                  <button
+                    onClick={() => handleRelegatePlayer(activePlayer)}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-[10.5px] font-extrabold py-3 uppercase tracking-wider rounded-lg transition-all cursor-pointer shadow-sm text-center font-semibold"
+                  >
+                    Rebaixar para o Academy
+                  </button>
+
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => onTransferListPlayer(activePlayer)}
-                      className="w-full bg-rose-500/10 border border-rose-500/25 hover:bg-rose-500/15 text-rose-500 text-[10px] font-extrabold py-2.5 uppercase tracking-wider rounded-lg transition-all cursor-pointer text-center"
+                      className="w-full bg-rose-500/10 border border-rose-500/25 hover:bg-rose-500/15 text-rose-500 text-[10px] font-extrabold py-2.5 uppercase tracking-wider rounded-lg transition-all cursor-pointer text-center font-semibold"
                     >
                       Anunciar Listado para Venda
                     </button>
@@ -620,7 +737,7 @@ export default function RosterTab({
                           setIsDetailedProfileOpen(false);
                         }
                       }}
-                      className="w-full bg-slate-105 dark:bg-slate-900 border border-slate-200 dark:border-slate-805 text-slate-500 dark:text-slate-400 hover:text-slate-250 text-[10px] font-extrabold py-2.5 uppercase tracking-wider rounded-lg transition-all cursor-pointer text-center"
+                      className="w-full bg-slate-105 dark:bg-slate-900 border border-slate-200 dark:border-slate-805 text-slate-500 dark:text-slate-400 hover:text-slate-250 text-[10px] font-extrabold py-2.5 uppercase tracking-wider rounded-lg transition-all cursor-pointer text-center font-semibold"
                     >
                       Rescindir Amigavelmente
                     </button>
@@ -1334,21 +1451,35 @@ export default function RosterTab({
                     <div className="flex flex-col gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                       <button
                         onClick={() => onRenewContract(activePlayer.name)}
-                        className="w-full bg-[#006e80] hover:bg-[#005c6c] text-white text-[10px] font-extrabold py-3.5 uppercase tracking-wider rounded transition-all cursor-pointer shadow-sm text-center"
+                        className="w-full bg-[#006e80] hover:bg-[#005c6c] text-white text-[10px] font-extrabold py-3.5 uppercase tracking-wider rounded transition-all cursor-pointer shadow-sm text-center font-semibold"
                       >
                         Renovar Contrato de {activePlayer.name}
+                      </button>
+
+                      <button
+                        onClick={() => handleToggleSquadRole(activePlayer)}
+                        className="w-full bg-[#007BFF] hover:bg-blue-600 text-white text-[10px] font-extrabold py-3.5 uppercase tracking-wider rounded transition-all cursor-pointer shadow-sm text-center font-semibold"
+                      >
+                        {userTeam.roster.some(p => p.id === activePlayer.id) ? 'Mover para a Reserva / Substituto' : 'Escalar como Titular (Time Principal)'}
+                      </button>
+
+                      <button
+                        onClick={() => handleRelegatePlayer(activePlayer)}
+                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-extrabold py-3.5 uppercase tracking-wider rounded transition-all cursor-pointer shadow-sm text-center font-semibold"
+                      >
+                        Rebaixar para o Academy
                       </button>
                       
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={() => alert(`Prospecção iniciada para substituição de ${activePlayer.name}...`)}
-                          className={`${isDark ? 'bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-300' : 'bg-white border border-slate-200 hover:border-slate-300 text-slate-650'} text-[9px] font-bold py-2.5 px-3 uppercase tracking-wider rounded flex items-center justify-center gap-1.5 cursor-pointer`}
+                          className={`${isDark ? 'bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-300' : 'bg-white border border-slate-200 hover:border-slate-300 text-slate-650'} text-[9px] font-bold py-2.5 px-3 uppercase tracking-wider rounded flex items-center justify-center gap-1.5 cursor-pointer font-semibold`}
                         >
                           <Search className="w-3.5 h-3.5" /> SCOUT SUBSTITUTO
                         </button>
                         <button
                           onClick={() => onTransferListPlayer(activePlayer)}
-                          className={`${isDark ? 'bg-[#ffebeb]/5 border-pink-100/10 hover:bg-pink-100/10' : 'bg-[#ffebeb] border-pink-100 hover:bg-pink-100/50'} text-pink-500 text-[9px] font-bold py-2.5 px-3 uppercase tracking-wider rounded flex items-center justify-center gap-1.5 cursor-pointer`}
+                          className={`${isDark ? 'bg-[#ffebeb]/5 border-pink-100/10 hover:bg-pink-100/10' : 'bg-[#ffebeb] border-pink-100 hover:bg-pink-100/50'} text-pink-500 text-[9px] font-bold py-2.5 px-3 uppercase tracking-wider rounded flex items-center justify-center gap-1.5 cursor-pointer font-semibold`}
                         >
                           <Trash2 className="w-3.5 h-3.5" /> COLOCAR À VENDA
                         </button>

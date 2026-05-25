@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Shield, Compass, Sparkles, Trophy, Calendar, 
@@ -31,16 +31,19 @@ import EditorTab from './components/EditorTab';
 import DraftTab from './components/DraftTab';
 import MatchCenterTab from './components/MatchCenterTab';
 import SettingsScreen from './components/SettingsScreen';
+import MatchSimulatorFlow from './components/MatchSimulatorFlow';
 
 // Custom Multi-tabs integration
+import GamingOfficeTab from './components/GamingOfficeTab';
 import { 
-  GamingOfficeTab, LigaTab, TimesTab, EscritorioTab, FinancasTab, 
+  LigaTab, TimesTab, EscritorioTab, FinancasTab, 
   EstatisticasTab, SoloQueueTab, UltimasPartidasTab, MetaTab, CarreiraTab, SalvarJogoTab,
   ComunidadeTab, CentralDeEmpregosTab
 } from './components/NewTabs';
 import InboxTab from './components/InboxTab';
 import NotificationsTab from './components/NotificationsTab';
 import RoadmapTab from './components/RoadmapTab';
+import ScoutingTab from './components/ScoutingTab';
 
 export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -61,6 +64,28 @@ export default function App() {
   useEffect(() => {
     const handleCurrencyChanged = () => {
       setCurrencyVersion(v => v + 1);
+      rawSetGameState(prev => {
+        if (!prev) return null;
+        const pTeam = prev.teams?.find(t => t.id === prev.playerTeamId);
+        if (pTeam) {
+          const budget = pTeam.budget;
+          const symbol = getCurrencySymbol();
+          const formattedHud = budget < 1000000 
+            ? `${symbol} ${budget.toLocaleString('pt-BR')}`
+            : `${symbol} ${(budget / 1000000).toFixed(2)}M`;
+          
+          return {
+            ...prev,
+            finance: {
+              balance: budget,
+              currency: symbol,
+              caixa_bruto: budget,
+              caixa_formatado_hud: formattedHud
+            }
+          };
+        }
+        return { ...prev };
+      });
     };
     window.addEventListener('currency_changed', handleCurrencyChanged);
     return () => {
@@ -70,7 +95,35 @@ export default function App() {
 
   const [screen, setScreen] = useState<'LAUNCHER' | 'HUB' | 'DRAFT' | 'MATCH' | 'SETTINGS'>('LAUNCHER');
   const [activeTab, setActiveTab] = useState<string>('Central do Manager');
-  const [gameState, setGameState] = useState<GameState | null>(null);
+  const [rawGameState, rawSetGameState] = useState<GameState | null>(null);
+
+  const setGameState = useCallback((nextStateOrFn: GameState | null | ((prev: GameState | null) => GameState | null)) => {
+    rawSetGameState(prev => {
+      let resolved = typeof nextStateOrFn === 'function' ? nextStateOrFn(prev) : nextStateOrFn;
+      if (resolved) {
+        // Enforce synchronization of the player team budget and game global finance state
+        const pTeam = resolved.teams?.find(t => t.id === resolved.playerTeamId);
+        if (pTeam) {
+          // Sync finance balance to the budget
+          const budget = pTeam.budget;
+          const symbol = getCurrencySymbol();
+          const formattedHud = budget < 1000000 
+            ? `${symbol} ${budget.toLocaleString('pt-BR')}`
+            : `${symbol} ${(budget / 1000000).toFixed(2)}M`;
+          
+          resolved.finance = {
+            balance: budget,
+            currency: symbol,
+            caixa_bruto: budget,
+            caixa_formatado_hud: formattedHud
+          };
+        }
+      }
+      return resolved;
+    });
+  }, []);
+
+  const gameState = rawGameState;
   
   // Shared state for selected player and detailed profile visibility
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
@@ -641,6 +694,27 @@ export default function App() {
     setActiveTab('Central do Manager');
   };
 
+  const handleSidebarTabClick = (tabId: string) => {
+    if (tabId === 'Jogadores' || tabId === 'Gerenciar Jogadores') {
+      // 1. CONTEXTO DE GESTÃO INTERNA (Menus: "JOGADORES" e "ACADEMY"):
+      // Ao entrar especificamente nestas duas telas através do menu lateral, limpe o cache de visualizações externas anteriores.
+      // Force 'selectedPlayerId' a apontar automaticamente para o primeiro jogador titular do seu próprio elenco local daquela tela.
+      const userTeam = gameState?.teams?.find(t => t.id === gameState?.playerTeamId);
+      const topStarter = userTeam ? (userTeam.roster.find(p => p.position === 'TOP') || userTeam.roster[0]) : null;
+      if (topStarter) {
+        setSelectedPlayerId(topStarter.id);
+      } else {
+        setSelectedPlayerId('');
+      }
+      setIsDetailedProfileOpen(false); // Clear previous external detailed profile cache
+    } else if (tabId === 'Academy' || tabId === 'Youth Academia') {
+      // 1. CONTEXTO DE GESTÃO INTERNA - ACADEMY
+      // Ao entrar especificamente nesta tela através do menu lateral, limpe o cache de selecionados, se houver.
+      setIsDetailedProfileOpen(false); 
+    }
+    setActiveTab(tabId);
+  };
+
   // Layout wrapper component helper
   const renderTabContent = () => {
     if (!gameState) return null;
@@ -681,10 +755,15 @@ export default function App() {
             gameState={gameState}
             onNextWeek={advanceWeekHandler}
             onSelectTab={(tab) => {
-              if (tab === 'Match Center') setScreen('DRAFT');
+              if (tab === 'Match Center') {
+                setScreen('DRAFT');
+              } else {
+                setActiveTab(tab);
+              }
             }}
             onAnswerInterview={answerInterviewHandler}
             theme={theme}
+            onInstantSimulate={handleFinishMatchSeriesResult}
           />
         );
       case 'Calendário':
@@ -705,6 +784,7 @@ export default function App() {
             onTransferListPlayer={transferListHandler}
             onReleasePlayer={releasePlayerHandler}
             onSelectPlayerTraining={selectPlayerTrainingHandler}
+            onUpdateGameState={setGameState}
             theme={theme}
             selectedPlayerId={selectedPlayerId}
             setSelectedPlayerId={setSelectedPlayerId}
@@ -719,6 +799,7 @@ export default function App() {
             {...({
               gameState,
               onPromoteProspect: promoteProspectHandler,
+              onUpdateGameState: setGameState,
               theme
             } as any)}
           />
@@ -834,6 +915,19 @@ export default function App() {
           />
          );
       case 'Scouting':
+         return (
+           <ScoutingTab
+             gameState={gameState}
+             onUpdateGameState={setGameState}
+             triggerNotification={triggerNotification}
+             theme={theme}
+             onSelectPlayer={(pId: string) => {
+               setSelectedPlayerId(pId);
+               setIsDetailedProfileOpen(true);
+               setActiveTab('Jogadores');
+             }}
+           />
+         );
       case 'Solo Queue':
          return (
           <SoloQueueTab
@@ -985,25 +1079,14 @@ export default function App() {
     );
   }
 
-  // INTERACTIVE DRAFT ARENA ROUTING OVERLAYS
-  if (screen === 'DRAFT') {
+  // INTERACTIVE DRAFT ARENA & BO3 SERIES SIMULATOR FLOW
+  if (screen === 'DRAFT' || screen === 'MATCH') {
     return (
-      <DraftTab
+      <MatchSimulatorFlow
         gameState={gameState}
-        onConfirmDraft={handleConfirmDraftPicks}
-        onBackToHub={() => setScreen('HUB')}
-      />
-    );
-  }
-
-  // ACTIVE SUMMONER'S RIFT FIELD FIGHTS
-  if (screen === 'MATCH') {
-    return (
-      <MatchCenterTab
-        gameState={gameState}
-        bluePicks={activeBluePicks}
-        redPicks={activeRedPicks}
         onFinishMatchSeries={handleFinishMatchSeriesResult}
+        onBackToHub={() => setScreen('HUB')}
+        theme={theme}
       />
     );
   }
@@ -1063,7 +1146,7 @@ export default function App() {
               return (
                 <button
                   key={link.id}
-                  onClick={() => setActiveTab(link.id)}
+                  onClick={() => handleSidebarTabClick(link.id)}
                   className={`w-full py-1 px-3 rounded-lg flex items-center gap-2.5 text-[10px] font-bold uppercase tracking-wider text-left transition-all cursor-pointer shrink-0 ${
                     isCurrent 
                       ? 'bg-blue-600 text-white font-black shadow-md border-0' 
@@ -1282,7 +1365,7 @@ export default function App() {
                     : theme === 'dark' ? 'text-emerald-500 group-hover:text-[#FFFFFF]' : 'text-emerald-600 group-hover:text-slate-900'
                 }`} />
                 <span className="font-mono font-black text-[11.5px] leading-tight transition-colors duration-200">
-                  {pTeamObj ? formatMoney(pTeamObj.budget) : 'N/A'}
+                  {gameState?.finance?.caixa_formatado_hud || (pTeamObj ? formatMoney(pTeamObj.budget) : 'N/A')}
                 </span>
               </div>
 

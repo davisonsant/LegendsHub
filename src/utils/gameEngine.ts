@@ -113,6 +113,13 @@ export function initializeNewGame(
     { id: 'LCP_YOUTH', name: 'LCP Youth (Amadora)', logoUrl: '' }
   ];
 
+  const selectedTeam = allTeams.find(t => t.id === selectedTeamId);
+  const initialBudget = selectedTeam ? selectedTeam.budget : 1500050;
+
+  const formattedHud = initialBudget < 1000000 
+    ? `$ ${initialBudget.toLocaleString('pt-BR')}`
+    : `$ ${(initialBudget / 1000000).toFixed(2)}M`;
+
   return {
     managerName,
     season: selectedYear,
@@ -130,7 +137,12 @@ export function initializeNewGame(
     careerHistory: [],
     selectedRegion,
     selectedYear,
-    leagues: defaultLeagues
+    leagues: defaultLeagues,
+    finance: {
+      balance: initialBudget,
+      caixa_bruto: initialBudget,
+      caixa_formatado_hud: formattedHud
+    }
   };
 }
 

@@ -54,6 +54,7 @@ export interface Player {
   isMvpBonusExigido?: boolean;
   isTitularidadeExigida?: boolean;
   contractWeeksRemaining?: number;
+  isAcademyStarter?: boolean;
 }
 
 export type StaffRole = 'Coach' | 'Analyst' | 'Psychologist' | 'StreamManager' | 'PerformanceCoach';
@@ -264,4 +265,10 @@ export interface GameState {
   selectedRegion?: 'CBLOL' | 'LCK' | 'LPL' | 'LEC' | 'LCS' | 'LCP';
   selectedYear?: number;
   leagues?: { id: string; name: string; logoUrl?: string }[];
+  finance?: {
+    balance: number;
+    currency?: string;
+    caixa_bruto?: number;
+    caixa_formatado_hud?: string;
+  };
 }

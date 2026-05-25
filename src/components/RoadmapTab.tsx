@@ -55,7 +55,7 @@ export default function RoadmapTab({ gameState, theme, triggerNotification }: Ro
         id: 'road-3',
         quarter: 'Fase 3: Novas Ligas',
         title: '🌍 Ligas Coreanas (LCK) e Europeias (LEC) Jogáveis',
-        description: 'Suporte completo para migrar de país assumindo elencos globais e contratando de qualquer lugar com orçamentos em dólares e euros regulados.',
+        description: 'Suporte completo para migrar de país assumindo elencos globais e contratando de qualquer lugar com orçamentos em dólares regulados.',
         status: 'Pesquisado',
         priority: 'low'
       },

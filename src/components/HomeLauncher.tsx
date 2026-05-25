@@ -366,7 +366,7 @@ export default function HomeLauncher({
                         <div>
                           <span className="block text-[8px] uppercase tracking-widest text-slate-400 font-bold mb-0.5">BUDGET</span>
                           <span className="font-display text-slate-800 text-[11px] font-bold">
-                            $ {(activeTeamData.budget / 1000000).toFixed(2)}M
+                            $ {activeTeamData.budget >= 1000000 ? `${(activeTeamData.budget / 1000000).toFixed(2)}M` : activeTeamData.budget.toLocaleString('pt-BR')}
                           </span>
                         </div>
                         <div>

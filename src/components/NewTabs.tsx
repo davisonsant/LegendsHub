@@ -3895,7 +3895,7 @@ export function SoloQueueTab({ gameState, onUpdateGameState, triggerNotification
                       </div>
 
                       <div className="pt-2 border-t flex justify-between items-center text-[10px]" style={{ borderColor: 'var(--border-element)' }}>
-                        <span className="font-mono text-emerald-400 font-extrabold">€ {sc.salary.toLocaleString()}/mês</span>
+                        <span className="font-mono text-emerald-400 font-extrabold">$ {sc.salary.toLocaleString()}/mês</span>
                         <span className="text-[9.5px]" style={{ color: 'var(--text-muted)' }}>{sc.contractRemaining} meses de contrato</span>
                       </div>
 
@@ -3969,7 +3969,7 @@ export function SoloQueueTab({ gameState, onUpdateGameState, triggerNotification
                         </div>
 
                         <div className="text-[10px] space-y-1 font-mono pt-1.5 border-t" style={{ borderColor: 'var(--border-element)', color: 'var(--text-muted)' }}>
-                          <div>Salário: <strong className="text-emerald-405">€ {sc.salary}/mês</strong></div>
+                          <div>Salário: <strong className="text-emerald-405">$ {sc.salary}/mês</strong></div>
                           <div>Adesão: <strong className="text-emerald-405">${setupCost}</strong></div>
                         </div>
 
@@ -4023,7 +4023,7 @@ export function SoloQueueTab({ gameState, onUpdateGameState, triggerNotification
                         </div>
 
                         <div className="text-[10px] space-y-1 font-mono pt-1.5 border-t" style={{ borderColor: 'var(--border-element)', color: 'var(--text-muted)' }}>
-                          <div>Salário Reajustado: <strong className="text-red-400">€ {sc.salary}/mês</strong></div>
+                          <div>Salário Reajustado: <strong className="text-red-400">$ {sc.salary}/mês</strong></div>
                           <div>Custo Readesão: <strong className="text-[#00cbd6]">${setupCost}</strong></div>
                         </div>
 

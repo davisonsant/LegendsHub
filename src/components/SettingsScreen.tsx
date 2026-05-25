@@ -1191,7 +1191,7 @@ export default function SettingsScreen({
                       : 'Game options: Choose the currency used to display budgets, salaries and market values on the operational panel.'}
                 </p>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {/* USD */}
                   <button
                     onClick={() => {
@@ -1247,7 +1247,7 @@ export default function SettingsScreen({
                   >
                     <span className="flex items-center gap-2">
                       <span className="font-extrabold text-sm text-[#00d2fd]">R$</span>
-                      <span>{lang === 'pt' ? 'Real (R$)' : lang === 'es' ? 'Real (R$)' : 'Real (R$)'}</span>
+                      <span>{lang === 'pt' ? 'Real (R$)' : lang === 'es' ? 'Real (R$)' : 'Brazilian Real (R$)'}</span>
                     </span>
                     {selectedCurrency === 'BRL' && <Check className="w-4 h-4 text-sky-400" />}
                   </button>
