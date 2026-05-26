@@ -9,9 +9,11 @@ import {
   TrendingUp, BarChart3, Tv, Award, Play, Sliders, Zap, Gamepad2, 
   Calendar, Check, AlertCircle, Sparkles, ChevronRight, ChevronLeft, ArrowLeft, Heart, Crown, 
   Medal, Save, HardDrive, Trash2, Import, Download, User, Briefcase, Megaphone,
-  Percent, Lock, Scale, Clock, AlertTriangle, MapPin, Star
+  Percent, Lock, Scale, Clock, AlertTriangle, MapPin, Star, Globe, Terminal
 } from 'lucide-react';
 import { GameState, Team, Player, Sponsor, Champion, MatchSeries, Position } from '../types';
+import { formatMoney, getCurrencySymbol, getCaixaFormatadoHud } from '../utils/currency';
+import { ComunidadeTab as ComunidadeTabOriginal } from './ComunidadeTab';
 
 // ==========================================
 // THEME COLORS UTILITY
@@ -1040,7 +1042,9 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
 
   // Calculate detailed week sheet values matching advanceGameWeek algorithm
   const sponsorsInflow = playerTeam.sponsors.reduce((acc, s) => acc + s.incomePerWeek, 0);
-  const merchSalesAmount = Math.round(playerTeam.popularity * jerseyPrice * 18);
+  const socioTorcedores = Math.round(playerTeam.popularity * 145);
+  const socioMultiplier = 1 + (socioTorcedores / 10000);
+  const merchSalesAmount = Math.round(playerTeam.popularity * jerseyPrice * 18 * socioMultiplier);
   const ticketsSalesAmount = Math.round(playerTeam.popularity * ticketPrice * 22);
   const totalEntries = sponsorsInflow + merchSalesAmount + ticketsSalesAmount;
 
@@ -4420,170 +4424,20 @@ interface ComunidadeTabProps {
   gameState: GameState;
   onUpdateGameState: (state: GameState) => void;
   triggerNotification: (title: string, desc: string) => void;
+  theme?: 'light' | 'dark';
 }
 
-export function ComunidadeTab({ gameState, onUpdateGameState, triggerNotification }: ComunidadeTabProps) {
-  const { teams, playerTeamId } = gameState;
-  const playerTeam = teams.find(t => t.id === playerTeamId);
-
-  if (!playerTeam) {
-    return (
-      <div className="text-center py-10 bg-[#0a1424] border border border-[#1e2d44] rounded-xl p-8">
-        <p className="text-slate-400 font-bold uppercase tracking-wider">Você não possui um clube de eSports ativo.</p>
-      </div>
-    );
-  }
-
-  // Active campaigns or fan boost events
-  const executeCampaign = (campaignId: string, cost: number, supportBoost: number, popBoost: number, label: string) => {
-    if (playerTeam.budget < cost) {
-      triggerNotification("❌ Saldo Insuficiente", "Seu clube não possui fundos suficientes para lançar este evento comunitário.");
-      return;
-    }
-
-    playerTeam.budget -= cost;
-    playerTeam.fansSupport = Math.min(100, playerTeam.fansSupport + supportBoost);
-    playerTeam.popularity = Math.min(100, playerTeam.popularity + popBoost);
-
-    const nextTeams = teams.map(t => t.id === playerTeamId ? { ...playerTeam } : t);
-    onUpdateGameState({
-      ...gameState,
-      teams: nextTeams
-    });
-
-    triggerNotification("📣 Campanha Concluída!", `Sucesso ao lançar "${label}"! Satisfação dos torcedores subiu +${supportBoost}% e popularidade +${popBoost}%.`);
-  };
-
-  const socioTorcedores = Math.round(playerTeam.popularity * 145);
-
+export function ComunidadeTab({ gameState, onUpdateGameState, triggerNotification, theme }: ComunidadeTabProps) {
   return (
-    <div className="space-y-6 select-none font-sans text-xs">
-      <div className="bg-[#0a1424] border border-[#1e2d44] p-5 rounded-xl flex items-center justify-between">
-        <div>
-          <h3 className="font-display text-white text-sm font-black uppercase tracking-wider">Centro de Gestão de Comunidades e Torcidas</h3>
-          <p className="text-[10.5px] text-slate-400 mt-1 max-w-xl">
-            Monitore o humor dos fãs, controle o apoio popular da torcida organizada e execute campanhas exclusivas de engajamento social.
-          </p>
-        </div>
-        <Users className="w-12 h-12 text-blue-500 opacity-20 shrink-0" />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-[#0a1424] border border-[#1e2d44] p-5 rounded-xl space-y-3.5 shadow-md">
-          <span className="text-[9px] text-blue-400 font-bold uppercase tracking-wider block">Satisfação da Torcida</span>
-          <div className="flex justify-between items-end border-b border-[#1e2d44] pb-3">
-            <h4 className="font-display font-black text-white text-2xl">{playerTeam.fansSupport}%</h4>
-            <span className="text-[10px] text-slate-400 uppercase font-bold">{playerTeam.fansSupport >= 80 ? 'EXCELENTE 🔥' : playerTeam.fansSupport >= 50 ? 'ESTÁVEL 🤝' : 'PRESSIONADO ⏳'}</span>
-          </div>
-          <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-            <div className="h-full bg-blue-500" style={{ width: `${playerTeam.fansSupport}%` }} />
-          </div>
-          <p className="text-[10px] text-slate-400 leading-relaxed pt-1">Torcedores felizes apoiam o time mesmo na adversidade e lotam a arena, aumentando a receita de bilheteria e vendas de camisas.</p>
-        </div>
-
-        <div className="bg-[#0a1424] border border-[#1e2d44] p-5 rounded-xl space-y-3.5 shadow-md">
-          <span className="text-[9px] text-blue-400 font-bold uppercase tracking-wider block">Quadro de Sócio-Torcedores</span>
-          <div className="flex justify-between items-end border-b border-[#1e2d44] pb-3">
-            <h4 className="font-display font-black text-white text-2xl">{socioTorcedores.toLocaleString('pt-BR')}</h4>
-            <span className="text-[10px] text-slate-400 uppercase font-bold">INSCRITOS</span>
-          </div>
-          <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-            <div className="h-full bg-[#00cbd6]" style={{ width: `${playerTeam.popularity}%` }} />
-          </div>
-          <p className="text-[10px] text-slate-400 leading-relaxed pt-1">O tamanho da fã-base cresce em conformidade com sua popularidade na mídia geral e os resultados de vitórias consecutivas.</p>
-        </div>
-
-        <div className="bg-[#0a1424] border border-[#1e2d44] p-5 rounded-xl space-y-3.5 shadow-md">
-          <span className="text-[9px] text-blue-400 font-bold uppercase tracking-wider block">Mídia & Sentimento Geral</span>
-          <div className="flex justify-between items-end border-b border-[#1e2d44] pb-3">
-            <h4 className="font-display font-black text-white text-2xl">{playerTeam.popularity}%</h4>
-            <span className="text-[10px] text-slate-400 uppercase font-bold">REPUTAÇÃO</span>
-          </div>
-          <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-            <div className="h-full bg-indigo-500" style={{ width: `${playerTeam.popularity}%` }} />
-          </div>
-          <p className="text-[10px] text-slate-400 leading-relaxed pt-1">A percepção externa atrai novos patrocinadores de elite e possibilita a contratação de astros ou veteranos badalados.</p>
-        </div>
-      </div>
-
-      <div className="bg-[#0a1424] border border-[#1e2d44] rounded-xl p-5 shadow-sm space-y-4">
-        <h4 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-2 border-b border-[#1e2d44] pb-3">
-          <Sparkles className="w-4 h-4 text-amber-400" /> Ações Ativas de Marketing Comunitário
-        </h4>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-[#070d19] border border-[#1e2d44] p-4 rounded-lg flex flex-col justify-between space-y-4 shadow">
-            <div>
-              <h5 className="font-bold text-white uppercase text-xs">Encontro de Fãs Presencial</h5>
-              <p className="text-[10.5px] text-slate-400 mt-1">Promova uma sessão de autógrafos e fotos entre os torcedores e o elenco na Gaming House.</p>
-            </div>
-            <div className="flex justify-between items-center pt-2">
-              <span className="font-mono font-bold text-blue-400">$4.000 (Custo)</span>
-              <button 
-                onClick={() => executeCampaign('meetup', 4000, 6, 2, 'Encontro de Fãs Presencial')}
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-[9px] uppercase tracking-wider rounded cursor-pointer transition-colors"
-              >
-                Lançar Campanha
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-[#070d19] border border-[#1e2d44] p-4 rounded-lg flex flex-col justify-between space-y-4 shadow">
-            <div>
-              <h5 className="font-bold text-white uppercase text-xs">Distribuição de Ingressos Sociais</h5>
-              <p className="text-[10.5px] text-slate-400 mt-1">Compre e distribua cargas de ingressos de arquibancada para estudantes e fãs de baixa renda.</p>
-            </div>
-            <div className="flex justify-between items-center pt-2">
-              <span className="font-mono font-bold text-blue-400">$8.000 (Custo)</span>
-              <button 
-                onClick={() => executeCampaign('tickets', 8000, 11, 1, 'Distribuição de Ingressos Sociais')}
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-[9px] uppercase tracking-wider rounded cursor-pointer transition-colors"
-              >
-                Lançar Campanha
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-[#070d19] border border-[#1e2d44] p-4 rounded-lg flex flex-col justify-between space-y-4 shadow">
-            <div>
-              <h5 className="font-bold text-white uppercase text-xs">Ação Social Solidária</h5>
-              <p className="text-[10.5px] text-slate-400 mt-1">Engaje sua organização em campanhas locais de doação e patrocínio filantrópico.</p>
-            </div>
-            <div className="flex justify-between items-center pt-2">
-              <span className="font-mono font-bold text-blue-400">$5.000 (Custo)</span>
-              <button 
-                onClick={() => executeCampaign('charity', 5000, 8, 3, 'Ação Social Solidária')}
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-[9px] uppercase tracking-wider rounded cursor-pointer transition-colors"
-              >
-                Lançar Campanha
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-[#070d19] border border-[#1e2d44] p-4 rounded-lg flex flex-col justify-between space-y-4 shadow">
-            <div>
-              <h5 className="font-bold text-white uppercase text-xs">Transmissão com Influenciadores</h5>
-              <p className="text-[10.5px] text-slate-400 mt-1">Contrate streamers de elite para transmitir treinos abertos de sábado e reações ao vivo.</p>
-            </div>
-            <div className="flex justify-between items-center pt-2">
-              <span className="font-mono font-bold text-blue-400">$12.000 (Custo)</span>
-              <button 
-                onClick={() => executeCampaign('streamers', 12000, 4, 10, 'Transmissão com Influenciadores')}
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-[9px] uppercase tracking-wider rounded cursor-pointer transition-colors"
-              >
-                Lançar Campanha
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <ComunidadeTabOriginal 
+      gameState={gameState} 
+      onUpdateGameState={onUpdateGameState} 
+      triggerNotification={triggerNotification} 
+      theme={theme}
+    />
   );
 }
 
-// ==========================================
-// 13. CENTRAL DE EMPREGOS TAB (Job Center & Resignation)
-// ==========================================
 interface CentralDeEmpregosTabProps {
   gameState: GameState;
   onUpdateGameState: (state: GameState) => void;

@@ -26,6 +26,7 @@ import RosterTab from './components/RosterTab';
 import MarketTab from './components/MarketTab';
 import AcademyTab from './components/AcademyTab';
 import SponsorsTab from './components/SponsorsTab';
+import GamingHouseTab from './components/GamingHouseTab';
 import CalendarTab from './components/CalendarTab';
 import EditorTab from './components/EditorTab';
 import DraftTab from './components/DraftTab';
@@ -817,11 +818,11 @@ export default function App() {
         );
       case 'Gaming House':
         return (
-          <SponsorsTab
+          <GamingHouseTab
             {...({
               gameState,
-              onSignSponsor: signSponsorHandler,
-              onUpgradeInfrastructure: upgradeInfrastructureHandler,
+              onUpdateGameState: setGameState,
+              triggerNotification,
               theme
             } as any)}
           />
@@ -872,6 +873,8 @@ export default function App() {
               gameState,
               onSignSponsor: signSponsorHandler,
               onUpgradeInfrastructure: upgradeInfrastructureHandler,
+              onUpdateGameState: setGameState,
+              triggerNotification,
               theme
             } as any)}
           />

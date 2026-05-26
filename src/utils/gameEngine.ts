@@ -269,7 +269,9 @@ export function advanceGameWeek(gameState: GameState): GameState {
   // Custom user ticket and merchandising fan shop pricing calculations:
   const usrJerseyPrice = playerTeam.jerseyPrice || 69;
   const usrTicketPrice = playerTeam.ticketPrice || 25;
-  const merchSalesAmount = Math.round(playerTeam.popularity * usrJerseyPrice * 18);
+  const socioTorcedores = Math.round(playerTeam.popularity * 145);
+  const socioMultiplier = 1 + (socioTorcedores / 10000);
+  const merchSalesAmount = Math.round(playerTeam.popularity * usrJerseyPrice * 18 * socioMultiplier);
   const ticketsSalesAmount = Math.round(playerTeam.popularity * usrTicketPrice * 22);
   const coreEarningsTotal = sponsorsInflow + merchSalesAmount + ticketsSalesAmount;
 
