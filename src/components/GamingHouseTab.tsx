@@ -6,9 +6,10 @@
 import React, { useState, useMemo } from 'react';
 import { 
   Zap, Coffee, Activity, Smile, Users, Info, Sparkles, 
-  Terminal, Check, Copy, AlertTriangle, Play, BookOpen, Heart, Award
+  Terminal, Check, Copy, AlertTriangle, Play, BookOpen, Heart, Award,
+  Calendar, ChevronLeft, ChevronRight, Plus, Trash
 } from 'lucide-react';
-import { GameState, Player } from '../types';
+import { GameState, Player, Team } from '../types';
 import { formatMoney } from '../utils/currency';
 
 interface GamingHouseTabProps {
@@ -281,6 +282,207 @@ export default function GamingHouseTab({
   // States to keep track of active training and active well being programs for this week mockup cycle
   const [activePracticeId, setActivePracticeId] = useState<string>('scrim_vods');
   const [activeWellbeingId, setActiveWellbeingId] = useState<string>('wellbeing_psy');
+
+  // Interactive Operational Calendar (GH Operations) State Declarations
+  const [selectedMonthIndex, setSelectedMonthIndex] = useState(0);
+  const [selectedGHDay, setSelectedGHDay] = useState(15);
+  const [modalPeriod, setModalPeriod] = useState<'MANHÃ' | 'TARDE' | 'NOITE' | null>(null);
+  const [selectedActionType, setSelectedActionType] = useState<'scrim' | 'descanso' | 'treino_especifico' | null>(null);
+  const [scrimOpponentId, setScrimOpponentId] = useState('');
+  const [scrimSearchQuery, setScrimSearchQuery] = useState('');
+  const [treinoFoco, setTreinoFoco] = useState<'tatico' | 'macro' | 'mecanica' | 'fisico' | null>(null);
+
+  const months = [
+    { name: "MAIO, 2026", startDayOfWeek: 4, daysInMonth: 31 },
+    { name: "JUNHO, 2026", startDayOfWeek: 0, daysInMonth: 30 },
+    { name: "JULHO, 2026", startDayOfWeek: 2, daysInMonth: 31 }
+  ];
+
+  // Dynamically verify if on-road league teams have train availability slots
+  const isTeamAvailable = (oppTeam: Team, dayNum: number, pIndex: 'MANHÃ' | 'TARDE' | 'NOITE'): boolean => {
+    if (oppTeam.id === playerTeam.id) return false;
+    
+    // Corean rosters / LCK Academy: available at Noite (timezone) or even days for Tarde
+    if (oppTeam.region === 'LCK') {
+      if (pIndex === 'NOITE') return (dayNum % 2 === 0);
+      if (pIndex === 'TARDE') return (dayNum % 3 === 0);
+      return false;
+    }
+    // Chinese rosters / LPL: available at Noite and Tarde alternately
+    if (oppTeam.region === 'LPL') {
+      if (pIndex === 'NOITE') return (dayNum % 3 !== 0);
+      if (pIndex === 'TARDE') return (dayNum % 2 !== 0);
+      return false;
+    }
+    // Local leagues (CBLOL, LEC, LCS): weekdays (Mon to Thu), mornings & afternoons mostly
+    const currentMonth = months[selectedMonthIndex];
+    const weekdayIdx = (currentMonth.startDayOfWeek + (dayNum - 1)) % 7;
+    const isWeekend = weekdayIdx >= 4; // Fri, Sat, Sun are official match blockdates
+    if (isWeekend) return false; 
+    
+    if (pIndex === 'MANHÃ') return (dayNum % 2 === 1);
+    if (pIndex === 'TARDE') return (dayNum % 2 === 0);
+    if (pIndex === 'NOITE') return (dayNum % 4 === 0);
+    return true;
+  };
+
+  // Register scheduled activity inside gameState
+  const handleScheduleActivity = (dayNum: number, period: 'MANHÃ' | 'TARDE' | 'NOITE', type: 'scrim' | 'descanso' | 'treino_especifico') => {
+    if (!onUpdateGameState) return;
+
+    const nextState = { ...gameState };
+    const stateTeam = nextState.teams.find(t => t.id === nextState.playerTeamId);
+    if (!stateTeam) return;
+
+    let title = '';
+    let details = '';
+    let activityCode: 'SCRIMS' | 'DESCANSO' | 'TREINOS' = 'TREINOS';
+
+    if (type === 'scrim') {
+      const opp = gameState.teams.find(t => t.id === scrimOpponentId);
+      if (!opp) return;
+      activityCode = 'SCRIMS';
+      title = `Scrim vs ${opp.acronym} (${period})`;
+      details = `Treino de Scrim simulado contra ${opp.name}. Foco na comunicação e entrosamento.`;
+
+      // Validation check
+      if (stateTeam.budget < 500) {
+        triggerNotification?.("❌ Saldo Insuficiente", `Saldo de ${formatMoney(stateTeam.budget)} insuficiente para taxas operacionais ($500).`);
+        return;
+      }
+      stateTeam.budget -= 500;
+
+      // Improve team attributes
+      stateTeam.roster = (stateTeam.roster || []).map(p => ({
+        ...p,
+        chemistry: Math.min(100, (p.chemistry ?? 75) + 3),
+        stamina: Math.max(10, (p.stamina ?? 85) - 6),
+        attributes: {
+          ...p.attributes,
+          mechanics: Math.min(100, (p.attributes.mechanics ?? 50) + 1)
+        }
+      }));
+      stateTeam.academy = (stateTeam.academy || []).map(p => ({
+        ...p,
+        chemistry: Math.min(100, (p.chemistry ?? 70) + 2),
+        stamina: Math.max(10, (p.stamina ?? 80) - 5)
+      }));
+
+      triggerNotification?.("🔵 Scrim Marcada!", `Scrim agendada contra ${opp.name} para o período da ${period.toLowerCase()} (-$500).`);
+
+    } else if (type === 'descanso') {
+      activityCode = 'DESCANSO';
+      title = `Dia de Descanso / Recovery (${period})`;
+      details = `Computadores desligados na GH. Descanso mental electivo para mitigar estresse e burnout.`;
+
+      stateTeam.roster = (stateTeam.roster || []).map(p => ({
+        ...p,
+        stamina: Math.min(100, (p.stamina ?? 85) + 30),
+        motivation: Math.min(100, (p.motivation ?? 80) + 15)
+      }));
+      stateTeam.academy = (stateTeam.academy || []).map(p => ({
+        ...p,
+        stamina: Math.min(100, (p.stamina ?? 80) + 25),
+        motivation: Math.min(100, (p.motivation ?? 75) + 12)
+      }));
+
+      triggerNotification?.("⚪ Recuperação Ativada", `Folga funcional agendada. Atletas descansando.`);
+
+    } else if (type === 'treino_especifico') {
+      activityCode = 'TREINOS';
+      let focusLabel = '';
+      if (treinoFoco === 'tatico') {
+        focusLabel = 'Composições e Draft';
+        title = `Treino Tático (${period})`;
+        details = `Alinhamento de pockepicks e composições de draft. Ganho de bônus na fase tática do palco principal.`;
+        stateTeam.roster = (stateTeam.roster || []).map(p => ({
+          ...p,
+          chemistry: Math.min(100, (p.chemistry ?? 75) + 5),
+          stamina: Math.max(10, (p.stamina ?? 85) - 8)
+        }));
+      } else if (treinoFoco === 'macro') {
+        focusLabel = 'Macro & Transições';
+        title = `Treino Macro VODs (${period})`;
+        details = `Revisões operacionais do mid/late game e controle de zonas de visão.`;
+        stateTeam.roster = (stateTeam.roster || []).map(p => ({
+          ...p,
+          stamina: Math.max(10, (p.stamina ?? 85) - 6),
+          attributes: {
+            ...p.attributes,
+            macro: Math.min(100, (p.attributes.macro ?? 50) + 1),
+            mapVision: Math.min(100, (p.attributes.mapVision ?? 50) + 1)
+          }
+        }));
+      } else if (treinoFoco === 'mecanica') {
+        focusLabel = 'Mecânica e Reflexos';
+        title = `Treino de Mecânica SoloQ (${period})`;
+        details = `Maratona individual nas ranqueadas de elite para calibrar reflexos mecânicos e farm.`;
+        stateTeam.roster = (stateTeam.roster || []).map(p => ({
+          ...p,
+          stamina: Math.max(15, (p.stamina ?? 85) - 10),
+          attributes: {
+            ...p.attributes,
+            mechanics: Math.min(100, (p.attributes.mechanics ?? 45) + 2),
+            farm: Math.min(100, (p.attributes.farm ?? 45) + 2)
+          }
+        }));
+      } else if (treinoFoco === 'fisico') {
+        focusLabel = 'Preparação Física Gym';
+        title = `Preparação Física Gym (${period})`;
+        details = `Cardio e musculação para combater cansaço fisiológico e dorb muscular.`;
+        stateTeam.roster = (stateTeam.roster || []).map(p => ({
+          ...p,
+          stamina: Math.min(100, (p.stamina ?? 85) + 15)
+        }));
+      }
+
+      triggerNotification?.("🟢 Treino Específico Agendado", `Prática de ${focusLabel} programada com sucesso!`);
+    }
+
+    const key = `${selectedMonthIndex}-${dayNum}`;
+    const destActivities = (nextState as any).gamingHouseActivities || {};
+    const existing = destActivities[key] || [];
+
+    // Filter overlapping scheduled items for the same period
+    const filtered = existing.filter((a: any) => a.time !== period);
+    const newId = `${type}-${dayNum}-${period.toLowerCase()}-${Date.now().toString().substring(7)}`;
+
+    filtered.push({
+      id: newId,
+      type: activityCode,
+      title,
+      time: period,
+      details
+    });
+
+    destActivities[key] = filtered;
+    (nextState as any).gamingHouseActivities = destActivities;
+
+    onUpdateGameState(nextState);
+    
+    // Reset modal states
+    setSelectedActionType(null);
+    setScrimOpponentId('');
+    setTreinoFoco(null);
+    setModalPeriod(null);
+  };
+
+  // Remove scheduled operational activity
+  const handleRemoveActivity = (dayNum: number, activityId: string) => {
+    if (!onUpdateGameState) return;
+
+    const nextState = { ...gameState };
+    const destActivities = (nextState as any).gamingHouseActivities || {};
+    const key = `${selectedMonthIndex}-${dayNum}`;
+    const existing = destActivities[key] || [];
+
+    const updated = existing.filter((a: any) => a.id !== activityId);
+    destActivities[key] = updated;
+    (nextState as any).gamingHouseActivities = destActivities;
+
+    onUpdateGameState(nextState);
+    triggerNotification?.("⚪ Bloco Desmarcado", "A atividade operacional foi removida do calendário.");
+  };
 
   // Detect language setting
   const settingsLang = (gameState as any).settings?.language;
@@ -1067,6 +1269,524 @@ export default function GamingHouseTab({
 
         </div>
 
+      </div>
+
+      {/* 📅 INTERACTIVE OPERATIONAL CALENDAR (GH OPERATIONS) */}
+      <div className={`p-6 rounded-xl border mt-6 text-left ${
+        systemThemeIsDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200 shadow-sm'
+      }`}>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#1e2d44]/30 mb-6 font-sans">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg border border-indigo-500/20">
+              <Calendar className="w-5 h-5 text-cyan-400" />
+            </div>
+            <div>
+              <h3 className={`font-display text-sm font-black uppercase tracking-wider ${systemThemeIsDark ? 'text-[#00E5FF]' : 'text-indigo-900'}`}>
+                {activeLang === 'pt' ? 'Calendário Operacional Rotativo' : activeLang === 'es' ? 'Calendario Operacional Rotativo' : 'GH Operational Scheduler'}
+              </h3>
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-0.5 font-sans">
+                {activeLang === 'pt' ? 'Planejamento e Simulação de Scrims, Treinos e Folgas do Roster' : 'Schedule scrims, VOD reviews, workouts, and rest slots'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => {
+                setSelectedMonthIndex(prev => Math.max(0, prev - 1));
+                setSelectedGHDay(1);
+                setModalPeriod(null);
+                setSelectedActionType(null);
+              }}
+              className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                systemThemeIsDark 
+                  ? 'border-slate-700/60 text-slate-400 hover:text-white hover:border-slate-500' 
+                  : 'border-slate-300 text-[#0f172a] hover:bg-slate-100 hover:border-slate-400'
+              }`}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className={`text-xs font-mono uppercase tracking-widest w-28 text-center select-none ${
+              systemThemeIsDark ? 'font-black text-slate-300' : 'font-medium text-[#0f172a]'
+            }`}>
+              {months[selectedMonthIndex].name}
+            </span>
+            <button 
+              onClick={() => {
+                setSelectedMonthIndex(prev => Math.min(months.length - 1, prev + 1));
+                setSelectedGHDay(1);
+                setModalPeriod(null);
+                setSelectedActionType(null);
+              }}
+              className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                systemThemeIsDark 
+                  ? 'border-slate-700/60 text-slate-400 hover:text-white hover:border-slate-500' 
+                  : 'border-slate-300 text-[#0f172a] hover:bg-slate-100 hover:border-slate-400'
+              }`}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Calendar and detail scheduling panel side-by-side (Bento grid) */}
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+          
+          {/* Calendar visual Grid: xl:col-span-7 */}
+          <div className="xl:col-span-7 space-y-4 font-sans">
+            <div className="grid grid-cols-7 gap-1 text-center font-bold font-mono text-[9px] uppercase text-gray-500 tracking-wider">
+              <span>Seg</span>
+              <span>Ter</span>
+              <span>Qua</span>
+              <span>Qui</span>
+              <span>Sex</span>
+              <span>Sáb</span>
+              <span>Dom</span>
+            </div>
+
+            <div className="grid grid-cols-7 gap-1.5">
+              {/* Empty placeholder cells for offset of startDayOfWeek */}
+              {Array.from({ length: months[selectedMonthIndex].startDayOfWeek }).map((_, i) => (
+                <div key={`empty-${i}`} className="h-16 bg-black/5 dark:bg-[#04080e]/40 rounded-lg border border-transparent opacity-30 select-none" />
+              ))}
+
+              {/* Day cells of the month */}
+              {Array.from({ length: months[selectedMonthIndex].daysInMonth }).map((_, i) => {
+                const dayNum = i + 1;
+                const weekdayIndex = (months[selectedMonthIndex].startDayOfWeek + i) % 7;
+                const isSelected = selectedGHDay === dayNum;
+                const isCompetitionWeek = weekdayIndex === 4 || weekdayIndex === 5; // Fri, Sat
+                
+                const dayKey = `${selectedMonthIndex}-${dayNum}`;
+                const dayCustomActs = (gameState as any).gamingHouseActivities?.[dayKey] || [];
+
+                return (
+                  <button
+                    key={`day-${dayNum}`}
+                    type="button"
+                    onClick={() => {
+                      setSelectedGHDay(dayNum);
+                      setModalPeriod(null);
+                      setSelectedActionType(null);
+                    }}
+                    className={`h-16 text-left p-1.5 relative rounded-lg flex flex-col justify-between transition-all border group text-[10px] uppercase font-bold tracking-tight cursor-pointer ${
+                      isSelected 
+                        ? (systemThemeIsDark 
+                            ? 'bg-indigo-950/40 border-[#00E5FF] text-[#00E5FF]' 
+                            : 'bg-indigo-50 border-indigo-500 text-indigo-700')
+                        : isCompetitionWeek
+                          ? (systemThemeIsDark
+                              ? 'bg-rose-500/5 border-rose-500/20 text-rose-500 hover:bg-rose-500/10'
+                              : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100/50')
+                          : (systemThemeIsDark
+                              ? 'bg-[#070d19]/60 border-[#1e2d44]/50 text-slate-300 hover:bg-slate-800/10 hover:border-slate-700'
+                              : 'bg-[#f1f5f9] border-[#e2e8f0] text-[#1e293b] hover:bg-[#e2e8f0] hover:border-[#cbd5e1]')
+                    }`}
+                  >
+                    {/* Day number */}
+                    <span className={`font-mono text-xs font-black ${
+                      systemThemeIsDark ? 'text-slate-300' : isSelected ? 'text-indigo-900' : 'text-[#1e293b]'
+                    }`}>{dayNum}</span>
+
+                    {/* Compact Activity Indicators */}
+                    <div className="space-y-0.5 w-full">
+                      {isCompetitionWeek ? (
+                        <div className="text-[7.5px] px-1 py-0.5 bg-rose-550/10 text-rose-400 border border-rose-550/20 rounded font-black leading-none text-center select-none truncate">
+                          Oficiais
+                        </div>
+                      ) : dayCustomActs.length > 0 ? (
+                        <div className="flex gap-1 overflow-hidden shrink-0 mt-1">
+                          {dayCustomActs.map((act: any, aIdx: number) => {
+                            const badgeColor = act.type === 'SCRIMS' ? 'bg-cyan-400' : act.type === 'DESCANSO' ? 'bg-slate-400' : 'bg-emerald-400';
+                            return (
+                              <span 
+                                key={aIdx} 
+                                className={`w-2 h-2 rounded-full border border-black/30 shrink-0 ${badgeColor}`} 
+                                title={`${act.time}: ${act.title}`}
+                              />
+                            );
+                          })}
+                        </div>
+                      ) : weekdayIndex === 6 ? (
+                        <span className={`text-[7.5px] lowercase leading-none block truncate mt-1 ${
+                          systemThemeIsDark ? 'text-gray-500' : 'text-[#475569]/90 font-black'
+                        }`}>folga</span>
+                      ) : (
+                        <span className={`text-[7.5px] lowercase leading-none block truncate mt-1 ${
+                          systemThemeIsDark ? 'text-gray-500' : 'text-[#475569]/90 font-black'
+                        }`}>treinos</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Detailed scheduling drawer/form: xl:col-span-5 */}
+          <div className="xl:col-span-5 flex flex-col justify-between font-sans">
+            <div className={`p-4 rounded-xl border h-full flex flex-col justify-between text-left ${
+              systemThemeIsDark ? 'bg-[#060c16]/90 border-[#1e2d44]/80' : 'bg-slate-50 border-slate-200'
+            }`}>
+              {/* Header Title */}
+              <div>
+                <div className="pb-3 border-b border-[#1e2d44]/30 mb-4 flex items-center justify-between">
+                  <h4 className={`font-mono text-xs font-black uppercase flex items-center gap-1.5 ${
+                    systemThemeIsDark ? 'text-white' : 'text-[#0f172a]'
+                  }`}>
+                    <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
+                    Janelas de Casa: Dia {selectedGHDay} • {months[selectedMonthIndex].name}
+                  </h4>
+                </div>
+
+                {/* Day's active slot components */}
+                <div className="space-y-3.5 select-none">
+                  {(() => {
+                    const dayKey = `${selectedMonthIndex}-${selectedGHDay}`;
+                    const dayCustomActs = (gameState as any).gamingHouseActivities?.[dayKey] || [];
+                    const weekdayIndex = (months[selectedMonthIndex].startDayOfWeek + (selectedGHDay - 1)) % 7;
+                    const isCompetitionWeek = weekdayIndex === 4 || weekdayIndex === 5; // Fri/Sat
+
+                    if (isCompetitionWeek) {
+                      const activeRegion = playerTeam.region || 'CBLOL';
+                      const academyLeagueName = activeRegion === 'CBLOL' ? 'DESAFIANTE' : `Youth Academy ${activeRegion}`;
+                      return (
+                        <div className="space-y-3">
+                          <div className="p-3.5 rounded-lg border border-rose-500/20 bg-rose-950/10 space-y-2 text-left">
+                            <span className="text-[8px] font-black tracking-widest text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20 uppercase font-mono">
+                              Bloqueado • Dia de Jogo Oficial
+                            </span>
+                            <h5 className="font-display font-black text-xs text-white uppercase">{activeRegion} Split Regular</h5>
+                            <p className="text-[10px] text-slate-400 leading-relaxed font-sans">
+                              Dias de partida da liga principal ({activeRegion}) e base ({academyLeagueName}) são reservados de forma imutável pelo regulamento de eSports competitivo para evitar sobreposições cegas de datas.
+                            </p>
+                            <div className="pt-2 italic text-[9px] text-gray-400 font-bold uppercase font-mono">
+                              Horas Reservadas: Principal 13h / Academy 18h30
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // Render morning, afternoon and evening slots
+                    const periods: ('MANHÃ' | 'TARDE' | 'NOITE')[] = ['MANHÃ', 'TARDE', 'NOITE'];
+                    return (
+                      <div className="space-y-3 text-left">
+                        {periods.map(period => {
+                          const existingAct = dayCustomActs.find((a: any) => a.time === period);
+                          const defaultLabel = period === 'MANHÃ' ? '09:00 - 12:00' : period === 'TARDE' ? '14:00 - 18:00' : '19:00 - 22:00';
+                          
+                          return (
+                            <div 
+                              key={period}
+                              className={`p-3 rounded-lg border flex items-center justify-between gap-4 transition-all ${
+                                existingAct
+                                  ? (existingAct.type === 'SCRIMS' 
+                                      ? (systemThemeIsDark ? 'bg-cyan-950/20 border-cyan-500/30 text-cyan-200' : 'bg-cyan-50 border-cyan-200 text-cyan-900') 
+                                      : existingAct.type === 'DESCANSO' 
+                                        ? (systemThemeIsDark ? 'bg-slate-900 border-[#1e2d44]/90 text-slate-300' : 'bg-[#f8fafc] border-[#e2e8f0] text-slate-700')
+                                        : (systemThemeIsDark ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-250' : 'bg-emerald-50 border-emerald-200 text-emerald-900'))
+                                  : (systemThemeIsDark ? 'bg-[#04080e]/40 border-[#1e2d44]/30 text-slate-300' : 'bg-[#f8fafc] border-[#e2e8f0] text-[#1e293b]')
+                              }`}
+                            >
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-[8px] font-black uppercase tracking-wider px-1 py-0.5 rounded ${
+                                    existingAct 
+                                      ? (systemThemeIsDark ? 'bg-black/40 text-slate-300 font-mono' : 'bg-slate-200 text-[#475569] font-mono') 
+                                      : (systemThemeIsDark ? 'bg-slate-900 text-slate-400 font-mono' : 'bg-slate-200 text-[#475569] font-mono')
+                                  }`}>
+                                    {period} ({defaultLabel})
+                                  </span>
+                                  {existingAct && (
+                                    <span className={`text-[7.5px] px-1 rounded uppercase font-black font-mono tracking-wider ${
+                                      existingAct.type === 'SCRIMS' ? 'bg-cyan-400 text-black' : existingAct.type === 'DESCANSO' ? 'bg-slate-400 text-black' : 'bg-emerald-400 text-black'
+                                    }`}>
+                                      {existingAct.type}
+                                    </span>
+                                  )}
+                                </div>
+                                <h5 className={`text-[11px] font-black uppercase mt-1.5 leading-tight ${
+                                  systemThemeIsDark ? 'text-white' : 'text-[#1e293b]'
+                                }`}>
+                                  {existingAct ? existingAct.title : 'Slot Operacional Disponível'}
+                                </h5>
+                                <p className={`text-[9.5px] leading-snug font-medium ${
+                                  systemThemeIsDark ? 'text-gray-500' : 'text-[#64748b]'
+                                }`}>
+                                  {existingAct ? existingAct.details : 'Nenhuma atividade operacional registrada de momento.'}
+                                </p>
+                              </div>
+
+                              <div>
+                                {existingAct ? (
+                                  <button
+                                    onClick={() => handleRemoveActivity(selectedGHDay, existingAct.id)}
+                                    type="button"
+                                    className="p-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-lg hover:bg-rose-500/20 cursor-pointer transition-colors"
+                                    title="Liberar slot de horário"
+                                  >
+                                    <Trash className="w-3.5 h-3.5" />
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setModalPeriod(period);
+                                      setSelectedActionType(null);
+                                    }}
+                                    className={`py-1 px-2.5 rounded-lg text-[9px] font-black font-mono uppercase tracking-widest cursor-pointer transition-all ${
+                                      systemThemeIsDark 
+                                        ? 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 hover:text-indigo-300' 
+                                        : 'bg-[#4f46e5] border border-[#4f46e5] text-white hover:bg-[#3730a3]'
+                                    }`}
+                                  >
+                                    Agendar
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Status info/indicator */}
+              <div className="mt-4 pt-3 border-t border-[#1e2d44]/30 flex items-center gap-2 text-slate-400 text-[10px] leading-tight font-medium font-sans">
+                <Info className="w-4 h-4 text-cyan-400 shrink-0" />
+                <span>As atividades de Scrim práticos exigem taxa de $500 p/ bloco. Descanso e Treino de Fundamentos são gratuitos.</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Modal-like Interactive scheduler tray */}
+        {modalPeriod && (
+          <div className={`mt-6 p-5 rounded-xl border relative text-left transition-all font-sans shadow-md ${
+            systemThemeIsDark 
+              ? 'border-indigo-500/35 bg-[#060b13]' 
+              : 'border-[#e2e8f0] bg-white'
+          }`}>
+            <h4 className={`font-mono font-black text-xs uppercase tracking-widest flex items-center gap-2 mb-4 pb-2 border-b ${
+              systemThemeIsDark ? 'text-indigo-400 border-indigo-500/10' : 'text-[#4f46e5] border-slate-200'
+            }`}>
+              <Sparkles className={`w-4 h-4 shrink-0 animate-pulse ${systemThemeIsDark ? 'text-cyan-400' : 'text-[#4f46e5]'}`} />
+              🛠️ Agendar Atividade: Bloco da {modalPeriod} • Dia {selectedGHDay} de {months[selectedMonthIndex].name}
+            </h4>
+
+            {/* Step 1: Select Type */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedActionType('scrim');
+                  setScrimOpponentId('');
+                  setTreinoFoco(null);
+                }}
+                className={`p-3.5 rounded-lg border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                  selectedActionType === 'scrim' 
+                    ? (systemThemeIsDark ? 'bg-cyan-500/10 border-cyan-400 text-[#00E5FF]' : 'bg-cyan-50 border-cyan-400 text-cyan-950') 
+                    : (systemThemeIsDark ? 'bg-[#04080e] border-[#1e2d44]/50 text-slate-300 hover:bg-slate-800/10' : 'bg-[#f1f5f9] border-[#e2e8f0] text-[#1e293b] hover:bg-[#e2e8f0]')
+                }`}
+              >
+                <span className={`text-[8px] font-black tracking-widest font-mono leading-none ${
+                  systemThemeIsDark ? 'text-[#00E5FF]' : 'text-cyan-850'
+                }`}>AÇÃO PRÁTICA</span>
+                <h5 className={`text-[11px] font-black uppercase mt-2 leading-snug ${systemThemeIsDark ? 'text-white' : 'text-[#1e293b]'}`}>Sessão de Scrim Match</h5>
+                <p className={`text-[9px] mt-1 leading-normal font-sans font-medium ${systemThemeIsDark ? 'text-gray-400' : 'text-[#475569]'}`}>
+                  Pratique contra equipes rivais da liga regular de eSports. Melhora entrosamento e mecânica. Custo de $500.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedActionType('descanso');
+                  setScrimOpponentId('');
+                  setTreinoFoco(null);
+                }}
+                className={`p-3.5 rounded-lg border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                  selectedActionType === 'descanso' 
+                    ? (systemThemeIsDark ? 'bg-slate-500/10 border-slate-450 text-slate-300' : 'bg-slate-100 border-slate-400 text-slate-900') 
+                    : (systemThemeIsDark ? 'bg-[#04080e] border-[#1e2d44]/50 text-slate-300 hover:bg-slate-800/10' : 'bg-[#f1f5f9] border-[#e2e8f0] text-[#1e293b] hover:bg-[#e2e8f0]')
+                }`}
+              >
+                <span className={`text-[8px] font-black tracking-widest font-mono leading-none ${
+                  systemThemeIsDark ? 'text-slate-400' : 'text-slate-600'
+                }`}>QUALIDADE DE VIDA</span>
+                <h5 className={`text-[11px] font-black uppercase mt-2 leading-snug ${systemThemeIsDark ? 'text-white' : 'text-[#1e293b]'}`}>Folga / Recovery</h5>
+                <p className={`text-[9px] mt-1 leading-normal font-sans font-medium ${systemThemeIsDark ? 'text-gray-400' : 'text-[#475569]'}`}>
+                  Dê folga aos atletas residenciais. Restaura saúde moral e staminas da base & principal. Grátis.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedActionType('treino_especifico');
+                  setScrimOpponentId('');
+                  setTreinoFoco(null);
+                }}
+                className={`p-3.5 rounded-lg border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                  selectedActionType === 'treino_especifico' 
+                    ? (systemThemeIsDark ? 'bg-emerald-500/10 border-emerald-400 text-emerald-300' : 'bg-emerald-50 border-emerald-400 text-emerald-950') 
+                    : (systemThemeIsDark ? 'bg-[#04080e] border-[#1e2d44]/50 text-slate-300 hover:bg-slate-800/10' : 'bg-[#f1f5f9] border-[#e2e8f0] text-[#1e293b] hover:bg-[#e2e8f0]')
+                }`}
+              >
+                <span className={`text-[8px] font-black tracking-widest font-mono leading-none ${
+                  systemThemeIsDark ? 'text-[#00FF88]' : 'text-emerald-850'
+                }`}>EDUCAÇÃO COLETIVA</span>
+                <h5 className={`text-[11px] font-black uppercase mt-2 leading-snug ${systemThemeIsDark ? 'text-white' : 'text-[#1e293b]'}`}>Treino em Fundamentos</h5>
+                <p className={`text-[9px] mt-1 leading-normal font-sans font-medium ${systemThemeIsDark ? 'text-gray-400' : 'text-[#475569]'}`}>
+                  Prática técnica segmentada. Aumenta atributos específicos de macro VODs, reflexos, ou físico individual. Grátis.
+                </p>
+              </button>
+            </div>
+
+            {/* Step 2: Custom details based on Type selection */}
+            {selectedActionType === 'scrim' && (
+              <div className={`space-y-4 p-4 rounded-lg border mb-5 text-left ${
+                systemThemeIsDark ? 'bg-black/40 border-slate-800' : 'bg-slate-100 border-slate-200'
+              }`}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <label className={`text-[10px] font-black uppercase tracking-wider font-mono ${
+                    systemThemeIsDark ? 'text-slate-300' : 'text-slate-700'
+                  }`}>
+                    Verificar disponibilidade de outras organizações:
+                  </label>
+                  <input
+                    type="text"
+                    value={scrimSearchQuery}
+                    onChange={(e) => setScrimSearchQuery(e.target.value)}
+                    placeholder="Filtrar adversário..."
+                    className={`px-2 py-1.5 border rounded text-[10px] font-mono font-bold focus:outline-none focus:border-cyan-400 w-44 ${
+                      systemThemeIsDark ? 'border-[#1e2d44] bg-[#03070d] text-white' : 'border-slate-300 bg-white text-slate-800'
+                    }`}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                  {gameState.teams
+                    .filter(tItem => {
+                      if (scrimSearchQuery && !tItem.name.toLowerCase().includes(scrimSearchQuery.toLowerCase()) && !tItem.acronym.toLowerCase().includes(scrimSearchQuery.toLowerCase())) return false;
+                      return true;
+                    })
+                    .map(tItem => {
+                      const avail = isTeamAvailable(tItem, selectedGHDay, modalPeriod);
+                      const isSelected = scrimOpponentId === tItem.id;
+                      
+                      return (
+                        <button
+                          key={tItem.id}
+                          disabled={!avail}
+                          type="button"
+                          onClick={() => setScrimOpponentId(tItem.id)}
+                          className={`p-2 rounded border flex flex-col justify-between items-center h-16 transition-all text-center select-none cursor-pointer ${
+                            isSelected 
+                              ? (systemThemeIsDark ? 'bg-cyan-500/20 border-cyan-400 text-[#00E5FF] scale-102' : 'bg-cyan-100 border-cyan-500 text-cyan-900 scale-102')
+                              : avail 
+                                ? (systemThemeIsDark ? 'bg-slate-950 border-[#1e2d44] text-slate-300 hover:border-cyan-500/30' : 'bg-white border-slate-250 text-slate-800 hover:border-cyan-500')
+                                : (systemThemeIsDark ? 'bg-slate-950 border-slate-950 text-slate-650 cursor-not-allowed opacity-30' : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-30')
+                          }`}
+                        >
+                          <span className="font-mono text-[10.5px] font-black tracking-wider">{tItem.acronym}</span>
+                          <span className={`text-[7px] font-black uppercase leading-none px-1 py-0.5 rounded font-sans ${
+                            avail ? 'bg-emerald-500/10 text-[#00FF88] dark:text-[#00FF88]' : 'bg-rose-500/5 text-gray-500'
+                          }`}>
+                            {avail ? 'Livre' : 'Ocupado'}
+                          </span>
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
+            {selectedActionType === 'treino_especifico' && (
+              <div className={`space-y-4 p-4 rounded-lg border mb-5 text-left font-sans ${
+                systemThemeIsDark ? 'bg-black/40 border-slate-800' : 'bg-slate-100 border-slate-200'
+              }`}>
+                <label className={`text-[10px] font-black uppercase tracking-wider block mb-2 font-mono ${
+                  systemThemeIsDark ? 'text-slate-300' : 'text-slate-700'
+                }`}>
+                  Selecione o Eixo de Fundamentos para este Bloco Operacional:
+                </label>
+
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  {[
+                    { id: 'tatico', label: 'Tático / Draft Playstyle', bonus: '+5 Sinergia Roster', details: 'Foco no meta-game competitiva, pocket picks secretos e contra-respostas.' },
+                    { id: 'macro', label: 'Tomada de Decisão / Macro', bonus: '+1 Macro & Map Vision', details: 'Foco no roaming da selva, controle tático ao redor de Baron e VOD reviews.' },
+                    { id: 'mecanica', label: 'Mecânica Individual SoloQ', bonus: '+2 Farm & Mecânica', details: 'Maratona individual nas filas de elite para otimizar reflexos moleculares.' },
+                    { id: 'fisico', label: 'Cardio / Wellness Físico', bonus: '+15 Estamina / Stamina', details: 'Treino regenerativo físico mitigando desgastes crônicos das costas.' }
+                  ].map(f => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setTreinoFoco(f.id as any)}
+                      className={`p-3 rounded-lg border text-left flex flex-col justify-between h-24 transition-all cursor-pointer ${
+                        treinoFoco === f.id
+                          ? (systemThemeIsDark ? 'bg-emerald-500/15 border-emerald-450' : 'bg-emerald-550/15 border-emerald-500')
+                          : (systemThemeIsDark ? 'bg-[#04080e] border-[#1e2d44]/50 hover:bg-slate-800/10' : 'bg-white border-slate-250 hover:bg-slate-50')
+                      }`}
+                    >
+                      <h5 className={`font-mono text-[10.5px] font-black uppercase ${systemThemeIsDark ? 'text-white' : 'text-slate-800'}`}>{f.label}</h5>
+                      <span className={`${systemThemeIsDark ? 'text-[#00FF88]' : 'text-emerald-700'} text-[9.5px] font-bold uppercase mt-1 leading-none font-mono`}>{f.bonus}</span>
+                      <p className={`text-[8.5px] leading-snug mt-1 font-medium font-sans ${systemThemeIsDark ? 'text-gray-500' : 'text-[#475569]'}`}>{f.details}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Confirm & Cancel action tray */}
+            <div className={`flex items-center justify-end gap-3 pt-3 border-t font-sans ${
+              systemThemeIsDark ? 'border-[#1e2d44]/30' : 'border-slate-200'
+            }`}>
+              <button
+                type="button"
+                onClick={() => {
+                  setModalPeriod(null);
+                  setSelectedActionType(null);
+                  setScrimOpponentId('');
+                  setTreinoFoco(null);
+                }}
+                className={`py-2 px-4 border rounded-lg text-[10px] font-bold font-mono uppercase tracking-widest transition-colors cursor-pointer ${
+                  systemThemeIsDark 
+                    ? 'border-slate-700/60 text-slate-300 hover:text-white bg-transparent' 
+                    : 'border-[#cbd5e1] text-[#475569] hover:bg-slate-50 bg-transparent'
+                }`}
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                disabled={(() => {
+                  if (!selectedActionType) return true;
+                  if (selectedActionType === 'scrim' && !scrimOpponentId) return true;
+                  if (selectedActionType === 'treino_especifico' && !treinoFoco) return true;
+                  return false;
+                })()}
+                onClick={() => handleScheduleActivity(selectedGHDay, modalPeriod, selectedActionType!)}
+                className={`py-2 px-5 rounded-lg text-[10px] font-black font-mono uppercase tracking-widest flex items-center gap-1 cursor-pointer transition-all active:scale-95 ${
+                  (() => {
+                    const isDisabled = !selectedActionType || 
+                      (selectedActionType === 'scrim' && !scrimOpponentId) || 
+                      (selectedActionType === 'treino_especifico' && !treinoFoco);
+                    if (isDisabled) return 'bg-gray-500/55 text-zinc-400 cursor-not-allowed opacity-60';
+                    return systemThemeIsDark ? 'bg-cyan-400 text-black hover:bg-cyan-300' : 'bg-indigo-600 text-white hover:bg-indigo-700';
+                  })()
+                }`}
+              >
+                Confirmar Bloco Operacional
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* CORE DATA ENGINE / DATABASE PAYLOAD CONSOLE */}

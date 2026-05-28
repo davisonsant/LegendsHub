@@ -381,15 +381,53 @@ export default function DashboardTab({
   const netWeekly = weeklyRevenue - weeklyExpense;
   const runwayWeeks = weeklyExpense > 0 ? Math.floor(playerTeam.budget / weeklyExpense) : 99;
 
-  // Standings Mini Table sorting
-  const sortedStandings = [...gameState.teams]
+  // Standings Mini Table sorting with player highlight injection
+  const regionalSortedStandings = [...gameState.teams]
     .filter(t => {
       const pReg = playerTeam.region || 'CBLOL';
       const tReg = t.region || 'CBLOL';
       return tReg === pReg;
     })
-    .sort((a, b) => b.wins - a.wins || b.points - a.points || b.name.localeCompare(a.name))
-    .slice(0, 4);
+    .sort((a, b) => b.wins - a.wins || b.points - a.points || b.name.localeCompare(a.name));
+
+  const playerIdxInLeague = regionalSortedStandings.findIndex(t => t.id === playerTeam.id);
+  const isPlayerInTop3List = playerIdxInLeague >= 0 && playerIdxInLeague < 3;
+
+  const standingsMiniList: { team: Team; rank: number; isPlayerHighlight: boolean }[] = [];
+
+  if (isPlayerInTop3List) {
+    // Show top 4
+    regionalSortedStandings.slice(0, 4).forEach((tItem, idx) => {
+      standingsMiniList.push({
+        team: tItem,
+        rank: idx + 1,
+        isPlayerHighlight: tItem.id === playerTeam.id
+      });
+    });
+  } else {
+    // Show top 3
+    regionalSortedStandings.slice(0, 3).forEach((tItem, idx) => {
+      standingsMiniList.push({
+        team: tItem,
+        rank: idx + 1,
+        isPlayerHighlight: false
+      });
+    });
+    // And show player team as 4th
+    if (playerIdxInLeague >= 0) {
+      standingsMiniList.push({
+        team: regionalSortedStandings[playerIdxInLeague],
+        rank: playerIdxInLeague + 1,
+        isPlayerHighlight: true
+      });
+    } else {
+      standingsMiniList.push({
+        team: playerTeam,
+        rank: 99,
+        isPlayerHighlight: true
+      });
+    }
+  }
 
   // Instant simulator computation loop handler
   const handleTriggerInstantSim = () => {
@@ -711,8 +749,8 @@ export default function DashboardTab({
     },
     secao_liga_classificacao: {
       titulo_card: `${t.standingsLabel} ${activeRegion}`,
-      dados_persistidos: sortedStandings.map((tItem, idx) => ({
-        rank: idx + 1,
+      dados_persistidos: standingsMiniList.map(({ team: tItem, rank }) => ({
+        rank: rank,
         time: tItem.name,
         vitorias: tItem.wins,
         derrotas: tItem.losses,
@@ -1092,23 +1130,29 @@ export default function DashboardTab({
               </div>
               
               <div className="space-y-2 text-xs font-bold font-mono">
-                {sortedStandings.map((tItem, idx) => {
-                  const isPlayer = tItem.id === playerTeam.id;
+                {standingsMiniList.map(({ team: tItem, rank, isPlayerHighlight }) => {
                   const isOpp = opponentTeamObj && tItem.id === opponentTeamObj.id;
                   return (
                     <div 
                       key={tItem.id} 
                       className={`flex justify-between items-center p-1.5 rounded ${
-                        isPlayer 
-                          ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' 
+                        isPlayerHighlight 
+                          ? 'bg-cyan-500/15 text-cyan-500 border border-cyan-500/35 dark:bg-cyan-500/10 dark:text-[#00E5FF] dark:border-[#00E5FF]/30' 
                           : isOpp
                             ? 'bg-rose-500/10 text-rose-500 border border-rose-500/15'
                             : 'bg-black/5 dark:bg-black/15 text-slate-400'
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-slate-500">#{idx + 1}</span>
-                        <span className={s.textWhiteOrSlate}>{tItem.name}</span>
+                        <span className="text-[10px] text-slate-500">#{rank}</span>
+                        <span className={`${s.textWhiteOrSlate} flex items-center gap-1.5`}>
+                          {tItem.name}
+                          {isPlayerHighlight && (
+                            <span className="text-[8px] px-1 bg-cyan-500 text-black rounded font-black font-sans shrink-0 uppercase tracking-wider scale-95 select-none md:inline-block">
+                              [VOCÊ]
+                            </span>
+                          )}
+                        </span>
                       </div>
                       <span className="text-[11px]">{tItem.wins}{lang === 'en' ? 'W' : 'V'} - {tItem.losses}{lang === 'en' ? 'L' : 'D'}</span>
                     </div>

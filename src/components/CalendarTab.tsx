@@ -70,53 +70,85 @@ export default function CalendarTab({
 
   // Helper lists of activities generator
   const getActivitiesForDay = (dayNum: number, dayOfWeekIndex: number): DayActivity[] => {
-    // dayOfWeekIndex: 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
-    const acts: DayActivity[] = [];
+    const activeRegion = playerTeam.region || 'CBLOL';
+    const academyLeagueName = activeRegion === 'CBLOL' ? 'DESAFIANTE' : `Youth Academy ${activeRegion}`;
     
-    if (dayOfWeekIndex >= 0 && dayOfWeekIndex <= 2) {
-      // Mon - Wed
-      acts.push({
-        id: `treino-${dayNum}`,
-        type: 'TREINOS',
-        title: 'Análise de VODs & Mecânica',
-        time: '09:00 - 12:00',
-        details: 'Reunião tática com a comissão técnica para calibrar matchups e rotações de selva.'
+    const key = `${selectedMonthIndex}-${dayNum}`;
+    const customGHActs = (gameState as any).gamingHouseActivities?.[key];
+
+    const acts: DayActivity[] = [];
+
+    // Prioritize or overlay custom-scheduled operational activities from Gaming House in real-time
+    if (customGHActs && customGHActs.length > 0) {
+      customGHActs.forEach((act: any) => {
+        acts.push({
+          id: act.id,
+          type: act.type,
+          title: act.title,
+          time: act.time,
+          details: act.details
+        });
       });
-      acts.push({
-        id: `scrim-${dayNum}`,
-        type: 'SCRIMS',
-        title: 'Block Prático de Scrim',
-        time: '14:00 - 18:00',
-        details: 'Simulação competitiva de confrontos diretos contra elencos qualificados da elite.'
-      });
-    } else if (dayOfWeekIndex === 3) {
-      // Thurs
-      acts.push({
-        id: `media-${dayNum}`,
-        type: 'MEDIA DAY',
-        title: 'Sessão Oficial Mídia / Presença',
-        time: '11:00 - 16:00',
-        details: 'Ensaios fotográficos da organização, gravações de patrocinadores e entrevistas exclusivas.'
-      });
-    } else if (dayOfWeekIndex === 4 || dayOfWeekIndex === 5) {
-      // Fri - Sat (Competición)
+    }
+
+    // Weekend (Fri - Sat) competition matches: Dual-Channel with Academy integration
+    if (dayOfWeekIndex === 4 || dayOfWeekIndex === 5) {
       const weekForThisDay = Math.min(17, Math.max(1, Math.floor(dayNum / 2) + 1));
+      
+      // Main team duel channel
       acts.push({
         id: `comp-${dayNum}`,
         type: 'COMPETIÇÃO',
-        title: `CBLOL - R${weekForThisDay} - MD3 vs ${opponentTeam.acronym}`,
+        title: `${activeRegion} - R${weekForThisDay} - MD3 vs ${opponentTeam.acronym}`,
         time: '13:00 - 18:00',
-        details: 'Partida oficial válida para o Split. Foco absoluto no palco e execução de macro.'
+        details: 'Partida Oficial - Elenco Principal. Confronto oficial válido para a tabela regular do Split.'
       });
-    } else if (dayOfWeekIndex === 6) {
-      // Sun
+
+      // Academy team duel channel
       acts.push({
-        id: `desc-${dayNum}`,
-        type: 'DESCANSO',
-        title: 'Folga Médica & Reset Mental',
-        time: 'Dia Inteiro',
-        details: 'Recuperação de fadiga tática e burnout tático. Lazer livre dos ciberatletas.'
+        id: `comp-academy-${dayNum}`,
+        type: 'COMPETIÇÃO',
+        title: `${academyLeagueName} - R${weekForThisDay} - MD3 vs ${opponentTeam.acronym}A`,
+        time: '18:30 - 21:00',
+        details: 'Partida Oficial - Youth Academy. Confronto válido pelo calendário de base para mitigar burnout.'
       });
+    } else if (!customGHActs || customGHActs.length === 0) {
+      // Show baseline schedules only if not overridden by custom operational activities
+      if (dayOfWeekIndex >= 0 && dayOfWeekIndex <= 2) {
+        // Mon - Wed
+        acts.push({
+          id: `treino-${dayNum}`,
+          type: 'TREINOS',
+          title: 'Análise de VODs & Mecânica',
+          time: '09:00 - 12:00',
+          details: 'Reunião tática com a comissão técnica para calibrar matchups e rotações de selva.'
+        });
+        acts.push({
+          id: `scrim-${dayNum}`,
+          type: 'SCRIMS',
+          title: 'Block Prático de Scrim',
+          time: '14:00 - 18:00',
+          details: 'Simulação competitiva de confrontos diretos contra elencos qualificados da elite.'
+        });
+      } else if (dayOfWeekIndex === 3) {
+        // Thurs
+        acts.push({
+          id: `media-${dayNum}`,
+          type: 'MEDIA DAY',
+          title: 'Sessão Oficial Mídia / Presença',
+          time: '11:00 - 16:00',
+          details: 'Ensaios fotográficos da organização, gravações de patrocinadores e entrevistas exclusivas.'
+        });
+      } else if (dayOfWeekIndex === 6) {
+        // Sun
+        acts.push({
+          id: `desc-${dayNum}`,
+          type: 'DESCANSO',
+          title: 'Folga Médica & Reset Mental',
+          time: 'Dia Inteiro',
+          details: 'Recuperação de fadiga tática e burnout tático. Lazer livre dos ciberatletas.'
+        });
+      }
     }
 
     return acts;
@@ -186,15 +218,15 @@ export default function CalendarTab({
   const getActivityColorClass = (type: ActivityType) => {
     switch (type) {
       case 'COMPETIÇÃO':
-        return isDark ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-red-50 text-red-600 border-red-200';
+        return isDark ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-red-50 text-red-700 border-red-200 font-bold';
       case 'MEDIA DAY':
-        return isDark ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-purple-50 text-purple-600 border-purple-200';
+        return isDark ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-purple-50 text-purple-700 border-purple-200 font-bold';
       case 'SCRIMS':
-        return isDark ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200';
+        return isDark ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-cyan-50 text-cyan-750 border-cyan-250 font-bold';
       case 'TREINOS':
-        return isDark ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-250';
+        return isDark ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-[#e2e8f0] text-[#1e293b] border-[#cbd5e1] font-extrabold';
       case 'DESCANSO':
-        return isDark ? 'bg-slate-500/10 text-slate-400 border-slate-500/20' : 'bg-slate-50 text-slate-650 border-slate-200';
+        return isDark ? 'bg-slate-500/10 text-slate-400 border-slate-500/20' : 'bg-[#f1f5f9] text-[#475569] border-[#e2e8f0] font-extrabold';
     }
   };
 
@@ -234,17 +266,21 @@ export default function CalendarTab({
           <button
             onClick={() => setSelectedMonthIndex(i => Math.max(0, i - 1))}
             disabled={selectedMonthIndex === 0}
-            className={`p-2.5 rounded-xl border transition-all ${
+            className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
               selectedMonthIndex === 0
-                ? 'opacity-40 cursor-not-allowed'
-                : isDark ? 'bg-[#070d19] border-[#1e2d44] hover:bg-slate-800' : 'bg-slate-100 border-slate-200 hover:bg-slate-200'
+                ? 'opacity-30 cursor-not-allowed'
+                : isDark 
+                  ? 'bg-[#070d19] border-[#1e2d44] text-slate-350 hover:bg-slate-800' 
+                  : 'bg-white border-slate-200 text-[#0f172a] hover:bg-slate-50'
             }`}
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
 
-          <div className={`px-5 py-2 rounded-xl text-center min-w-[140px] border font-display text-xs font-black uppercase tracking-widest ${
-            isDark ? 'bg-[#070d19] border-[#1e2d44]' : 'bg-slate-55 border-slate-250'
+          <div className={`px-5 py-2 rounded-xl text-center min-w-[140px] border font-display text-xs uppercase tracking-widest ${
+            isDark 
+              ? 'bg-[#070d19] border-[#1e2d44] font-black text-white' 
+              : 'bg-white border-slate-250 text-[#0f172a] font-medium'
           }`}>
             {currentMonth.name}
           </div>
@@ -252,10 +288,12 @@ export default function CalendarTab({
           <button
             onClick={() => setSelectedMonthIndex(i => Math.min(months.length - 1, i + 1))}
             disabled={selectedMonthIndex === months.length - 1}
-            className={`p-2.5 rounded-xl border transition-all ${
+            className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
               selectedMonthIndex === months.length - 1
-                ? 'opacity-40 cursor-not-allowed'
-                : isDark ? 'bg-[#070d19] border-[#1e2d44] hover:bg-slate-800' : 'bg-slate-100 border-slate-200 hover:bg-slate-200'
+                ? 'opacity-30 cursor-not-allowed'
+                : isDark 
+                  ? 'bg-[#070d19] border-[#1e2d44] text-slate-350 hover:bg-slate-800' 
+                  : 'bg-white border-slate-200 text-[#0f172a] hover:bg-slate-50'
             }`}
           >
             <ChevronRight className="w-4 h-4" />
@@ -340,12 +378,12 @@ export default function CalendarTab({
                         ? 'border-yellow-500 bg-yellow-500/5 ring-1 ring-yellow-500'
                         : isDark
                           ? 'bg-[#0a1424]/80 border-[#1e2d44] hover:border-sky-500/45'
-                          : 'bg-white border-slate-200 hover:border-blue-400 shadow-xs'
+                          : 'bg-[#f1f5f9] border-[#e2e8f0] hover:bg-[#e2e8f0] text-[#1e293b]'
                   }`}
                 >
                   {/* Número do dia posicionado de forma sutil no de cima à direita */}
                   <span className={`text-[11px] font-black block text-right w-full absolute top-2 right-2.5 opacity-60 ${
-                    day.isCurrentDay ? 'text-sky-400' : isDark ? 'text-gray-400' : 'text-slate-600'
+                    day.isCurrentDay ? 'text-sky-400' : isDark ? 'text-gray-400' : 'text-[#1e293b]'
                   }`}>
                     {day.dayNumber}
                   </span>

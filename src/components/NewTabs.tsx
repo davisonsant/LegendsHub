@@ -180,97 +180,1230 @@ export function GamingOfficeTab({ gameState, onUpdateGameState, triggerNotificat
 }
 
 // ==========================================
-// 2. LIGA TAB (Classificação Standings)
+// 2. LIGA TAB (Classificação Standings Multi-Torneios)
 // ==========================================
 interface LigaTabProps {
   gameState: GameState;
   theme?: 'light' | 'dark';
 }
 
-export function LigaTab({ gameState, theme }: LigaTabProps) {
-  const { teams } = gameState;
-  const s = getThemeStyles(theme);
+interface Tournament {
+  id: string;
+  name: string;
+  category: 'Regional' | 'Base' | 'International';
+  emoji: string;
+  region: string;
+  country: string;
+  desc: string;
+  format: string;
+  rewards: { rank: string; value: string; style: string }[];
+}
 
-  const sortedLeaderboard = [...teams].sort((a, b) => {
-    if (b.wins !== a.wins) return b.wins - a.wins;
-    const diffA = a.gameWins - a.gameLosses;
-    const diffB = b.gameWins - b.gameLosses;
-    return diffB - diffA;
+const TOURNAMENTS: Tournament[] = [
+  {
+    id: 'CBLOL',
+    name: 'CBLOL',
+    category: 'Regional',
+    emoji: '🇧🇷',
+    region: 'CBLOL',
+    country: 'Brasil',
+    desc: 'Elite profissional brasileira. Torcidas explosivas e rivalidade intensa.',
+    format: '10 times, turno/returno Bo1, G6 para playoffs de eliminação dupla.',
+    rewards: [
+      { rank: '1º CAMPEÃO', value: 'R$ 100.000', style: 'bg-amber-500/15 border-amber-500 text-amber-500' },
+      { rank: '2º VICE', value: 'R$ 50.000', style: 'bg-slate-500/15 border-slate-500 text-slate-400' },
+      { rank: '3º / 4º', value: 'R$ 25.000', style: 'bg-amber-850/15 border-amber-800 text-amber-600' },
+      { rank: 'Top 8', value: 'R$ 5.000', style: 'bg-slate-700/15 border-slate-650 text-slate-500' }
+    ]
+  },
+  {
+    id: 'LEC',
+    name: 'LEC',
+    category: 'Regional',
+    emoji: '🇪🇺',
+    region: 'LEC',
+    country: 'Europa',
+    desc: 'Inovação extrema de drafts, showmanship e alto nível tático.',
+    format: '10 times, Single Bo1, G8 avançam para grupos em melhor de 3.',
+    rewards: [
+      { rank: '1º CAMPEÃO', value: '€ 100.000', style: 'bg-amber-500/15 border-amber-500 text-amber-500' },
+      { rank: '2º VICE', value: '€ 50.000', style: 'bg-slate-500/15 border-slate-500 text-slate-400' },
+      { rank: '3º / 4º', value: '€ 25.000', style: 'bg-amber-850/15 border-amber-800 text-amber-600' },
+      { rank: 'Top 8', value: '€ 5.000', style: 'bg-slate-700/15 border-slate-650 text-slate-500' }
+    ]
+  },
+  {
+    id: 'LCK',
+    name: 'LCK',
+    category: 'Regional',
+    emoji: '🇰🇷',
+    region: 'LCK',
+    country: 'Coreia do Sul',
+    desc: 'A liga tecnicamente mais perfeita do mundo. Foco em macros absolutos.',
+    format: '10 times, duplo turno Bo3, G6 avançam para mata-mata profundo.',
+    rewards: [
+      { rank: '1º CAMPEÃO', value: '₩ 200M', style: 'bg-amber-500/15 border-amber-500 text-amber-500' },
+      { rank: '2º VICE', value: '₩ 100M', style: 'bg-slate-500/15 border-slate-500 text-slate-400' },
+      { rank: '3º / 4º', value: '₩ 50M', style: 'bg-amber-850/15 border-amber-800 text-amber-600' },
+      { rank: 'Top 8', value: '₩ 10M', style: 'bg-slate-700/15 border-slate-650 text-slate-500' }
+    ]
+  },
+  {
+    id: 'LPL',
+    name: 'LPL',
+    category: 'Regional',
+    emoji: '🇨🇳',
+    region: 'LPL',
+    country: 'China',
+    desc: 'Hiperagressividade em lutas, velocidade extrema por objetivos.',
+    format: '17 times, turno único Bo3, G10 King-of-the-Hill playoffs.',
+    rewards: [
+      { rank: '1º CAMPEÃO', value: '¥ 2.000.000', style: 'bg-amber-500/15 border-amber-500 text-amber-500' },
+      { rank: '2º VICE', value: '¥ 1.000.000', style: 'bg-slate-500/15 border-slate-500 text-slate-400' },
+      { rank: '3º / 4º', value: '¥ 500.000', style: 'bg-amber-850/15 border-amber-800 text-amber-600' },
+      { rank: 'Top 8', value: '¥ 100.000', style: 'bg-slate-700/15 border-slate-650 text-slate-500' }
+    ]
+  },
+  {
+    id: 'LCS',
+    name: 'LCS',
+    category: 'Regional',
+    emoji: '🇺🇸',
+    region: 'LCS',
+    country: 'América do Norte',
+    desc: 'Show, investimentos massivos e elencos internacionais de renome.',
+    format: '8 times, duplo turno Bo1, G6 para playoffs de eliminação dupla.',
+    rewards: [
+      { rank: '1º CAMPEÃO', value: '$ 100.000', style: 'bg-amber-500/15 border-amber-500 text-amber-500' },
+      { rank: '2º VICE', value: '$ 50.000', style: 'bg-slate-500/15 border-slate-500 text-slate-400' },
+      { rank: '3º / 4º', value: '$ 25.000', style: 'bg-amber-850/15 border-amber-800 text-amber-600' },
+      { rank: 'Top 8', value: '$ 5.000', style: 'bg-slate-700/15 border-slate-650 text-slate-500' }
+    ]
+  },
+  {
+    id: 'Youth Academy LEC',
+    name: 'Youth Academy LEC',
+    category: 'Base',
+    emoji: '🇪🇺',
+    region: 'LEC',
+    country: 'Europa',
+    desc: 'Circuito Academy juvenil da LEC que forma os novos craques estratégicos da Europa.',
+    format: '10 times, turno Bo2, Top 3 avança por mérito de desempenho ao CBOLÃO.',
+    rewards: [
+      { rank: '1º VAGA CBOLÃO', value: 'Classificado', style: 'bg-purple-500/15 border-purple-500 text-purple-400' },
+      { rank: '2º VAGA CBOLÃO', value: 'Classificado', style: 'bg-purple-500/15 border-purple-500 text-purple-400' },
+      { rank: '3º VAGA CBOLÃO', value: 'Classificado', style: 'bg-purple-500/15 border-purple-500 text-purple-400' },
+      { rank: 'Top 6', value: '€ 10.000', style: 'bg-slate-700/15 border-slate-650 text-slate-500' }
+    ]
+  },
+  {
+    id: 'DESAFIANTE',
+    name: 'DESAFIANTE',
+    category: 'Base',
+    emoji: '⚔️',
+    region: 'CBLOL',
+    country: 'Brasil (Acesso)',
+    desc: 'Mítico torneio de desenvolvimento e formação da trilha juvenil do CBLOL.',
+    format: '10 times, turno duplo Bo1. O Top 3 ganha passaporte carimbado para a glória no CBOLÃO.',
+    rewards: [
+      { rank: '1º VAGA CBOLÃO', value: 'Classificado', style: 'bg-purple-500/15 border-purple-500 text-purple-400' },
+      { rank: '2º VAGA CBOLÃO', value: 'Classificado', style: 'bg-purple-500/15 border-purple-500 text-purple-400' },
+      { rank: '3º VAGA CBOLÃO', value: 'Classificado', style: 'bg-purple-500/15 border-purple-500 text-purple-400' },
+      { rank: 'Top 8', value: 'R$ 4.000', style: 'bg-slate-700/15 border-slate-650 text-slate-500' }
+    ]
+  },
+  {
+    id: 'Youth Academy LCK',
+    name: 'Youth Academy LCK',
+    category: 'Base',
+    emoji: '🇰🇷',
+    region: 'LCK',
+    country: 'Coreia do Sul',
+    desc: 'Chave de promessas e novas lendas do micro e macro tático coreano.',
+    format: '10 times, duplo turno Bo3, Top 3 avança diretamente ao CBOLÃO.',
+    rewards: [
+      { rank: '1º VAGA CBOLÃO', value: 'Classificado', style: 'bg-purple-500/15 border-purple-500 text-purple-400' },
+      { rank: '2º VAGA CBOLÃO', value: 'Classificado', style: 'bg-purple-500/15 border-purple-500 text-purple-400' },
+      { rank: '3º VAGA CBOLÃO', value: 'Classificado', style: 'bg-purple-500/15 border-purple-500 text-purple-400' },
+      { rank: 'Top 6', value: '₩ 5.000.000', style: 'bg-slate-700/15 border-slate-650 text-slate-500' }
+    ]
+  },
+  {
+    id: 'Youth Academy LPL',
+    name: 'Youth Academy LPL',
+    category: 'Base',
+    emoji: '🇨🇳',
+    region: 'LPL',
+    country: 'China',
+    desc: 'Liga de hiperdesenvolvimento juvenil chinesa, sinônimo de batalhas agressivas constantes.',
+    format: '17 times, turno único Bo3, os 3 primeiros colocados garantem vaga no CBOLÃO.',
+    rewards: [
+      { rank: '1º VAGA CBOLÃO', value: 'Classificado', style: 'bg-purple-500/15 border-purple-500 text-purple-400' },
+      { rank: '2º VAGA CBOLÃO', value: 'Classificado', style: 'bg-purple-500/15 border-purple-500 text-purple-400' },
+      { rank: '3º VAGA CBOLÃO', value: 'Classificado', style: 'bg-purple-500/15 border-purple-500 text-purple-400' },
+      { rank: 'Top 8', value: '¥ 20.000', style: 'bg-slate-700/15 border-slate-650 text-slate-500' }
+    ]
+  },
+  {
+    id: 'Youth Academy LCS',
+    name: 'Youth Academy LCS',
+    category: 'Base',
+    emoji: '🇺🇸',
+    region: 'LCS',
+    country: 'América do Norte',
+    desc: 'Trilha Academy norte-americana de prospecção de futuros campeões mundiais.',
+    format: '8 times, duplo turno Bo1, os 3 primeiros colocados avançam com mérito ao CBOLÃO.',
+    rewards: [
+      { rank: '1º VAGA CBOLÃO', value: 'Classificado', style: 'bg-purple-500/15 border-purple-500 text-purple-400' },
+      { rank: '2º VAGA CBOLÃO', value: 'Classificado', style: 'bg-purple-500/15 border-purple-500 text-purple-400' },
+      { rank: '3º VAGA CBOLÃO', value: 'Classificado', style: 'bg-purple-500/15 border-purple-500 text-purple-400' },
+      { rank: 'Top 6', value: '$ 3.000', style: 'bg-slate-700/15 border-slate-650 text-slate-500' }
+    ]
+  },
+  {
+    id: 'CBOLÃO',
+    name: 'CBOLÃO',
+    category: 'Base',
+    emoji: '🧅',
+    region: 'CBLOL',
+    country: 'Brasil (Festivo)',
+    desc: 'Grande e cobiçado torneio beneficente de elite da base, unificando talentos do amanhã.',
+    format: 'Árvore de playoffs com 15 classificados de todo o planeta.',
+    rewards: [
+      { rank: '1º CAMPEÃO', value: 'Troféu Cebola', style: 'bg-[#00cbd6]/15 border-[#00cbd6] text-[#00cbd6]' },
+      { rank: '2º VICE', value: 'Medalha Cebolinha', style: 'bg-slate-500/15 border-slate-500 text-slate-400' },
+      { rank: 'MVP', value: 'Corda de Ouro', style: 'bg-amber-500/15 border-amber-505 text-amber-500' }
+    ]
+  },
+  {
+    id: 'MSI',
+    name: 'MSI',
+    category: 'International',
+    emoji: '🌌',
+    region: 'ALL',
+    country: 'Mundial Intermediário',
+    desc: 'Campeões de splits de cada região batem de frente no meio da temporada.',
+    format: 'Fase de Entrada Bo3, Fase de Chaves com dupla eliminação Bo5.',
+    rewards: [
+      { rank: '1º CAMPEÃO', value: '$ 150.000', style: 'bg-amber-500/15 border-amber-500 text-amber-500' },
+      { rank: '2º VICE', value: '$ 75.000', style: 'bg-slate-500/15 border-slate-500 text-slate-400' },
+      { rank: '3º / 4º', value: '$ 40.000', style: 'bg-[#00cbd6]/15 border-[#00cbd6] text-[#00cbd6]' },
+      { rank: 'Top 8', value: '$ 15.000', style: 'bg-slate-700/15 border-slate-650 text-slate-500' }
+    ]
+  },
+  {
+    id: 'Worlds',
+    name: 'Worlds (Mundial)',
+    category: 'International',
+    emoji: '👑',
+    region: 'ALL',
+    country: 'Mundial de Esports',
+    desc: 'O ápice competitivo. O maior e mais prestigioso campeonato do planeta.',
+    format: 'Play-ins, Fase Suíça de 5 rodadas e Playoffs em mata-mata Bo5.',
+    rewards: [
+      { rank: '1º CAMPEÃO', value: '$ 500.000', style: 'bg-amber-500/15 border-amber-500 text-amber-500' },
+      { rank: '2º VICE', value: '$ 250.000', style: 'bg-slate-500/15 border-slate-500 text-slate-400' },
+      { rank: '3º / 4º', value: '$ 120.000', style: 'bg-rose-500/15 border-rose-500 text-rose-450' },
+      { rank: 'Top 8', value: '$ 60.000', style: 'bg-slate-700/15 border-slate-650 text-slate-500' }
+    ]
+  }
+];
+
+export function LigaTab({ gameState, theme }: LigaTabProps) {
+  const { teams, playerTeamId, week, calendarSchedule } = gameState;
+  const s = getThemeStyles(theme);
+  const isDark = theme !== 'light';
+
+  // State Management
+  const playerTeam = teams.find(t => t.id === playerTeamId) || teams[0];
+  const playerRegion = playerTeam.region || 'CBLOL';
+
+  const [activeTab, setActiveTab] = useState<'Torneios' | 'Classificação' | 'Calendário' | 'Regras' | 'Jogos'>('Classificação');
+  const [selectedTourneyId, setSelectedTourneyId] = useState<string>(playerRegion);
+
+  // Filters State
+  const [filterMyTourneys, setFilterMyTourneys] = useState<'meus' | 'todos'>('todos');
+  const [filterType, setFilterType] = useState<'all' | 'regionais' | 'internacionais'>('all');
+
+  // Trigger default selection to player region in first run / switch
+  useEffect(() => {
+    if (playerRegion) {
+      setSelectedTourneyId(playerRegion);
+    }
+  }, [playerRegion]);
+
+  const selectedTourney = TOURNAMENTS.find(t => t.id === selectedTourneyId) || TOURNAMENTS[0];
+
+  // Apply filters
+  const filteredTourneys = TOURNAMENTS.filter(t => {
+    // 1st category: Meus vs Todos
+    if (filterMyTourneys === 'meus') {
+      const isMyRegion = t.region === playerRegion;
+      const isGlobal = t.category === 'International';
+      const isBaseAffiliated = 
+        t.id === 'Youth Academy LEC' || 
+        t.id === 'DESAFIANTE' || 
+        t.id === 'Youth Academy LCK' || 
+        t.id === 'Youth Academy LPL' || 
+        t.id === 'Youth Academy LCS' || 
+        t.id === 'CBOLÃO';
+
+      if (!isMyRegion && !isGlobal && !isBaseAffiliated) {
+        return false;
+      }
+    }
+
+    // 2nd category: Typology
+    if (filterType === 'regionais') {
+      return t.category === 'Regional' || t.category === 'Base';
+    }
+    if (filterType === 'internacionais') {
+      return t.category === 'International';
+    }
+    return true;
   });
 
+  // Calculate dynamic standings depending on chosen tourney
+  const getDynamicStandings = () => {
+    if (selectedTourney.category === 'Regional') {
+      // Filter current save teams that belong to match region
+      const regional = teams.filter(t => (t.region || 'CBLOL') === selectedTourney.region);
+      return regional.sort((a, b) => b.wins - a.wins || (b.gameWins - b.gameLosses) - (a.gameWins - a.gameLosses));
+    }
+
+    // Dynamic Tier 2 Academy categories
+    if (selectedTourney.category === 'Base' && selectedTourney.id !== 'CBOLÃO') {
+      const matchRegion = selectedTourney.region;
+      const regionalTeams = teams.filter(t => (t.region || 'CBLOL') === matchRegion);
+      const baseTeams = regionalTeams.map((t, idx) => {
+        // Deterministic simulation based on week and team fan base stats to keep ranking stable & organic
+        const teamBaseValue = t.fansSupport + idx * 5;
+        const simulatedWins = Math.min(week, Math.floor((teamBaseValue * week) / 125));
+        const simulatedLosses = Math.max(0, week - simulatedWins);
+        
+        return {
+          ...t,
+          id: `${t.id}-academy`,
+          name: `${t.name} Academy`,
+          acronym: `${t.acronym}A`,
+          wins: simulatedWins,
+          losses: simulatedLosses,
+          gameWins: simulatedWins * 2,
+          gameLosses: simulatedLosses * 2,
+          points: simulatedWins * 3,
+          region: matchRegion
+        };
+      });
+      return baseTeams.sort((a, b) => b.wins - a.wins || (b.gameWins - b.gameLosses) - (a.gameWins - a.gameLosses));
+    }
+
+    // Unified Inter-Connection logic for CBOLÃO (15 qualified base teams)
+    if (selectedTourney.id === 'CBOLÃO') {
+      const getTop3ForRegion = (region: string) => {
+        const regionalTeams = teams.filter(t => (t.region || 'CBLOL') === region);
+        const academyTeams = regionalTeams.map((t, idx) => {
+          const teamBaseValue = t.fansSupport + idx * 5;
+          const simulatedWins = Math.min(week, Math.floor((teamBaseValue * week) / 125));
+          const simulatedLosses = Math.max(0, week - simulatedWins);
+          return {
+            ...t,
+            id: `${t.id}-academy`,
+            name: `${t.name} Academy`,
+            acronym: `${t.acronym}A`,
+            wins: simulatedWins,
+            losses: simulatedLosses,
+            gameWins: simulatedWins * 2,
+            gameLosses: simulatedLosses * 2,
+            points: simulatedWins * 3,
+            originalRegion: region
+          };
+        });
+        const sorted = academyTeams.sort((a, b) => b.wins - a.wins || (b.gameWins - b.gameLosses) - (a.gameWins - a.gameLosses));
+        return sorted.slice(0, 3);
+      };
+
+      const topLEC = getTop3ForRegion('LEC');
+      const topCBLOL = getTop3ForRegion('CBLOL');
+      const topLCK = getTop3ForRegion('LCK');
+      const topLPL = getTop3ForRegion('LPL');
+      const topLCS = getTop3ForRegion('LCS');
+
+      // 15 classified teams automatically promoted by merit of performance!
+      const allPromoted = [...topLEC, ...topCBLOL, ...topLCK, ...topLPL, ...topLCS];
+      return allPromoted.sort((a, b) => b.wins - a.wins || b.popularity - a.popularity);
+    }
+
+    // MSI / Worlds Global Mixed Leaderboard
+    const sortedAll = [...teams].sort((a, b) => b.wins - a.wins);
+    if (selectedTourney.id === 'MSI') {
+      const regionsList = ['CBLOL', 'LCK', 'LPL', 'LEC', 'LCS'];
+      const msiSelected: Team[] = [];
+      regionsList.forEach(reg => {
+        const bestInReg = sortedAll.filter(t => (t.region || 'CBLOL') === reg).slice(0, 2);
+        msiSelected.push(...bestInReg);
+      });
+      return msiSelected.sort((a, b) => b.wins - a.wins);
+    }
+
+    // Default Worlds: Top 3
+    const worldsSelected: Team[] = [];
+    const regionsListWorlds = ['CBLOL', 'LCK', 'LPL', 'LEC', 'LCS'];
+    regionsListWorlds.forEach(reg => {
+      const bestInReg = sortedAll.filter(t => (t.region || 'CBLOL') === reg).slice(0, 3);
+      worldsSelected.push(...bestInReg);
+    });
+    return worldsSelected.sort((a, b) => b.wins - a.wins);
+  };
+
+  const standings = getDynamicStandings();
+
+  // Retrieve games associated with current tournament
+  const getTourneyMatches = () => {
+    const list: any[] = [];
+    Object.entries(calendarSchedule).forEach(([wkStr, weekMatches]) => {
+      const wk = parseInt(wkStr);
+      weekMatches.forEach(m => {
+        const teamBlue = teams.find(t => t.id === m.teamBlueId);
+        const teamRed = teams.find(t => t.id === m.teamRedId);
+        if (!teamBlue || !teamRed) return;
+
+        let matchesTourney = false;
+        if (selectedTourney.id === 'CBLOL' && (teamBlue.region === 'CBLOL' || !teamBlue.region) && (teamRed.region === 'CBLOL' || !teamRed.region)) {
+          matchesTourney = m.stage === 'REGULAR' || m.stage === 'PLAYOFFS_SEMI' || m.stage === 'PLAYOFFS_FINAL';
+        } else if (selectedTourney.id === teamBlue.region && selectedTourney.id === teamRed.region && selectedTourney.category === 'Regional') {
+          matchesTourney = true;
+        } else if (selectedTourney.id === 'MSI' && m.stage === 'MSI') {
+          matchesTourney = true;
+        } else if (selectedTourney.id === 'Worlds' && (m.stage === 'WORLDS_SWISS' || m.stage === 'WORLDS_PLAYOFFS')) {
+          matchesTourney = true;
+        } else if (selectedTourney.category === 'Base' && selectedTourney.id !== 'CBOLÃO') {
+          const isMatchRegion = (teamBlue.region || 'CBLOL') === selectedTourney.region && (teamRed.region || 'CBLOL') === selectedTourney.region;
+          if (isMatchRegion) {
+            matchesTourney = true;
+          }
+        }
+
+        if (matchesTourney) {
+          if (selectedTourney.category === 'Base' && selectedTourney.id !== 'CBOLÃO') {
+            list.push({
+              ...m,
+              week: wk,
+              teamBlue: {
+                ...teamBlue,
+                name: `${teamBlue.name} Academy`,
+                acronym: `${teamBlue.acronym}A`
+              },
+              teamRed: {
+                ...teamRed,
+                name: `${teamRed.name} Academy`,
+                acronym: `${teamRed.acronym}A`
+              }
+            });
+          } else {
+            list.push({ ...m, week: wk, teamBlue, teamRed });
+          }
+        }
+      });
+    });
+
+    return list.sort((a, b) => a.week - b.week);
+  };
+
+  const matchesOfTourney = getTourneyMatches();
+  const proximasPartidas = matchesOfTourney.filter(m => !m.isFinished && m.week >= week);
+  const ultimosResultados = matchesOfTourney.filter(m => m.isFinished || m.week < week).reverse();
+
   return (
-    <div className="space-y-6 font-sans select-none">
-      <div className={`${s.bgCard} rounded-xl overflow-hidden shadow-lg`}>
-        <div className={`px-5 py-4 border-b ${s.borderMuted} ${s.bgHeader} flex justify-between items-center`}>
-          <div className="flex gap-2 items-center">
-            <Trophy className="text-[#00d2fd] w-5 h-5 animate-bounce" />
-            <span className={`font-display font-black text-sm uppercase tracking-wider ${s.textWhiteOrSlate}`}>Classificação CBLOL - Temporada Regular</span>
+    <div className="space-y-6 select-none font-sans">
+      
+      {/* 1. SECTOR HEADER */}
+      <div className={`${s.bgCard} p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 border-2 border-slate-800/10 dark:border-slate-800/40 shadow-xl`}>
+        <div className="flex items-center gap-4">
+          <div className="p-3.5 bg-gradient-to-br from-cyan-500/20 to-[#00E5FF]/5 rounded-2xl border border-cyan-500/30 text-cyan-400">
+            <Trophy className="w-8 h-8 animate-pulse text-[#00E5FF]" />
           </div>
-          <span className="text-[10px] text-gray-500 font-extrabold uppercase tracking-widest">Summer Split</span>
+          <div>
+            <h1 className="font-display text-lg font-black uppercase tracking-wider text-slate-800 dark:text-white flex items-center gap-2">
+              <span>Módulo Liga: {selectedTourney.emoji} {selectedTourney.name}</span>
+            </h1>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+              Gestor Tático Dinâmico • {selectedTourney.country} • Rastreamento de {standings.length} Equipes Ativas
+            </p>
+          </div>
         </div>
 
-        <div className={`grid grid-cols-12 gap-1 px-5 py-3 border-b ${s.borderSemiMuted} text-[9.5px] ${theme === 'light' ? 'text-blue-600' : 'text-[#00d2fd]'} font-extrabold tracking-widest uppercase ${s.bgHeaderRow}`}>
-          <div className="col-span-1">#</div>
-          <div className="col-span-4">NOME DO CLUBE</div>
-          <div className="col-span-2 text-center">VITÓRIAS</div>
-          <div className="col-span-2 text-center">DERROTAS</div>
-          <div className="col-span-1 text-center">DELTA</div>
-          <div className="col-span-2 text-right">STREAK</div>
-        </div>
-
-        <div className={`divide-y ${s.divider}`}>
-          {sortedLeaderboard.map((team, idx) => {
-            const isUserTeam = team.id === gameState.playerTeamId;
-            const rank = idx + 1;
-            const inPlayoffs = rank <= 4;
-            return (
-              <div
-                key={team.id}
-                className={`grid grid-cols-12 gap-1 px-5 py-4 items-center transition-colors ${
-                  isUserTeam ? (theme === 'light' ? 'bg-blue-50 border-l-4 border-blue-600' : 'bg-[#00d2fd]/5 border-l-4 border-[#00d2fd]') : s.hoverBg
-                }`}
-              >
-                <div className="col-span-1">
-                  <span className={`w-5.5 h-5.5 rounded flex items-center justify-center font-bold text-[10px] ${
-                    inPlayoffs 
-                      ? (theme === 'light' ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-blue-500/15 text-[#00d2fd] border border-[#00d2fd]/30') 
-                      : (theme === 'light' ? 'bg-slate-100 text-slate-400' : 'bg-slate-800 text-gray-500')
-                  }`}>
-                    {rank}
-                  </span>
-                </div>
-
-                <div className="col-span-4 flex items-center gap-2.5">
-                  <div className="w-1.5 h-6 rounded" style={{ backgroundColor: team.primaryColor || '#00cbd6' }} />
-                  <span className={`text-xs uppercase font-extrabold ${s.textWhiteOrSlate} tracking-wide`}>{team.name}</span>
-                </div>
-
-                <div className={`col-span-2 text-center font-mono font-black ${s.textWhiteOrSlate} text-xs`}>
-                  {team.wins}
-                </div>
-
-                <div className={`col-span-2 text-center font-mono ${s.textMuted} text-xs`}>
-                  {team.losses}
-                </div>
-
-                <div className={`col-span-1 text-center font-mono text-[11px] ${s.textMuted}`}>
-                  {team.gameWins - team.gameLosses > 0 ? `+${team.gameWins - team.gameLosses}` : team.gameWins - team.gameLosses}
-                </div>
-
-                <div className="col-span-2 text-right">
-                  <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
-                    team.streak.startsWith('W') 
-                      ? 'bg-green-500/10 text-green-400' 
-                      : 'bg-red-500/10 text-red-500'
-                  }`}>
-                    {team.streak}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
+        <div className="flex flex-col items-end leading-none">
+          <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400 font-mono">Temporada Ativa</span>
+          <span className="text-xl font-bold font-mono text-[#00cbd6] mt-1">SEMANA {week} / 45</span>
         </div>
       </div>
+
+      {/* 2. NAVIGATION BAR & SUB-FILTERS (HORIZONTAL LAYOUT) */}
+      <div className="space-y-3.5">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/15 dark:border-[#1e2d44]/60 pb-3">
+          
+          {/* Main 5 Tabs */}
+          <div className="flex gap-1 bg-slate-100 dark:bg-slate-900/60 p-1 rounded-xl">
+            {(['Torneios', 'Classificação', 'Calendário', 'Regras', 'Jogos'] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer ${
+                  activeTab === tab
+                    ? 'bg-cyan-500 text-black shadow-md scale-105 font-black'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-cyan-500 hover:bg-slate-200 dark:hover:bg-slate-800/50'
+                }`}
+              >
+                {tab === 'Calendário' ? 'Calendário de Torneios' : tab}
+              </button>
+            ))}
+          </div>
+
+          {/* Sub-Filters Indicators */}
+          <div className="flex flex-wrap gap-2.5">
+            {/* Filter Group 1: Meus vs Todos */}
+            <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-900/60 p-1 rounded-lg text-[10px]">
+              <button
+                onClick={() => setFilterMyTourneys('meus')}
+                className={`px-2.5 py-1 rounded font-bold uppercase transition-all cursor-pointer ${
+                  filterMyTourneys === 'meus'
+                    ? 'bg-white dark:bg-slate-800 text-[#00cbd6] shadow-sm font-black'
+                    : 'text-slate-500'
+                }`}
+              >
+                Meus Torneios
+              </button>
+              <button
+                onClick={() => setFilterMyTourneys('todos')}
+                className={`px-2.5 py-1 rounded font-bold uppercase transition-all cursor-pointer ${
+                  filterMyTourneys === 'todos'
+                    ? 'bg-white dark:bg-slate-800 text-[#00cbd6] shadow-sm font-black'
+                    : 'text-slate-500'
+                }`}
+              >
+                Todos os Torneios
+              </button>
+            </div>
+
+            {/* Filter Group 2: Categories */}
+            <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-900/60 p-1 rounded-lg text-[10px]">
+              {(['all', 'regionais', 'internacionais'] as const).map((tFilter) => (
+                <button
+                  key={tFilter}
+                  onClick={() => setFilterType(tFilter)}
+                  className={`px-2.5 py-1 rounded font-bold uppercase transition-all cursor-pointer ${
+                    filterType === tFilter
+                      ? 'bg-white dark:bg-slate-800 text-cyan-500 shadow-sm font-black'
+                      : 'text-slate-500'
+                  }`}
+                >
+                  {tFilter === 'all' ? 'Todos' : tFilter === 'regionais' ? 'Regionais' : 'Internacionais'}
+                </button>
+              ))}
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      {/* 3. CORE VIEW LAYOUTS */}
+      <div className="animate-fade-in">
+        
+        {/* TAB A: TORNEIOS (CARD GRID CHANNELS) */}
+        {activeTab === 'Torneios' && (
+          <div className="space-y-4">
+            <p className={`text-xs ${s.textMuted} font-semibold uppercase tracking-wider`}>
+              Inspecione todas as competições e ligas registradas de forma procedural:
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {filteredTourneys.map((t) => {
+                const isActive = t.id === selectedTourneyId;
+                const isPlayerHome = t.region === playerRegion || (t.category === 'International');
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => {
+                      setSelectedTourneyId(t.id);
+                      setActiveTab('Classificação');
+                    }}
+                    className={`p-5 rounded-2xl border text-left flex flex-col justify-between h-44 transition-all duration-300 hover:scale-[1.02] cursor-pointer group ${
+                      isActive
+                        ? 'border-cyan-500 bg-cyan-500/5 dark:bg-cyan-500/10 shadow-[0_0_22px_rgba(6,182,212,0.15)]'
+                        : isDark
+                        ? 'border-slate-800 bg-[#081224] hover:border-slate-700 hover:bg-[#0c1c38]'
+                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 shadow-sm'
+                    }`}
+                  >
+                    <div className="w-full flex justify-between items-start gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">{t.emoji}</span>
+                        <div>
+                          <h4 className={`text-xs uppercase font-extrabold ${s.textWhiteOrSlate} tracking-wide group-hover:text-cyan-400`}>
+                            {t.name}
+                          </h4>
+                          <span className="text-[8.5px] font-mono text-slate-400 block mt-0.5 uppercase tracking-wider">
+                            {t.country}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-1 font-mono text-[8px] uppercase font-bold tracking-widest shrink-0">
+                        {isPlayerHome && (
+                          <span className="bg-red-500/10 text-red-500 px-1.5 py-0.5 rounded border border-red-500/20">
+                            Filiado
+                          </span>
+                        )}
+                        <span className="bg-cyan-500/10 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/20">
+                          {t.category}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className={`text-[10px] leading-relaxed ${s.textMuted} line-clamp-2 mt-3 mb-1`}>
+                      {t.desc}
+                    </p>
+
+                    <div className={`w-full pt-2 flex justify-between items-center text-[9px] border-t ${s.borderSemiMuted}`}>
+                      <span className="text-slate-400 font-medium">Ver dados completos →</span>
+                      <span className="text-cyan-500 font-extrabold tracking-wider">{t.id}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* TAB B: CLASSIFICAÇÃO (TABELA ESTATÍSTICA DINDÁMICA) */}
+        {activeTab === 'Classificação' && (
+          <>
+            <div className={`${s.bgCard} rounded-2xl overflow-hidden shadow-xl border border-slate-800/10 dark:border-[#1e2d44]/40`}>
+            
+            {/* Header Description context */}
+            <div className={`px-6 py-4 border-b ${s.borderMuted} ${s.bgHeader} flex justify-between items-center flex-wrap gap-2`}>
+              <div className="flex gap-2.5 items-center">
+                <span className="text-lg">{selectedTourney.emoji}</span>
+                <span className={`font-display font-black text-sm uppercase tracking-wider ${s.textWhiteOrSlate}`}>
+                  Tabela Classificatória de {selectedTourney.name}
+                </span>
+                <span className="bg-cyan-500/15 border border-cyan-500/35 text-cyan-400 text-[8.5px] font-extrabold uppercase px-2 py-0.5 rounded tracking-widest leading-none">
+                  Summer Split
+                </span>
+              </div>
+              <span className="text-[9px] text-[#00cbd6] font-mono tracking-widest uppercase font-black animate-pulse">
+                Sincronia Automática Ativa
+              </span>
+            </div>
+
+            {/* Headers Columns */}
+            <div className={`grid grid-cols-12 gap-1 px-6 py-3 border-b ${s.borderSemiMuted} text-[9.5px] ${theme === 'light' ? 'text-blue-600' : 'text-[#00d2fd]'} font-mono font-black tracking-widest uppercase ${s.bgHeaderRow}`}>
+              <div className="col-span-1">#</div>
+              <div className="col-span-4">TIME</div>
+              <div className="col-span-1.5 text-center">VITÓRIAS (V)</div>
+              <div className="col-span-1.5 text-center">DERROTAS (D)</div>
+              <div className="col-span-1.5 text-center">MAPAS (MW-ML)</div>
+              <div className="col-span-1 text-center">DELTA (SD)</div>
+              <div className="col-span-1 text-right">PTS</div>
+            </div>
+
+            {/* List Rows */}
+            <div className={`divide-y ${s.divider}`}>
+              {standings.map((team, idx) => {
+                const isUser = team.id === playerTeamId || team.id === `${playerTeamId}-academy`;
+                const rank = idx + 1;
+                const top4 = rank <= 4;
+                const displayWins = team.wins;
+                const displayLosses = team.losses;
+                const displayPoints = (team as any).points || (team.wins * 3);
+
+                return (
+                  <div
+                    key={team.id}
+                    className={`grid grid-cols-12 gap-1 px-6 py-4 items-center transition-all ${
+                      isUser 
+                        ? (theme === 'light' ? 'bg-red-50/50 border-l-4 border-rose-500 font-extrabold' : 'bg-rose-500/5 border-l-4 border-rose-500') 
+                        : s.hoverBg
+                    }`}
+                  >
+                    {/* Rank */}
+                    <div className="col-span-1">
+                      <span className={`w-6 h-6 rounded-md flex items-center justify-center font-mono font-black text-[10.5px] ${
+                        top4 
+                          ? (theme === 'light' ? 'bg-cyan-50 text-cyan-600 border border-cyan-200' : 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30') 
+                          : (theme === 'light' ? 'bg-slate-100 text-slate-400' : 'bg-slate-800 text-gray-500')
+                      }`}>
+                        {rank}
+                      </span>
+                    </div>
+
+                    {/* Team Name badge */}
+                    <div className="col-span-4 flex items-center gap-3">
+                      <div className="w-1.5 h-6 rounded-full shrink-0" style={{ backgroundColor: team.primaryColor || '#00cbd6' }} />
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className={`text-[11.5px] uppercase font-black truncate tracking-wide ${s.textWhiteOrSlate}`}>
+                          {team.name}
+                        </span>
+                        {isUser && (
+                          <span className="bg-red-500 text-white font-black text-[7.5px] py-0.5 px-1.5 rounded uppercase font-mono tracking-widest shrink-0 animate-pulse">
+                            VOCÊ
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* V */}
+                    <div className={`col-span-1.5 text-center font-mono font-black ${s.textWhiteOrSlate} text-xs`}>
+                      {displayWins}
+                    </div>
+
+                    {/* D */}
+                    <div className={`col-span-1.5 text-center font-mono text-xs ${s.textMuted}`}>
+                      {displayLosses}
+                    </div>
+
+                    {/* MW-ML */}
+                    <div className={`col-span-1.5 text-center font-mono text-[10.5px] ${s.textMuted}`}>
+                      {team.gameWins || (displayWins * 2)} - {team.gameLosses || (displayLosses * 2)}
+                    </div>
+
+                    {/* DELTA SD */}
+                    <div className={`col-span-1 text-center font-mono text-[11px] ${
+                      (team.gameWins - team.gameLosses) > 0 ? 'text-green-500 font-extrabold' : s.textMuted
+                    }`}>
+                      {team.gameWins - team.gameLosses > 0 ? `+${team.gameWins - team.gameLosses}` : team.gameWins - team.gameLosses}
+                    </div>
+
+                    {/* PTS */}
+                    <div className="col-span-1 text-right font-mono text-xs font-black text-cyan-500">
+                      {displayPoints}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Chaveamento Automatizado CBOLÃO (Apenas quando for CBOLÃO) */}
+          {selectedTourney.id === 'CBOLÃO' && (
+            <div className="mt-8 space-y-6 animate-fade-in text-left">
+              <div className={`p-6 rounded-2xl ${isDark ? 'bg-[#0a1424] border border-[#1e2d44]' : 'bg-white border border-slate-200 shadow-sm'} shadow-xl border-purple-500/30 max-w-full overflow-hidden`}>
+                <div className={`flex items-center gap-3 border-b pb-3 mb-6 ${isDark ? 'border-purple-500/20' : 'border-purple-500/10'}`}>
+                  <Crown className={`w-6 h-6 ${isDark ? 'text-purple-400' : 'text-purple-650'} animate-bounce`} />
+                  <div>
+                    <h3 className={`text-sm font-black uppercase tracking-wider ${isDark ? 'text-purple-400' : 'text-purple-700'}`}>Árvore de Chaveamento do CBOLÃO (15 Equipes Classificadas)</h3>
+                    <p className={`text-[10px] ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>Determinado proceduralmente pelo encerramento e Top 3 de cada Liga de Base regional listada</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col xl:flex-row gap-4 items-stretch overflow-x-auto pb-4">
+                  {/* ROUND 1: OITAVAS DE FINAL */}
+                  <div className="flex-1 min-w-[240px] space-y-4">
+                    <div className={`text-[9px] font-mono font-black uppercase tracking-widest border-b pb-1 mb-2 ${
+                      isDark ? 'text-purple-400 border-purple-500/10' : 'text-purple-700 border-purple-500/15'
+                    }`}>
+                      Oitavas de Final
+                    </div>
+                    
+                    <div className={`p-3.5 rounded-xl border ${isDark ? 'border-amber-500/30 bg-amber-500/5' : 'border-amber-300 bg-amber-50/70'} space-y-1 shadow-sm`}>
+                      <span className={`text-[7.5px] font-mono font-bold block uppercase tracking-widest ${isDark ? 'text-amber-400' : 'text-[#7c2d12]'}`}>Seed 1 (BYE Automático)</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-4 rounded-full animate-pulse" style={{ backgroundColor: standings[0]?.primaryColor || '#a855f7' }} />
+                        <span className={`text-[11px] font-black uppercase ${isDark ? 'text-amber-300' : 'text-[#7c2d12]'}`}>{standings[0]?.name || 'G2 Academy'}</span>
+                      </div>
+                      <span className={`text-[8px] font-mono ${isDark ? 'text-zinc-400' : 'text-[#475569]/80 font-bold'}`}>Líder Geral • Bye das Oitavas</span>
+                    </div>
+
+                    {[
+                      { a: 1, b: 14, title: 'Confronto A' },
+                      { a: 2, b: 13, title: 'Confronto B' },
+                      { a: 3, b: 12, title: 'Confronto C' },
+                      { a: 4, b: 11, title: 'Confronto D' },
+                      { a: 5, b: 10, title: 'Confronto E' },
+                      { a: 6, b: 9, title: 'Confronto F' },
+                      { a: 7, b: 8, title: 'Confronto G' },
+                    ].map((pair, index) => {
+                      const teamA = standings[pair.a];
+                      const teamB = standings[pair.b];
+                      return (
+                        <div key={index} className={`p-3 rounded-xl border ${
+                          isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-100 border-[#cbd5e1] shadow-sm'
+                        } space-y-2`}>
+                          <span className={`text-[8px] font-mono font-bold block uppercase ${isDark ? 'text-zinc-500' : 'text-[#475569]'}`}>{pair.title}</span>
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-1 h-3 rounded-full" style={{ backgroundColor: teamA?.primaryColor || '#2dd4bf' }} />
+                                <span className={`text-[10px] font-bold uppercase truncate ${isDark ? 'text-zinc-200' : 'text-[#0f172a]'}`}>{teamA?.acronym || 'LEC'}</span>
+                              </div>
+                              <span className={`text-[8.5px] font-mono font-extrabold px-1 py-0.2 rounded ${
+                                isDark ? 'text-emerald-400 bg-emerald-500/10' : 'text-emerald-700 bg-emerald-100'
+                              }`}>V</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-1 h-3 rounded-full" style={{ backgroundColor: teamB?.primaryColor || '#ef4444' }} />
+                                <span className={`text-[10px] font-bold uppercase truncate ${isDark ? 'text-zinc-500 line-through' : 'text-[#475569] line-through'}`}>{teamB?.acronym || 'CBL'}</span>
+                              </div>
+                              <span className={`text-[9px] font-mono leading-none ${isDark ? 'text-zinc-550' : 'text-[#475569]'}`}>0</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* CONNECTOR 1: OITAVAS -> QUARTAS */}
+                  <div className="hidden xl:flex flex-col justify-around w-6 shrink-0 select-none pb-4">
+                    <div className="h-6" /> {/* Header alignment spacer */}
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="h-28 flex items-center justify-center">
+                        <svg className="w-full h-full" viewBox="0 0 24 100" fill="none" preserveAspectRatio="none">
+                          <path d="M 0 25 L 12 25 L 12 75 L 24 75 M 12 50 L 24 50" stroke={isDark ? "#94a3b8" : "#cbd5e1"} strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* ROUND 2: QUARTAS DE FINAL */}
+                  <div className="flex-1 min-w-[240px] flex flex-col justify-around space-y-4">
+                    <div>
+                      <div className={`text-[9px] font-mono font-black uppercase tracking-widest border-b pb-1 mb-2 ${
+                        isDark ? 'text-purple-400 border-purple-500/10' : 'text-purple-700 border-purple-500/15'
+                      }`}>
+                        Quartas de Final
+                      </div>
+                    </div>
+                    {[
+                      { w1: 0, w2: 1, title: 'QUARTAS 1' },
+                      { w1: 2, w2: 3, title: 'QUARTAS 2' },
+                      { w1: 4, w2: 5, title: 'QUARTAS 3' },
+                      { w1: 6, w2: 7, title: 'QUARTAS 4' },
+                    ].map((pair, index) => {
+                      const teamA = standings[pair.w1];
+                      const teamB = standings[pair.w2];
+                      return (
+                        <div key={index} className={`p-3 rounded-xl border ${
+                          isDark ? 'bg-slate-905/40 border-purple-500/10 shadow-inner' : 'bg-slate-100 border-[#cbd5e1]'
+                        } space-y-2`}>
+                          <span className={`text-[8px] font-mono font-semibold block uppercase ${isDark ? 'text-purple-350' : 'text-[#334155]'}`}>{pair.title}</span>
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-1 h-3 rounded-full" style={{ backgroundColor: teamA?.primaryColor || '#2dd4bf' }} />
+                                <span className={`text-[10px] font-black uppercase ${isDark ? 'text-zinc-100' : 'text-[#0f172a]'}`}>{teamA?.acronym || 'LEC'}</span>
+                              </div>
+                              <span className={`text-[9.5px] font-mono font-black ${isDark ? 'text-[#00cbd6]' : 'text-[#0f172a]'}`}>2</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-1 h-3 rounded-full" style={{ backgroundColor: teamB?.primaryColor || '#38bdf8' }} />
+                                <span className={`text-[10px] font-extrabold uppercase line-through ${isDark ? 'text-zinc-500' : 'text-[#475569]'}`}>{teamB?.acronym || 'LCK'}</span>
+                              </div>
+                              <span className={`text-[9.5px] font-mono ${isDark ? 'text-zinc-550' : 'text-[#475569]'}`}>1</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* CONNECTOR 2: QUARTAS -> SEMIFINAIS */}
+                  <div className="hidden xl:flex flex-col justify-around w-6 shrink-0 select-none pb-4">
+                    <div className="h-6" /> {/* Header alignment spacer */}
+                    {Array.from({ length: 2 }).map((_, i) => (
+                      <div key={i} className="h-48 flex items-center justify-center">
+                        <svg className="w-full h-full" viewBox="0 0 24 100" fill="none" preserveAspectRatio="none">
+                          <path d="M 0 25 L 12 25 L 12 75 L 24 75 M 12 50 L 24 50" stroke={isDark ? "#94a3b8" : "#cbd5e1"} strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* ROUND 3: SEMIFINAIS */}
+                  <div className="flex-1 min-w-[240px] flex flex-col justify-around space-y-4">
+                    <div>
+                      <div className={`text-[9px] font-mono font-black uppercase tracking-widest border-b pb-1 mb-2 ${
+                        isDark ? 'text-purple-400 border-purple-500/10' : 'text-purple-700 border-purple-500/15'
+                      }`}>
+                        Semifinais
+                      </div>
+                    </div>
+                    {[
+                      { w1: 0, w2: 2, title: 'SEMIFINAL 1' },
+                      { w1: 4, w2: 6, title: 'SEMIFINAL 2' },
+                    ].map((pair, index) => {
+                      const teamA = standings[pair.w1];
+                      const teamB = standings[pair.w2];
+                      return (
+                        <div key={index} className={`p-3.5 rounded-xl border ${
+                          isDark ? 'bg-purple-950/10 border-purple-500/30' : 'bg-slate-100 border-[#cbd5e1]'
+                        } space-y-2`}>
+                          <span className={`text-[8px] font-mono font-semibold block uppercase ${isDark ? 'text-purple-300' : 'text-[#334155]'}`}>{pair.title}</span>
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-1.5 h-3" style={{ backgroundColor: teamA?.primaryColor || '#a855f7' }} />
+                                <span className={`text-[10.5px] font-extrabold uppercase ${isDark ? 'text-white' : 'text-[#0f172a]'}`}>{teamA?.acronym || 'LEC'}</span>
+                              </div>
+                              <span className={`text-[10px] font-mono ${isDark ? 'text-zinc-400' : 'text-[#475569] font-bold'}`}>Bo3</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-1.5 h-3" style={{ backgroundColor: teamB?.primaryColor || '#f43f5e' }} />
+                                <span className={`text-[10.5px] font-bold uppercase ${isDark ? 'text-zinc-400' : 'text-[#475569]'}`}>{teamB?.acronym || 'LPL'}</span>
+                              </div>
+                              <span className={`text-[10px] font-mono ${isDark ? 'text-zinc-400' : 'text-[#475569] font-bold'}`}>Bo3</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* CONNECTOR 3: SEMIFINAIS -> GRANDE FINAL */}
+                  <div className="hidden xl:flex flex-col justify-around w-6 shrink-0 select-none pb-4">
+                    <div className="h-6" /> {/* Header alignment spacer */}
+                    <div className="h-72 flex items-center justify-center">
+                      <svg className="w-full h-full" viewBox="0 0 24 100" fill="none" preserveAspectRatio="none">
+                        <path d="M 0 25 L 12 25 L 12 75 L 24 75 M 12 50 L 24 50" stroke={isDark ? "#94a3b8" : "#cbd5e1"} strokeWidth="2" strokeLinecap="round" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* ROUND 4: GRANDE FINAL */}
+                  <div className="flex-1 min-w-[240px] flex flex-col justify-center space-y-4">
+                    <div>
+                      <div className={`text-[9px] font-mono font-black uppercase tracking-widest border-b pb-1 mb-2 ${
+                        isDark ? 'text-purple-400 border-purple-500/10' : 'text-purple-700 border-purple-500/15'
+                      }`}>
+                        Grande Final Tática
+                      </div>
+                    </div>
+                    <div className={`p-5 rounded-2xl border-2 border-purple-500 shadow-2xl relative space-y-4 ${
+                      isDark ? 'bg-[#0f172a]' : 'bg-purple-50'
+                    }`}>
+                      <div className="absolute -top-3.5 right-4 bg-purple-500 text-black font-mono font-black text-[7.5px] py-1 px-2.5 rounded-full uppercase tracking-wider shadow">
+                        Cebola Bowl Bo5
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-2 h-4 rounded-full animate-pulse" style={{ backgroundColor: standings[0]?.primaryColor || '#a855f7' }} />
+                            <span className={`text-xs font-black uppercase tracking-wider ${isDark ? 'text-purple-300' : 'text-purple-950'}`}>{standings[0]?.acronym || 'LEC'}</span>
+                          </div>
+                          <span className={`text-xs font-mono font-black animate-pulse ${isDark ? 'text-[#00cbd6]' : 'text-cyan-800'}`}>Classificado</span>
+                        </div>
+                        <div className="h-[1px] bg-purple-500/20" />
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-2 h-4 rounded-full" style={{ backgroundColor: standings[1]?.primaryColor || '#ef4444' }} />
+                            <span className={`text-xs font-black uppercase tracking-wider ${isDark ? 'text-[#94a3b8]' : 'text-slate-650'}`}>{standings[1]?.acronym || 'CBL'}</span>
+                          </div>
+                          <span className={`text-xs font-mono font-black ${isDark ? 'text-[#94a3b8]' : 'text-slate-500'}`}>Classificado</span>
+                        </div>
+                      </div>
+                      
+                      <div className="pt-2 text-center border-t border-purple-500/15">
+                        <span className={`text-[7.5px] font-mono tracking-widest uppercase font-black block mb-1 ${isDark ? 'text-[#94a3b8]' : 'text-[#475569]'}`}>PROJEÇÃO DE CAMPEÃO</span>
+                        <span className={`text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1 ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>
+                          🏆 {standings[0]?.name || 'G2 Academy'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          )}
+          </>
+        )}
+
+        {/* TAB C: CALENDÁRIO (HORIZONTAL SWIMLANES TIMELINE) */}
+        {activeTab === 'Calendário' && (
+          <div className={`${s.bgCard} p-6 rounded-2xl shadow-xl space-y-6 border border-slate-800/10 dark:border-[#1e2d44]/40`}>
+            
+            <div className="flex justify-between items-center flex-wrap gap-2 border-b border-slate-800/10 dark:border-[#1e2d44]/40 pb-3">
+              <div>
+                <h3 className="text-xs uppercase font-black tracking-widest text-[#00cbd6]">Linha do Tempo da Temporada Regular</h3>
+                <p className={`text-[10px] ${s.textMuted} mt-0.5`}>Consulte cronologicamente as fases de circuitos nacionais de elite, qualificatórios, MSI e mundial de fim de ano.</p>
+              </div>
+              <span className="text-[10.5px] font-mono bg-cyan-500/10 border border-cyan-500/20 text-cyan-500 px-3 py-1 rounded-md font-bold uppercase">
+                Semana do Ano: {week} / 45
+              </span>
+            </div>
+
+            {/* Scrollable Tracks container */}
+            <div className="overflow-x-auto pb-4 scrollbar-none" style={{ scrollbarWidth: 'none' }}>
+              <div className="min-w-[780px] space-y-4 relative pt-1.5">
+                
+                {/* Track Columns Week list indicator */}
+                <div className="grid grid-cols-45 gap-0.5 border-b border-slate-800/5 dark:border-slate-800/30 pb-2 text-[8px] font-mono text-slate-400 font-black">
+                  {Array.from({ length: 45 }).map((_, i) => (
+                    <div key={i} className="text-center">
+                      W{i + 1}
+                    </div>
+                  ))}
+                </div>
+
+                {/* TRACK 1: Regional Elites */}
+                <div className="space-y-1 relative">
+                  <div className="text-[8.5px] font-black uppercase text-slate-400 tracking-wider font-mono">
+                    Circuito Regional de Elites (CBLOL / LEC / LCK)
+                  </div>
+                  <div className="grid grid-cols-45 gap-0.5 h-6 relative bg-slate-900/10 dark:bg-slate-900/30 rounded-md overflow-hidden">
+                    <div className="absolute top-0 bottom-0 left-0 col-span-4 w-[8.88%] bg-yellow-500/10 border border-yellow-500/30 rounded flex items-center justify-center text-[7.5px] font-bold text-yellow-500">
+                      KICKOFF
+                    </div>
+                    <div className="absolute top-0 bottom-0 left-[8.88%] w-[26.6%] bg-cyan-500/15 border border-cyan-500/30 rounded flex items-center justify-center text-[7.5px] font-bold text-cyan-400">
+                      STAGE 1 (REGULAR)
+                    </div>
+                    <div className="absolute top-0 bottom-0 left-[35.5%] w-[8.88%] bg-pink-500/15 border border-pink-500/30 rounded flex items-center justify-center text-[7.5px] font-bold text-pink-400">
+                      MSI PAUSA
+                    </div>
+                    <div className="absolute top-0 bottom-0 left-[44.38%] w-[26.6%] bg-blue-500/15 border border-blue-500/30 rounded flex items-center justify-center text-[7.5px] font-bold text-blue-400">
+                      STAGE 2 (SUMMER)
+                    </div>
+                    <div className="absolute top-0 bottom-0 left-[71%] w-[13.3%] bg-red-500/15 border border-red-500/30 rounded flex items-center justify-center text-[7.5px] font-bold text-red-500">
+                      PLAYOFFS
+                    </div>
+                  </div>
+                </div>
+
+                {/* TRACK 2: Base / Academy */}
+                <div className="space-y-1 relative">
+                  <div className="text-[8.5px] font-black uppercase text-slate-400 tracking-wider font-mono">
+                    Divisões de Base & Academy (Desafiante)
+                  </div>
+                  <div className="grid grid-cols-45 gap-0.5 h-6 relative bg-slate-900/10 dark:bg-slate-900/30 rounded-md overflow-hidden">
+                    <div className="absolute top-0 bottom-0 left-0 w-[35.5%] bg-green-500/10 border border-green-500/20 rounded flex items-center justify-center text-[7.5px] font-bold text-green-400">
+                      STAGE 1 ACADEMY
+                    </div>
+                    <div className="absolute top-0 bottom-0 left-[35.5%] w-[8.88%] bg-teal-500/10 border border-teal-500/20 rounded flex items-center justify-center text-[7.5px] font-bold text-teal-400">
+                      SCOUTING TRIALS
+                    </div>
+                    <div className="absolute top-0 bottom-0 left-[44.38%] w-[39.9%] bg-green-500/15 border border-green-500/25 rounded flex items-center justify-center text-[7.5px] font-bold text-green-400">
+                      STAGE 2 ACADEMY & FINALS
+                    </div>
+                  </div>
+                </div>
+
+                {/* TRACK 3: Circuitos Globais MSI */}
+                <div className="space-y-1 relative">
+                  <div className="text-[8.5px] font-black uppercase text-slate-400 tracking-wider font-mono">
+                    Circuitos Intermediários & Festivos (MSI / CBOLÃO)
+                  </div>
+                  <div className="grid grid-cols-45 gap-0.5 h-6 relative bg-slate-900/10 dark:bg-slate-900/30 rounded-md overflow-hidden">
+                    <div className="absolute top-0 bottom-0 left-[31.1%] w-[13.3%] bg-pink-500/20 border border-pink-500/40 rounded flex items-center justify-center text-[7.5px] font-bold text-pink-500">
+                      👑 MSI GLOBAL
+                    </div>
+                    <div className="absolute top-0 bottom-0 left-[66.6%] w-[6.6%] bg-purple-500/20 border border-purple-500/40 rounded flex items-center justify-center text-[7.5px] font-bold text-purple-400">
+                      🧅 CBOLÃO
+                    </div>
+                  </div>
+                </div>
+
+                {/* TRACK 4: Champions Worlds */}
+                <div className="space-y-1 relative">
+                  <div className="text-[8.5px] font-black uppercase text-slate-400 tracking-wider font-mono">
+                    Campeonato Mundial do Ano (Worlds)
+                  </div>
+                  <div className="grid grid-cols-45 gap-0.5 h-6 relative bg-slate-900/10 dark:bg-slate-900/30 rounded-md overflow-hidden">
+                    <div className="absolute top-0 bottom-0 left-[84.4%] w-[13.3%] bg-amber-500/30 border border-amber-500/60 rounded flex items-center justify-center text-[7.5px] font-extrabold text-amber-500">
+                      🔥 WORLDS (MUNDIAL)
+                    </div>
+                  </div>
+                </div>
+
+                {/* Vertical Cursor Tracking: Week Indicator */}
+                <div 
+                  className="absolute top-0 bottom-0 w-0.5 bg-rose-500 z-10 pointer-events-none transition-all duration-300"
+                  style={{ left: `${(Math.min(45, Math.max(1, week)) - 1) * 2.22}%` }}
+                >
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-rose-500 text-white font-mono font-black text-[7px] py-0.5 px-1.5 rounded uppercase whitespace-nowrap animate-bounce leading-none">
+                    Você / Real-Time
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB D: REGRAS (ACCORDEON & PREMIAÇÕES GRIDS) */}
+        {activeTab === 'Regras' && (
+          <div className="space-y-6">
+            
+            {/* Split rules format details */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              <div className={`${s.bgCard} p-5 rounded-2xl border border-slate-800/10 dark:border-[#1e2d44]/40 space-y-4`}>
+                <div className="flex items-center gap-2 border-b border-slate-800/10 dark:border-[#1e2d44]/40 pb-2">
+                  <Shield className="w-4 h-4 text-cyan-400" />
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-white">Formado Competition</h4>
+                </div>
+                <p className="text-[10.5px] text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+                  {selectedTourney.format} Toda a chaveamento é simulado taticamente pelo backend a cada turno concluído pelo jogador.
+                </p>
+              </div>
+
+              <div className={`${s.bgCard} p-5 rounded-2xl border border-slate-800/10 dark:border-[#1e2d44]/40 space-y-4`}>
+                <div className="flex items-center gap-2 border-b border-slate-800/10 dark:border-[#1e2d44]/40 pb-2">
+                  <Star className="w-4 h-4 text-cyan-400 animate-spin" style={{ animationDuration: '4s' }} />
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-white">Classificação e Vagas</h4>
+                </div>
+                <p className="text-[10.5px] text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+                  Resultados influenciam diretamente nas seeds de fim de ano para o MSI e Worlds. O ranking é estritamente de dados reais obtidos no motor.
+                </p>
+              </div>
+
+            </div>
+
+            {/* Rewards Escalonated Grid */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-black uppercase tracking-widest text-[#00cbd6]">distribuição de prêmios de {selectedTourney.name}</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {selectedTourney.rewards.map((reward, i) => (
+                  <div key={i} className={`p-4 rounded-xl border flex flex-col justify-between h-24 shadow-sm transition-all hover:scale-105 duration-200 ${reward.style}`}>
+                    <span className="text-[8.5px] font-mono uppercase font-black tracking-widest block leading-none">
+                      {reward.rank}
+                    </span>
+                    <span className="text-sm font-black uppercase tracking-wide leading-none font-mono block text-right">
+                      {reward.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* TAB E: JOGOS (NOTABLE LIST OF CONFRONTOS) */}
+        {activeTab === 'Jogos' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* Col 1: Próximas Partidas */}
+            <div className={`${s.bgCard} p-5 rounded-2xl border border-slate-800/10 dark:border-[#1e2d44]/40 flex flex-col h-[520px] overflow-hidden`}>
+              <div className="border-b border-slate-800/10 dark:border-[#1e2d44]/40 pb-3 mb-4 flex justify-between items-center shrink-0">
+                <span className="text-xs font-black uppercase tracking-wider text-cyan-500">Próximos Confrontos</span>
+                <span className="text-[9px] font-mono text-slate-400 font-bold">{proximasPartidas.length} em agenda</span>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-3.5 pr-1 scrollbar-none" style={{ scrollbarWidth: 'none' }}>
+                {proximasPartidas.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500">
+                    <Clock className="w-8 h-8 opacity-25 mb-2" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Fim da Agenda de Jogos</span>
+                    <span className="text-[9px] text-slate-400 mt-1">Nenhum confronto futuramente agendado para o split ativo.</span>
+                  </div>
+                ) : (
+                  proximasPartidas.map((m) => {
+                    const isPlayerIn = m.teamBlue.id === playerTeamId || m.teamRed.id === playerTeamId;
+                    return (
+                      <div key={m.id} className={`p-3 rounded-xl border transition-all ${
+                        isPlayerIn 
+                          ? 'border-cyan-500/40 bg-cyan-500/5 dark:bg-cyan-500/5' 
+                          : 'border-slate-800/10 dark:border-slate-800/50 bg-[#081224]/30'
+                      }`}>
+                        <div className="flex justify-between items-center text-[8.5px] font-mono text-slate-400 uppercase tracking-widest border-b border-slate-800/5 dark:border-slate-800/30 pb-1.5 mb-2">
+                          <span>SEMANA {m.week}</span>
+                          <span className="text-cyan-500 font-extrabold">Bo3</span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          {/* Blue */}
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <div className="w-1.5 h-6 rounded shrink-0" style={{ backgroundColor: m.teamBlue.primaryColor || '#00cbd6' }} />
+                            <span className={`text-[10.5px] uppercase font-black truncate ${s.textWhiteOrSlate}`}>
+                              {m.teamBlue.acronym}
+                            </span>
+                          </div>
+
+                          {/* VS */}
+                          <span className="px-3.5 text-[9px] font-mono text-slate-400 font-extrabold uppercase">VS</span>
+
+                          {/* Red */}
+                          <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
+                            <span className={`text-[10.5px] uppercase font-black truncate text-right ${s.textWhiteOrSlate}`}>
+                              {m.teamRed.acronym}
+                            </span>
+                            <div className="w-1.5 h-6 rounded shrink-0" style={{ backgroundColor: m.teamRed.primaryColor || '#f51' }} />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Col 2: Últimos Resultados */}
+            <div className={`${s.bgCard} p-5 rounded-2xl border border-slate-800/10 dark:border-[#1e2d44]/40 flex flex-col h-[520px] overflow-hidden`}>
+              <div className="border-b border-slate-800/10 dark:border-[#1e2d44]/40 pb-3 mb-4 flex justify-between items-center shrink-0">
+                <span className="text-xs font-black uppercase tracking-wider text-rose-500">Últimos Resultados da Rodada</span>
+                <span className="text-[9px] font-mono text-slate-400 font-bold">{ultimosResultados.length} computados</span>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-3.5 pr-1 scrollbar-none" style={{ scrollbarWidth: 'none' }}>
+                {ultimosResultados.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500">
+                    <AlertCircle className="w-8 h-8 opacity-25 mb-2" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Primeira Rodada Pendente</span>
+                    <span className="text-[9px] text-slate-400 mt-1">Aguardando as primeiras simulações de partidas do motor local.</span>
+                  </div>
+                ) : (
+                  ultimosResultados.map((m) => {
+                    const isPlayerIn = m.teamBlue.id === playerTeamId || m.teamRed.id === playerTeamId;
+                    return (
+                      <div key={m.id} className={`p-3 rounded-xl border transition-all ${
+                        isPlayerIn 
+                          ? 'border-rose-500/30 bg-rose-500/5 dark:bg-rose-500/5' 
+                          : 'border-slate-800/5 dark:border-slate-800/30 bg-[#081224]/10'
+                      }`}>
+                        <div className="flex justify-between items-center text-[8.5px] font-mono text-slate-400 uppercase tracking-widest border-b border-slate-800/5 dark:border-slate-800/30 pb-1.5 mb-2">
+                          <span>SEMANA {m.week}</span>
+                          <span className="text-emerald-500 font-extrabold uppercase">Finalizado</span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          {/* Blue */}
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <div className="w-1.5 h-6 rounded shrink-0" style={{ backgroundColor: m.teamBlue.primaryColor || '#00cbd6' }} />
+                            <span className={`text-[10.5px] uppercase font-black truncate mr-1.5 ${m.scoreBlue > m.scoreRed ? s.textWhiteOrSlate : 'text-slate-500 line-through'}`}>
+                              {m.teamBlue.acronym}
+                            </span>
+                            <span className={`font-mono text-xs font-black ${m.scoreBlue > m.scoreRed ? 'text-cyan-500' : 'text-slate-500'}`}>
+                              {m.scoreBlue}
+                            </span>
+                          </div>
+
+                          {/* VS / Score Divider */}
+                          <span className="px-2 text-[9px] font-mono text-slate-450 font-extrabold">-</span>
+
+                          {/* Red */}
+                          <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
+                            <span className={`font-mono text-xs font-black ${m.scoreRed > m.scoreBlue ? 'text-cyan-500' : 'text-slate-500'}`}>
+                              {m.scoreRed}
+                            </span>
+                            <span className={`text-[10.5px] uppercase font-black truncate ml-1.5 ${m.scoreRed > m.scoreBlue ? s.textWhiteOrSlate : 'text-slate-500 line-through'}`}>
+                              {m.teamRed.acronym}
+                            </span>
+                            <div className="w-1.5 h-6 rounded shrink-0" style={{ backgroundColor: m.teamRed.primaryColor || '#f51' }} />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+          </div>
+        )}
+
+      </div>
+
     </div>
   );
 }
