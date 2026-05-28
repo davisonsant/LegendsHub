@@ -10,6 +10,7 @@ import {
   Sparkles, Award, FileText, X, AlertCircle, Terminal, Copy, RefreshCw
 } from 'lucide-react';
 import { GameState, Team, Player, Staff } from '../types';
+import { getOrCreateWeekFeedState, RssFeedX, MarqueeNews } from '../utils/feedHelper';
 
 interface GamingOfficeTabProps {
   gameState: GameState;
@@ -386,6 +387,8 @@ export default function GamingOfficeTab({
   const mentalLevel = playerTeam.infrastructure?.trainingCenterLevel || 1;
   const gamingRoomLevel = playerTeam.infrastructure?.gamingHouseLevel || 1;
 
+  const unifiedFeed = getOrCreateWeekFeedState(gameState, lang);
+
   // Hired staff list state
   const [employees, setEmployees] = useState<CorporationStaff[]>(() => {
     const saved = localStorage.getItem('legendshub_corporation_staff');
@@ -521,25 +524,11 @@ export default function GamingOfficeTab({
 
   // Get reactive arrays shifted by simulated events
   const getShiftedNewsList = () => {
-    const list = [...NEWS_LIST_TEMPLATE[lang]];
-    if (newsCycle > 0) {
-      for (let i = 0; i < newsCycle % list.length; i++) {
-        const item = list.shift()!;
-        list.push(item);
-      }
-    }
-    return list;
+    return unifiedFeed.news;
   };
 
   const getShiftedTweetsList = () => {
-    const list = [...TWEETS_LIST_TEMPLATE(playerTeam.acronym)[lang]];
-    if (newsCycle > 0) {
-      for (let i = 0; i < newsCycle % list.length; i++) {
-        const item = list.shift()!;
-        list.push(item);
-      }
-    }
-    return list;
+    return unifiedFeed.tweets;
   };
 
   const getCompiledDataEngineJSON = () => {
@@ -1238,7 +1227,6 @@ export default function GamingOfficeTab({
                 </button>
               </div>
             </div>
-
           </div>
         </section>
 
@@ -1251,72 +1239,17 @@ export default function GamingOfficeTab({
           }`}>
             <div className="flex items-center justify-between border-b pb-3 border-slate-800/10 dark:border-slate-800/40 mb-3 shrink-0">
               <div className="flex items-center gap-2">
-                <Globe className="w-4 h-4 text-[#00E5FF]" />
+                <Globe className="w-4 h-4 text-cyan-500 animate-pulse" />
                 <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-white">
-                  {TRANSLATIONS[lang].centralNoticias}
+                  SALA DE IMPRENSA
                 </h3>
               </div>
-              <span className="text-[7.5px] font-mono uppercase bg-[#00E5FF]/10 text-[#00E5FF] px-1.5 py-0.5 rounded-md font-bold tracking-widest">
-                {TRANSLATIONS[lang].noticiasLoop} / Marquee
+              <span className="text-[7.5px] font-mono uppercase text-[#00cbd6] font-bold tracking-widest text-right">
+                ROLAGEM VERTICAL EM LOOP INFINITO / MARQUEE
               </span>
             </div>
 
-            <div className="relative flex-1 overflow-hidden">
-              <style>{`
-                @keyframes marquee-vertical {
-                  0% { transform: translateY(0); }
-                  100% { transform: translateY(-50%); }
-                }
-                .animate-marquee-vertical {
-                  animation: marquee-vertical 28s linear infinite;
-                }
-                .animate-marquee-vertical:hover {
-                  animation-play-state: paused;
-                }
-              `}</style>
-
-              <div className="absolute top-0 left-0 w-full animate-marquee-vertical space-y-3">
-                {/* News collection duplicated for seamless scrolling */}
-                {[...getShiftedNewsList(), ...getShiftedNewsList()].map((news, idx) => (
-                  <div 
-                    key={news.id + '-' + idx} 
-                    className={`p-3.5 rounded-xl border transition ${
-                      isDark 
-                        ? 'bg-[#070d19] border-[#1e2d44] hover:bg-[#0c182c]' 
-                        : 'bg-slate-50 border-slate-200 hover:bg-slate-100/60'
-                    }`}
-                  >
-                    <div className="flex justify-between items-center gap-2">
-                      <span className="text-[9px] font-black uppercase text-[#00E5FF] font-mono tracking-wider">
-                        📰 {news.portal_nome}
-                      </span>
-                      <span className="text-[8px] text-slate-400 font-mono">
-                        {news.tempo_passado}
-                      </span>
-                    </div>
-                    <p className="text-[10.5px] font-semibold text-slate-700 dark:text-white mt-1.5 leading-relaxed">
-                      {news.manchete_texto}
-                    </p>
-                    <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-800/10 dark:border-slate-800/40">
-                      <span className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                        news.impacto_reputacao === 'positivo' 
-                          ? 'bg-emerald-500/10 text-emerald-400' 
-                          : 'bg-rose-500/10 text-rose-400'
-                      }`}>
-                        {news.impacto_reputacao === 'positivo' ? TRANSLATIONS[lang].impactoPos : TRANSLATIONS[lang].impactoNeg}
-                      </span>
-                      <span className="text-[7.5px] text-slate-400 uppercase font-bold">
-                        Data Engine • Live Hook
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Seamless vertical fade overlays */}
-              <div className={`absolute top-0 left-0 w-full h-8 pointer-events-none bg-gradient-to-b ${isDark ? 'from-[#0a1424]' : 'from-white'} to-transparent`} />
-              <div className={`absolute bottom-0 left-0 w-full h-8 pointer-events-none bg-gradient-to-t ${isDark ? 'from-[#0a1424]' : 'from-white'} to-transparent`} />
-            </div>
+            <MarqueeNews news={unifiedFeed.news} isDark={isDark} />
           </div>
 
           {/* SOCIAL NETWORK COMPONENT (FEED X/TWITTER) */}
@@ -1325,71 +1258,17 @@ export default function GamingOfficeTab({
           }`}>
             <div className="flex items-center justify-between border-b pb-3 border-slate-800/10 dark:border-slate-800/40 mb-3 shrink-0">
               <div className="flex items-center gap-2">
-                <Globe className="w-4 h-4 text-[#00E5FF]" />
+                <Globe className="w-4 h-4 text-cyan-500 animate-pulse" />
                 <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-white">
-                  {TRANSLATIONS[lang].feedComunidade}
+                  REDE SOCIAL: FEED DO X (Twitter)
                 </h3>
               </div>
-              <span className="text-[7.5px] font-mono uppercase bg-[#00E5FF]/10 text-[#00E5FF] px-1.5 py-0.5 rounded-md font-bold tracking-widest">
-                {TRANSLATIONS[lang].feedLoop} / RSS
+              <span className="text-[7.5px] font-mono uppercase text-[#00cbd6] font-bold tracking-widest text-right">
+                ROLAGEM VERTICAL EM LOOP INFINITO / MARQUEE
               </span>
             </div>
 
-            <div className="relative flex-1 overflow-hidden">
-              <div className="absolute top-0 left-0 w-full animate-marquee-vertical space-y-3">
-                {/* Tweets list duplicated for seamless marquee scrolling */}
-                {[...getShiftedTweetsList(), ...getShiftedTweetsList()].map((tweet, idx) => (
-                  <div 
-                    key={tweet.id + '-' + idx} 
-                    className={`p-3.5 rounded-xl border transition ${
-                      isDark 
-                        ? 'bg-[#070d19] border-[#1e2d44] hover:bg-[#0c182c]' 
-                        : 'bg-slate-50 border-slate-200 hover:bg-slate-100/60'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <img 
-                        src={tweet.avatar} 
-                        alt="avatar" 
-                        referrerPolicy="no-referrer"
-                        className="w-7 h-7 rounded-full border border-cyan-500/25 shrink-0" 
-                      />
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1">
-                          <h4 className="text-[10px] font-bold text-slate-700 dark:text-white truncate">
-                            {tweet.username}
-                          </h4>
-                          <span className="text-[8px] text-sky-450 font-extrabold">✓</span>
-                        </div>
-                        <span className="text-[8.5px] text-slate-400 block font-mono leading-none">
-                          @{tweet.handle}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <p className="text-[10px] text-slate-600 dark:text-white leading-relaxed mt-2.5">
-                      {tweet.content}
-                    </p>
-
-                    <div className="flex items-center gap-4 mt-2.5 pt-2 border-t border-slate-800/10 dark:border-slate-800/35 text-[8.5px] text-slate-400">
-                      <span className="flex items-center gap-1 font-mono">
-                        ❤️ {tweet.likes}
-                      </span>
-                      <span className="flex items-center gap-1 font-mono">
-                        🔁 {tweet.retweets}
-                      </span>
-                      <span className="ml-auto text-[7px] bg-[#00E5FF]/5 text-[#00E5FF] px-1 py-0.5 rounded font-bold font-mono">
-                        X_API
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Seamless vertical fade overlays */}
-              <div className={`absolute top-0 left-0 w-full h-8 pointer-events-none bg-gradient-to-b ${isDark ? 'from-[#0a1424]' : 'from-white'} to-transparent`} />
-              <div className={`absolute bottom-0 left-0 w-full h-8 pointer-events-none bg-gradient-to-t ${isDark ? 'from-[#0a1424]' : 'from-white'} to-transparent`} />
-            </div>
+            <RssFeedX tweets={unifiedFeed.tweets} isDark={isDark} />
           </div>
 
         </section>

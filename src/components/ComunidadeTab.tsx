@@ -4,6 +4,7 @@ import {
   Percent, Lock, Scale, Clock, AlertTriangle, Globe, Terminal
 } from 'lucide-react';
 import { GameState, Team } from '../types';
+import { getOrCreateWeekFeedState, RssFeedX } from '../utils/feedHelper';
 import { formatMoney, getCurrencySymbol, getCaixaFormatadoHud } from '../utils/currency';
 
 interface ComunidadeTabProps {
@@ -54,6 +55,8 @@ export function ComunidadeTab({ gameState, onUpdateGameState, triggerNotificatio
     }
     return langState;
   })();
+
+  const unifiedFeed = getOrCreateWeekFeedState(gameState, lang);
 
   // Determine active theme dynamically (monitors both local prop and settings object)
   const settingsTheme = (gameState as any).settings?.theme;
@@ -933,52 +936,20 @@ export function ComunidadeTab({ gameState, onUpdateGameState, triggerNotificatio
           </div>
 
           {/* Column Right: X (Twitter) unificado procedural feed (Span 5) */}
-          <div className={`lg:col-span-5 ${colors.bgCard} p-5 rounded-2xl space-y-4 flex flex-col h-full min-h-[580px]`}>
-            <div className={`border-b ${colors.borderInner} pb-3 flex items-center justify-between`}>
-              <h4 className={`text-xs font-black uppercase tracking-wider ${colors.textAccent} flex items-center gap-1.5`}>
-                <span className="bg-[#1DA1F2] px-1.5 py-0.5 rounded text-white text-[9.5px]">X</span>
-                <span>{t.feedTitle}</span>
-              </h4>
-              <span className={`px-2 py-0.5 rounded-md text-[8px] font-mono ${colors.badgeAccent} uppercase font-bold tracking-widest animate-pulse`}>
-                {t.liveBadge}
+          <div className={`lg:col-span-5 ${colors.bgCard} p-5 rounded-2xl space-y-4 flex flex-col h-full min-h-[580px] overflow-hidden`}>
+            <div className={`border-b ${colors.borderInner} pb-3 flex items-center justify-between shrink-0 gap-2`}>
+              <div className="flex items-center gap-2 min-w-0">
+                <Globe className="w-4 h-4 text-cyan-500 animate-pulse shrink-0" />
+                <h4 className={`text-xs font-black uppercase tracking-wider ${colors.textAccent} group-hover:text-cyan-500 transition-colors truncate`}>
+                  REDE SOCIAL: FEED DO X (Twitter)
+                </h4>
+              </div>
+              <span className="text-[7.5px] font-mono uppercase text-[#00cbd6] font-bold tracking-widest text-right shrink-0">
+                ROLAGEM VERTICAL EM LOOP INFINITO / MARQUEE
               </span>
             </div>
 
-            <div className="flex-1 overflow-y-auto pr-1 space-y-4 max-h-[520px]">
-              {liveJsonResponse.modulo_rede_social_feed_x.publicacoes.length === 0 ? (
-                <p className={`text-center py-10 ${colors.textSecondary} font-bold uppercase`}>{t.noTweets}</p>
-              ) : (
-                liveJsonResponse.modulo_rede_social_feed_x.publicacoes.map((post, index) => (
-                  <div key={index} className={`p-3.5 ${colors.bgInner} rounded-xl border ${colors.borderInner} hover:border-[#00E5FF]/20 transition-all space-y-2 flex flex-col shadow-inner`}>
-                    <div className="flex items-center gap-2">
-                      <div className={`w-6 h-6 rounded-full ${isDark ? 'bg-slate-800 text-[#00E5FF] border-[#1e2d44]' : 'bg-slate-200 text-blue-650 border-slate-300'} flex items-center justify-center font-black text-[9px]`}>
-                        {post.usuario.charAt(0)}
-                      </div>
-                      <div className="flex-1 min-w-0 flex flex-col leading-none">
-                        <span className={`font-black ${colors.textPrimary} truncate text-[10.5px] leading-tight`}>{post.usuario}</span>
-                        <span className={`text-[8.5px] ${colors.textSecondary} mt-0.5 font-mono`}>{post.arroba}</span>
-                      </div>
-                      <span className={`text-[8.5px] ${colors.textSecondary} font-mono shrink-0`}>{post.tempo}</span>
-                    </div>
-
-                    <p className={`${isDark ? 'text-slate-300' : 'text-slate-700'} text-[10.5px] leading-relaxed select-text font-sans mt-0.5`}>
-                      {post.conteudo}
-                    </p>
-
-                    <div className={`flex items-center gap-4 pt-1.5 text-[9px] ${colors.textSecondary} font-mono border-t ${colors.borderInner} mt-0.5`}>
-                      <span className="flex items-center gap-1">
-                        <Heart className="w-3 h-3 text-rose-500" />
-                        <span>{post.likes}</span>
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Zap className={`w-3 h-3 ${isDark ? 'text-[#00E5FF]' : 'text-blue-500'} animate-pulse`} />
-                        <span>{post.retweets}</span>
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+            <RssFeedX tweets={unifiedFeed.tweets} isDark={isDark} />
           </div>
         </div>
       ) : (

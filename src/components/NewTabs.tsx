@@ -932,9 +932,10 @@ interface EscritorioTabProps {
   gameState: GameState;
   onUpdateGameState: (state: GameState) => void;
   triggerNotification: (title: string, desc: string) => void;
+  theme?: 'light' | 'dark';
 }
 
-export function EscritorioTab({ gameState, onUpdateGameState, triggerNotification }: EscritorioTabProps) {
+export function EscritorioTab({ gameState, onUpdateGameState, triggerNotification, theme }: EscritorioTabProps) {
   const { teams, playerTeamId } = gameState;
   const playerTeam = teams.find(t => t.id === playerTeamId)!;
 
@@ -1030,13 +1031,24 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
 
   // Finance Status variables
   const budget = playerTeam.budget;
-  let budgetColor = 'text-green-400 border-green-500/20 bg-green-500/5';
+  const isDark = theme !== 'light';
+  
+  let bgCardCaixa = isDark 
+    ? (budget >= 100000 ? 'bg-green-500/5 border-green-500/20 text-green-400' : budget >= 0 ? 'bg-amber-500/5 border-amber-500/20 text-amber-400' : 'bg-red-500/5 border-red-500/20 text-red-400')
+    : 'bg-[#f0fdf4] border-emerald-250 shadow-sm';
+    
+  let textValueCaixa = isDark 
+    ? (budget >= 100000 ? 'text-green-400' : budget >= 0 ? 'text-amber-400' : 'text-red-400')
+    : 'text-[#16a34a]';
+    
+  let textLabelCaixa = isDark 
+    ? (budget >= 100000 ? 'text-green-400/90' : budget >= 0 ? 'text-amber-400/90' : 'text-red-400/90')
+    : 'text-[#15803d]';
+
   let budgetStatusLabel = 'Saúde Financeira Excelente';
   if (budget < 100000 && budget >= 0) {
-    budgetColor = 'text-amber-400 border-amber-500/20 bg-amber-500/5';
     budgetStatusLabel = 'Alerta: Caixa Sob Pressão';
   } else if (budget < 0) {
-    budgetColor = 'text-red-400 border-red-500/20 bg-red-500/5';
     budgetStatusLabel = 'Dívida / Cheque Especial Atormentador';
   }
 
@@ -1325,7 +1337,7 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
       expiryValue: 0,
       expiryLabel: '🚨 IMEDIATO / EXPIRADO',
       isCritical: true,
-      iconColor: 'text-red-500',
+      iconColor: 'text-red-505',
       bgColor: 'bg-red-500/5 hover:bg-red-500/10 border-red-500/10 hover:border-red-500/20'
     }))
   ];
@@ -1339,21 +1351,21 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
   });
 
   return (
-    <div className="space-y-6 select-none font-sans text-slate-300">
+    <div className={`space-y-6 select-none font-sans ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
       
       {/* SECTION 1: FINANCIAL GENERAL DASHBOARD */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         
         {/* Cash balance display */}
-        <div className={`p-5 rounded-2xl border ${budgetColor} shadow-md space-y-2`}>
-          <div className="flex justify-between items-center text-xs uppercase font-extrabold tracking-wider opacity-90">
+        <div className={`p-5 rounded-2xl border ${bgCardCaixa} shadow-md space-y-2`}>
+          <div className={`flex justify-between items-center text-xs uppercase font-extrabold tracking-wider opacity-90 ${textLabelCaixa}`}>
             <span>Caixa de Operações</span>
             <DollarSign className="w-4.5 h-4.5" />
           </div>
-          <h2 className="text-3xl font-black font-mono tracking-tighter">
+          <h2 className={`text-3xl font-black font-mono tracking-tighter ${textValueCaixa}`}>
             $ {budget.toLocaleString('pt-BR')}
           </h2>
-          <div className="text-[10px] uppercase font-black tracking-widest leading-loose">
+          <div className={`text-[10px] uppercase font-black tracking-widest leading-loose ${textLabelCaixa}`}>
             ★ {budgetStatusLabel}
           </div>
         </div>
@@ -1361,23 +1373,23 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
         {/* Teto salarial */}
         <div 
           id="financial-status-indicator"
-          className="group relative p-5 rounded-2xl border border-[#1e2d44] bg-[#0a1424] shadow-md space-y-2.5 hover:border-sky-500/40 transition-all duration-350 cursor-pointer"
+          className={`group relative p-5 rounded-2xl border ${isDark ? 'border-[#1e2d44] bg-[#0a1424]' : 'bg-white border-slate-200 shadow-sm'} shadow-md space-y-2.5 hover:border-sky-500/40 transition-all duration-350 cursor-pointer`}
         >
-          <div className="flex justify-between items-center text-xs uppercase font-extrabold tracking-wider text-slate-400">
+          <div className={`flex justify-between items-center text-xs uppercase font-extrabold tracking-wider ${isDark ? 'text-slate-400' : 'text-[#475569]'}`}>
             <span>Orçamento Salarial Atletas</span>
             <Scale className="w-4.5 h-4.5 text-sky-400" />
           </div>
           <div className="space-y-1">
-            <h2 className="text-2xl font-black font-mono text-white tracking-tight">
-              $ {Math.round(basePlayerPayrollWeekly).toLocaleString('pt-BR')} <span className="text-xs text-slate-400 font-normal">/ semana</span>
+            <h2 className={`text-2xl font-black font-mono tracking-tight ${isDark ? 'text-white' : 'text-[#0f172a]'}`}>
+              $ {Math.round(basePlayerPayrollWeekly).toLocaleString('pt-BR')} <span className={`text-xs font-normal ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>/ semana</span>
             </h2>
-            <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+            <div className={`w-full ${isDark ? 'bg-slate-800' : 'bg-slate-200'} rounded-full h-1.5 overflow-hidden`}>
               <div 
                 className={`h-full transition-all duration-500 ${isSalarCapExceeded ? 'bg-red-500' : 'bg-[#00cbd6]'}`} 
                 style={{ width: `${Math.min(100, (basePlayerPayrollWeekly / 120000) * 100)}%` }} 
               />
             </div>
-            <div className="flex justify-between text-[9px] font-bold uppercase tracking-wider text-slate-400">
+            <div className={`flex justify-between text-[9px] font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
               <span>Teto Liga: $120.000</span>
               <span className={isSalarCapExceeded ? 'text-red-400 animate-pulse' : 'text-[#00cbd6]'}>
                 {isSalarCapExceeded ? 'Excedido (Fins Taxa)' : 'Em Compliance'}
@@ -1386,32 +1398,32 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
           </div>
 
           {/* Interactive Calculator Tooltip */}
-          <div className="absolute top-full left-0 right-0 mt-2.5 z-50 p-4 rounded-xl border border-slate-700 bg-slate-950 text-[10.5px] space-y-2.5 shadow-2xl invisible opacity-0 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 pointer-events-none">
+          <div className={`absolute top-full left-0 right-0 mt-2.5 z-50 p-4 rounded-xl border ${isDark ? 'border-slate-700 bg-slate-950 text-white' : 'border-slate-200 bg-white shadow-xl text-slate-800'} text-[10.5px] space-y-2.5 shadow-2xl invisible opacity-0 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 pointer-events-none`}>
             <h5 className="font-bold text-sky-400 uppercase flex items-center gap-1.5 border-b border-slate-850 pb-1.5">
               <span>🧮 Auditoria de Taxa de Luxo (Simulação)</span>
             </h5>
             <div className="space-y-1 font-mono">
-              <div className="flex justify-between text-slate-400">
+              <div className={`flex justify-between ${isDark ? 'text-slate-400' : 'text-slate-550'}`}>
                 <span>Folha Atletas:</span>
-                <span className="text-white font-bold">$ {Math.round(basePlayerPayrollWeekly).toLocaleString('pt-BR')}</span>
+                <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>$ {Math.round(basePlayerPayrollWeekly).toLocaleString('pt-BR')}</span>
               </div>
-              <div className="flex justify-between text-slate-400">
+              <div className={`flex justify-between ${isDark ? 'text-slate-400' : 'text-slate-550'}`}>
                 <span>Teto Máximo Liga:</span>
-                <span className="text-white font-bold">$ 120.000</span>
+                <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>$ 120.000</span>
               </div>
-              <div className="border-t border-slate-850 my-1.5 py-1">
-                <div className="flex justify-between text-slate-400">
+              <div className={`border-t ${isDark ? 'border-slate-850' : 'border-slate-200'} my-1.5 py-1`}>
+                <div className={`flex justify-between ${isDark ? 'text-slate-400' : 'text-slate-550'}`}>
                   <span>Margem Excedida:</span>
-                  <span className={isSalarCapExceeded ? 'text-red-400 font-bold' : 'text-emerald-400 font-bold'}>
+                  <span className={isSalarCapExceeded ? 'text-red-400 font-bold' : 'text-emerald-450 font-bold'}>
                     $ {Math.max(0, Math.round(basePlayerPayrollWeekly) - 120000).toLocaleString('pt-BR')}
                   </span>
                 </div>
-                <div className="flex justify-between text-slate-400">
+                <div className={`flex justify-between ${isDark ? 'text-slate-400' : 'text-slate-550'}`}>
                   <span>Multa Aplicada:</span>
-                  <span className="text-white">150% (1.5x)</span>
+                  <span className={isDark ? 'text-white' : 'text-slate-900'}>150% (1.5x)</span>
                 </div>
               </div>
-              <div className="border-t border-slate-850 pt-1 flex justify-between font-extrabold">
+              <div className={`border-t ${isDark ? 'border-slate-850' : 'border-slate-200'} pt-1 flex justify-between font-extrabold`}>
                 <span className="text-red-405 uppercase">Total Taxa Devida:</span>
                 <span className={luxuryTaxFine > 0 ? 'text-red-450 font-black' : 'text-emerald-400'}>
                   $ {luxuryTaxFine.toLocaleString('pt-BR')} / semana
@@ -1419,11 +1431,11 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
               </div>
             </div>
             {!isSalarCapExceeded ? (
-              <p className="text-[9.5px] text-emerald-400 italic font-sans leading-normal pt-1 flex items-center gap-1">
+              <p className={`text-[9.5px] italic font-sans leading-normal pt-1 flex items-center gap-1 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
                 ✔ Em conformidade absoluta. Seu clube está economizando e mantém ótimo score de crédito!
               </p>
             ) : (
-              <p className="text-[9.5px] text-red-400 italic font-sans leading-normal pt-1 bg-red-950/20 p-1.5 rounded border border-red-500/15">
+              <p className={`text-[9.5px] italic font-sans leading-normal pt-1 p-1.5 rounded border ${isDark ? 'text-red-400 bg-red-950/20 border-red-500/15' : 'text-red-700 bg-red-50 border-red-200'}`}>
                 ⚠ Violação! Reduza a folha de pagamento rescindindo contratos ou vendendo atletas antes do encerramento da rodada semanal.
               </p>
             )}
@@ -1431,15 +1443,15 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
         </div>
 
         {/* Credit score display */}
-        <div className="p-5 rounded-2xl border border-[#1e2d44] bg-[#0a1424] shadow-md space-y-2">
-          <div className="flex justify-between items-center text-xs uppercase font-extrabold tracking-wider text-slate-400">
+        <div className={`p-5 rounded-2xl border ${isDark ? 'border-[#1e2d44] bg-[#0a1424]' : 'bg-white border-slate-200 shadow-sm'} shadow-md space-y-2`}>
+          <div className={`flex justify-between items-center text-xs uppercase font-extrabold tracking-wider ${isDark ? 'text-slate-400' : 'text-[#475569]'}`}>
             <span>Score de Crédito do Clube</span>
             <Award className="w-4.5 h-4.5 text-[#00cbd6]" />
           </div>
-          <h2 className="text-2xl font-black font-mono text-white tracking-tight">
-            {playerTeam.creditScore || 720} <span className="text-xs text-slate-400 font-normal">/ 1000 Pts</span>
+          <h2 className={`text-2xl font-black font-mono tracking-tight ${isDark ? 'text-white' : 'text-[#0f172a]'}`}>
+            {playerTeam.creditScore || 720} <span className={`text-xs font-normal ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>/ 1000 Pts</span>
           </h2>
-          <p className="text-[10px] text-slate-400 leading-snug">
+          <p className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-550'} leading-snug`}>
             {playerTeam.creditScore && playerTeam.creditScore >= 700 ? '🟢 Taxas de Juros reduzidas em até 35%.' : '🔴 Crédito restrito: Juros elevados.'}
           </p>
         </div>
@@ -1447,18 +1459,20 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
       </div>
 
       {/* SECTION 2: WEEKLY BALANCE SHEET DETAILS */}
-      <div className="p-5 rounded-2xl border border-[#1e2d44] bg-[#0a1424] shadow-lg space-y-5">
-        <div className="border-b border-sky-500/10 pb-2.5 flex justify-between items-center">
+      <div className={`p-5 rounded-2xl border ${isDark ? 'border-[#1e2d44] bg-[#0a1424]' : 'border-slate-200 bg-white shadow-md'} shadow-lg space-y-5`}>
+        <div className={`border-b ${isDark ? 'border-sky-500/10' : 'border-slate-100'} pb-2.5 flex justify-between items-center`}>
           <div className="flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-sky-400" />
-            <h4 className="text-xs font-black uppercase tracking-wider text-white">Balanço Financeiro Semanal do Rift</h4>
+            <h4 className={`text-xs font-black uppercase tracking-wider ${isDark ? 'text-white' : 'text-[#1e293b]'}`}>Balanço Financeiro Semanal do Rift</h4>
           </div>
           <div className={`text-xs font-black flex items-center gap-1.5 px-3 py-1 rounded-lg border transition-all duration-300 ${
-            netWeeklyBalance >= 0 ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5 shadow-[0_0_15px_rgba(16,185,129,0.05)]' : 'text-red-400 border-red-500/20 bg-red-500/5 shadow-[0_0_15px_rgba(239,68,68,0.05)]'
+            netWeeklyBalance >= 0 
+              ? (isDark ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5 shadow-[0_0_15px_rgba(16,185,129,0.05)]' : 'text-[#16a34a] border-emerald-250 bg-emerald-50 shadow-[0_0_15px_rgba(16,185,129,0.05)]') 
+              : (isDark ? 'text-red-400 border-red-500/20 bg-red-500/5 shadow-[0_0_15px_rgba(239,68,68,0.05)]' : 'text-red-650 border-red-200 bg-red-50 shadow-[0_0_15px_rgba(239,68,68,0.05)]')
           }`}>
-            <span>Saldo Líquido Semanal:</span>
+            <span className={isDark ? 'text-slate-400' : 'text-slate-650'}>Saldo Líquido Semanal:</span>
             <span className="font-mono font-black">$ {netWeeklyBalance.toLocaleString()}</span>
-            {netWeeklyBalance >= 0 ? <TrendingUp className="w-4 h-4 text-emerald-400" /> : <TrendingUp className="w-4 h-4 rotate-180 text-red-400" />}
+            {netWeeklyBalance >= 0 ? <TrendingUp className="w-4 h-4 text-emerald-500" /> : <TrendingUp className="w-4 h-4 rotate-180 text-red-500" />}
           </div>
         </div>
 
@@ -1467,65 +1481,65 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
           <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-4 text-[11px] font-bold">
             
             {/* Inflows Section */}
-            <div className="space-y-2 p-4 rounded-xl bg-slate-950/45 border border-slate-900/60 leading-normal hover:border-emerald-500/10 transition-all duration-300">
-              <span className="block text-[10px] text-emerald-400 font-extrabold uppercase tracking-widest border-b border-slate-800/40 pb-2">
+            <div className={`space-y-2 p-4 rounded-xl border leading-normal hover:border-emerald-500/10 transition-all duration-300 ${isDark ? 'bg-slate-950/45 border-slate-900/60' : 'bg-[#f8fafc] border-slate-200 shadow-sm'}`}>
+              <span className={`block text-[10px] font-extrabold uppercase tracking-widest border-b pb-2 ${isDark ? 'border-slate-800/40 text-emerald-450' : 'border-slate-200 text-[#15803d]'}`}>
                 ➕ Entradas Recomendadas (Weekly Inflows)
               </span>
               <div className="space-y-1.5 font-mono">
-                <div className="flex justify-between text-slate-300">
+                <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
                   <span>Patrocinadores Corporativos</span>
-                  <span className="text-emerald-400">+$ {sponsorsInflow.toLocaleString()}</span>
+                  <span className={isDark ? 'text-emerald-400' : 'text-[#16a34a]'}>+$ {sponsorsInflow.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-slate-300">
+                <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
                   <span>Loja Oficial (Camisas Camisetas)</span>
-                  <span className="text-emerald-400">+$ {merchSalesAmount.toLocaleString()}</span>
+                  <span className={isDark ? 'text-emerald-400' : 'text-[#16a34a]'}>+$ {merchSalesAmount.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-slate-300">
+                <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
                   <span>Produtos Arena & Bilheteria</span>
-                  <span className="text-emerald-400">+$ {ticketsSalesAmount.toLocaleString()}</span>
+                  <span className={isDark ? 'text-emerald-400' : 'text-[#16a34a]'}>+$ {ticketsSalesAmount.toLocaleString()}</span>
                 </div>
-                <div className="border-t border-slate-800/40 pt-1.5 flex justify-between text-white font-bold">
+                <div className={`border-t pt-1.5 flex justify-between font-bold ${isDark ? 'border-slate-800/40 text-white' : 'border-slate-200 text-slate-800'}`}>
                   <span className="uppercase text-[10px]">Subtotal Entradas</span>
-                  <span className="text-emerald-400 font-black">+$ {totalEntries.toLocaleString()}</span>
+                  <span className={isDark ? 'text-emerald-400 font-black' : 'text-[#16a34a] font-black'}>+$ {totalEntries.toLocaleString()}</span>
                 </div>
               </div>
             </div>
 
             {/* Outflows Section */}
-            <div className="space-y-2 p-4 rounded-xl bg-slate-950/45 border border-slate-900/60 leading-normal hover:border-red-500/10 transition-all duration-300">
-              <span className="block text-[10px] text-red-430 font-extrabold uppercase tracking-widest border-b border-slate-800/40 pb-2">
+            <div className={`space-y-2 p-4 rounded-xl border leading-normal hover:border-red-500/10 transition-all duration-300 ${isDark ? 'bg-slate-950/45 border-slate-900/60' : 'bg-[#f8fafc] border-slate-200 shadow-sm'}`}>
+              <span className={`block text-[10px] font-extrabold uppercase tracking-widest border-b pb-2 ${isDark ? 'border-slate-800/40 text-red-430' : 'border-slate-200 text-red-700'}`}>
                 ➖ Saídas Operacionais (Weekly Outflows)
               </span>
               <div className="space-y-1.5 font-mono">
-                <div className="flex justify-between text-slate-300">
+                <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
                   <span>Folha Salarial Atletas</span>
-                  <span className="text-red-400">-$ {Math.round(basePlayerPayrollWeekly).toLocaleString()}</span>
+                  <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-$ {Math.round(basePlayerPayrollWeekly).toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-slate-300">
+                <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
                   <span>Despesas CT e GH Operacional</span>
-                  <span className="text-red-400">-$ {infrastructureCostsExpenses.toLocaleString()}</span>
+                  <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-$ {infrastructureCostsExpenses.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-slate-300">
+                <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
                   <span>Salário de Staff Contratado</span>
-                  <span className="text-red-400">-$ {hiredStaffCostsWeekly.toLocaleString()}</span>
+                  <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-$ {hiredStaffCostsWeekly.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-slate-300">
+                <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
                   <span>Parcelas Empréstimos Ativos</span>
-                  <span className="text-red-400">-$ {activeLoansWeeklyOutflow.toLocaleString()}</span>
+                  <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-$ {activeLoansWeeklyOutflow.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-slate-300">
+                <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
                   <span>Financiamentos Internos/Luvas</span>
-                  <span className="text-red-400">-$ {activeInstallmentsWeeklyOutflow.toLocaleString()}</span>
+                  <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-$ {activeInstallmentsWeeklyOutflow.toLocaleString()}</span>
                 </div>
                 {isSalarCapExceeded && (
-                  <div className="flex justify-between text-red-300 bg-red-950/30 px-1 py-0.5 rounded border border-red-500/10">
+                  <div className={`flex justify-between px-1 py-0.5 rounded border ${isDark ? 'text-red-300 bg-red-950/30 border-red-500/10' : 'text-red-700 bg-red-50 border-red-200'}`}>
                     <span>🚨 Taxa Luxo Excedente</span>
-                    <span className="text-red-400 font-bold">-$ {luxuryTaxFine.toLocaleString()}</span>
+                    <span className={isDark ? 'text-red-400 font-bold' : 'text-[#dc2626] font-bold'}>-$ {luxuryTaxFine.toLocaleString()}</span>
                   </div>
                 )}
-                <div className="border-t border-slate-800/40 pt-1.5 flex justify-between text-white font-bold">
+                <div className={`border-t pt-1.5 flex justify-between font-bold ${isDark ? 'border-slate-800/40 text-white' : 'border-slate-200 text-slate-800'}`}>
                   <span className="uppercase text-[10px]">Subtotal Saídas</span>
-                  <span className="text-red-400 font-black">-$ {totalSpending.toLocaleString()}</span>
+                  <span className={isDark ? 'text-red-400 font-black' : 'text-[#dc2626] font-black'}>-$ {totalSpending.toLocaleString()}</span>
                 </div>
               </div>
             </div>
@@ -1533,19 +1547,19 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
           </div>
 
           {/* Right Side: Animated beautiful comparative bar visual chart */}
-          <div className="lg:col-span-4 flex flex-col justify-between p-4 rounded-xl bg-slate-950/30 border border-slate-900/60 h-full">
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Gráfico de Caixa Ativo</span>
-              <span className="text-[11.5px] font-black text-white block uppercase">Balanço: Entradas vs Saídas</span>
+          <div className={`lg:col-span-4 flex flex-col justify-between p-4 rounded-xl border h-full ${isDark ? 'bg-slate-950/30 border-slate-900/60' : 'bg-slate-50 border-slate-205 shadow-sm'}`}>
+            <div className="space-y-1 font-sans">
+              <span className={`text-[10px] font-bold uppercase tracking-wider block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Gráfico de Caixa Ativo</span>
+              <span className={`text-[11.5px] font-black block uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>Balanço: Entradas vs Saídas</span>
             </div>
 
             {/* Custom SVG Dual Bar Chart */}
-            <div className="relative my-3 h-28 flex justify-center items-end bg-slate-950/25 rounded-lg border border-slate-900/30 p-2 overflow-hidden">
+            <div className={`relative my-3 h-28 flex justify-center items-end rounded-lg border p-2 overflow-hidden ${isDark ? 'bg-slate-950/25 border-slate-900/30' : 'bg-white border-slate-200 shadow-inner'}`}>
               <svg className="w-full h-full" viewBox="0 0 320 120" fill="none">
                 {/* Background Grid Lines */}
-                <line x1="10" y1="20" x2="310" y2="20" stroke="#1e2d44" strokeWidth="0.5" strokeDasharray="3 3" />
-                <line x1="10" y1="60" x2="310" y2="60" stroke="#1e2d44" strokeWidth="0.5" strokeDasharray="3 3" />
-                <line x1="10" y1="100" x2="310" y2="100" stroke="#1e2d44" strokeWidth="1" />
+                <line x1="10" y1="20" x2="310" y2="20" stroke={isDark ? "#1e2d44" : "#e2e8f0"} strokeWidth="0.5" strokeDasharray="3 3" />
+                <line x1="10" y1="60" x2="310" y2="60" stroke={isDark ? "#1e2d44" : "#e2e8f0"} strokeWidth="0.5" strokeDasharray="3 3" />
+                <line x1="10" y1="100" x2="310" y2="100" stroke={isDark ? "#1e2d44" : "#e2e8f0"} strokeWidth="1" />
 
                 {/* Calculate Bar heights */}
                 {(() => {
@@ -1581,10 +1595,10 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
 
                       {/* Text value inside bar area if high enough */}
                       {hIn > 22 && (
-                        <text x="97" y={105 - hIn/2} textAnchor="middle" fill="#065f46" fontSize="9" fontWeight="900" fontFamily="monospace">IN</text>
+                        <text x="97" y={105 - hIn/2} textAnchor="middle" fill={isDark ? "#065f46" : "#ffffff"} fontSize="9" fontWeight="900" fontFamily="monospace">IN</text>
                       )}
                       {hOut > 22 && (
-                        <text x="217" y={105 - hOut/2} textAnchor="middle" fill="#991b1b" fontSize="9" fontWeight="900" fontFamily="monospace">OUT</text>
+                        <text x="217" y={105 - hOut/2} textAnchor="middle" fill={isDark ? "#991b1b" : "#ffffff"} fontSize="9" fontWeight="900" fontFamily="monospace">OUT</text>
                       )}
 
                       {/* Gradients declarations */}
@@ -1604,18 +1618,18 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
               </svg>
 
               {/* Hover Tooltip display context */}
-              <div className="absolute inset-x-2 bottom-1 bg-slate-900/90 border border-slate-800 p-1.5 rounded text-[9px] font-mono flex justify-between items-center h-7 select-none transition-all">
+              <div className={`absolute inset-x-2 bottom-1 border p-1.5 rounded text-[9px] font-mono flex justify-between items-center h-7 select-none transition-all ${isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-slate-100/95 border-slate-200'}`}>
                 {flowTooltip === 'inflow' ? (
-                  <span className="text-emerald-400 font-bold uppercase w-full text-center">💸 Total Faturado: $ {totalEntries.toLocaleString('pt-BR')}</span>
+                  <span className={isDark ? "text-emerald-400 font-bold uppercase w-full text-center" : "text-[#16a34a] font-bold uppercase w-full text-center"}>💸 Total Faturado: $ {totalEntries.toLocaleString('pt-BR')}</span>
                 ) : flowTooltip === 'outflow' ? (
-                  <span className="text-rose-400 font-bold uppercase w-full text-center">🛡️ Despesas Totais: $ {totalSpending.toLocaleString('pt-BR')}</span>
+                  <span className={isDark ? "text-rose-400 font-bold uppercase w-full text-center" : "text-red-650 font-bold uppercase w-full text-center"}>🛡️ Despesas Totais: $ {totalSpending.toLocaleString('pt-BR')}</span>
                 ) : (
-                  <span className="text-slate-400 w-full text-center">Passe o mouse nas barras para inspecionar</span>
+                  <span className={isDark ? "text-slate-400 w-full text-center" : "text-slate-500 w-full text-center"}>Passe o mouse nas barras para inspecionar</span>
                 )}
               </div>
             </div>
 
-            <p className="text-[10px] text-slate-400 leading-snug">
+            <p className={`text-[10px] leading-snug ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
               Investimentos em licenciamento e preços otimizados da loja garantem o crescimento de receitas na vitória!
             </p>
           </div>
@@ -1623,23 +1637,23 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
       </div>
 
       {/* SECTION 2.5: SALARY CAP DYNAMIC LINE MONITOR CARD */}
-      <div id="salary-cap-monitor" className="p-5 rounded-2xl border border-[#1e2d44] bg-[#0a1424] shadow-lg space-y-4">
-        <div className="flex justify-between items-center border-b border-[#1e2d44]/55 pb-2">
+      <div id="salary-cap-monitor" className={`p-5 rounded-2xl border shadow-lg space-y-4 ${isDark ? 'border-[#1e2d44] bg-[#0a1424]' : 'border-slate-200 bg-white'}`}>
+        <div className={`flex justify-between items-center border-b pb-2 ${isDark ? 'border-[#1e2d44]/55' : 'border-slate-100'}`}>
           <div className="space-y-0.5">
-            <h4 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-2">
+            <h4 className={`text-xs font-black uppercase tracking-wider flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
               <Scale className="w-4.5 h-4.5 text-[#00cbd6]" />
               Monitor Dinâmico de Teto Salarial (Salary Cap Match)
             </h4>
-            <p className="text-[10px] text-slate-400">Histórico de folha de pagamento semanal vs limite da liga ($120.000) no Split</p>
+            <p className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-550'}`}>Histórico de folha de pagamento semanal vs limite da liga ($120.000) no Split</p>
           </div>
-          <span className="text-[9.5px] uppercase font-mono bg-slate-950 px-2.5 py-1 rounded border border-slate-800 text-slate-400 font-extrabold">
+          <span className={`text-[9.5px] uppercase font-mono px-2.5 py-1 rounded border font-extrabold ${isDark ? 'bg-slate-950 border-slate-800 text-slate-400' : 'bg-slate-100 border-slate-205 text-slate-600'}`}>
             Parâmetro: Split Atual Rift
           </span>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
           {/* Active SVG Line Chart render */}
-          <div className="lg:col-span-8 bg-slate-950/35 rounded-xl border border-slate-900 p-3 relative hover:border-sky-500/10 transition-all duration-300">
+          <div className={`lg:col-span-8 rounded-xl border p-3 relative hover:border-sky-500/10 transition-all duration-300 ${isDark ? 'bg-slate-950/35 border-slate-900' : 'bg-[#f8fafc] border-slate-200 shadow-sm'}`}>
             
             <svg className="w-full h-44" viewBox="0 0 500 160">
               <defs>
@@ -1655,13 +1669,13 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
               </defs>
 
               {/* Y Axis markings */}
-              <line x1="50" y1="20" x2="50" y2="140" stroke="#1e2d44" strokeWidth="1" />
-              <line x1="50" y1="140" x2="480" y2="140" stroke="#1e2d44" strokeWidth="1" />
+              <line x1="50" y1="20" x2="50" y2="140" stroke={isDark ? "#1e2d44" : "#cbd5e1"} strokeWidth="1" />
+              <line x1="50" y1="140" x2="480" y2="140" stroke={isDark ? "#1e2d44" : "#cbd5e1"} strokeWidth="1" />
 
-              <text x="45" y="25" textAnchor="end" fill="#475569" fontSize="8" fontWeight="bold">180k</text>
-              <text x="45" y="60" textAnchor="end" fill="#475569" fontSize="8" fontWeight="bold">120k</text>
-              <text x="45" y="100" textAnchor="end" fill="#475569" fontSize="8" fontWeight="bold">60k</text>
-              <text x="45" y="140" textAnchor="end" fill="#475569" fontSize="8" fontWeight="bold">0</text>
+              <text x="45" y="25" textAnchor="end" fill={isDark ? "#475569" : "#64748b"} fontSize="8" fontWeight="bold">180k</text>
+              <text x="45" y="60" textAnchor="end" fill={isDark ? "#475569" : "#64748b"} fontSize="8" fontWeight="bold">120k</text>
+              <text x="45" y="100" textAnchor="end" fill={isDark ? "#475569" : "#64748b"} fontSize="8" fontWeight="bold">60k</text>
+              <text x="45" y="140" textAnchor="end" fill={isDark ? "#475569" : "#64748b"} fontSize="8" fontWeight="bold">0</text>
 
               {/* Week labels on the X Axis */}
               {weeklyPayrollHistory.map((_, idx) => (
@@ -1670,7 +1684,7 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
                   x={50 + (idx * 410 / 9)} 
                   y="152" 
                   textAnchor="middle" 
-                  fill={hoveredWeek === idx ? '#00cbd6' : '#475569'} 
+                  fill={hoveredWeek === idx ? '#00cbd6' : (isDark ? '#475569' : '#64748b')} 
                   fontSize="8.5" 
                   fontWeight="bold"
                 >
@@ -1734,7 +1748,7 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
                       cx={x} 
                       cy={y} 
                       r={hoveredWeek === idx ? "5.5" : "4"} 
-                      fill={isViolation ? "#f43f5e" : "#0f172a"} 
+                      fill={isViolation ? "#f43f5e" : (isDark ? "#0f172a" : "#ffffff")} 
                       stroke={isViolation ? "#ef4444" : "#00cbd6"} 
                       strokeWidth="2.2" 
                       className="transition-all duration-150"
@@ -1746,10 +1760,10 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
 
             {/* In-chart Tooltip Disclosure */}
             {hoveredWeek !== null && (
-              <div className="absolute top-2 left-1/2 transform -translate-x-1/2 bg-slate-900/90 border border-slate-700/80 px-3 py-1.5 rounded-lg text-[10px] font-mono shadow-xl flex gap-3 text-white pointer-events-none select-none z-10 transition-all">
+              <div className={`absolute top-2 left-1/2 transform -translate-x-1/2 border px-3 py-1.5 rounded-lg text-[10px] font-mono shadow-xl flex gap-3 pointer-events-none select-none z-10 transition-all ${isDark ? 'bg-slate-900/95 border-slate-700/80 text-white animate-fade' : 'bg-white border-slate-300 text-slate-800'}`}>
                 <span>Semana {hoveredWeek + 1}:</span>
                 <span className="font-extrabold text-[#00cbd6]">$ {weeklyPayrollHistory[hoveredWeek].toLocaleString('pt-BR')}</span>
-                <span className={weeklyPayrollHistory[hoveredWeek] > 120000 ? "text-red-400 font-extrabold" : "text-emerald-400 font-extrabold"}>
+                <span className={weeklyPayrollHistory[hoveredWeek] > 120000 ? "text-red-500 font-extrabold" : "text-emerald-600 font-extrabold"}>
                   {weeklyPayrollHistory[hoveredWeek] > 120000 ? "🚨 TETO EXCEDIDO (+Taxa)" : "✔ COMPLIANT"}
                 </span>
               </div>
@@ -1758,20 +1772,20 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
           </div>
 
           {/* Quick Stats sidebar mapping */}
-          <div className="lg:col-span-4 p-4 rounded-xl bg-slate-950/20 border border-[#1e2d44]/55 space-y-3">
+          <div className={`lg:col-span-4 p-4 rounded-xl border space-y-3 ${isDark ? 'bg-slate-950/20 border-[#1e2d44]/55' : 'bg-slate-50 border-slate-200'}`}>
             <span className="text-[10px] font-black uppercase text-[#00cbd6] block">Análise de Riscos Regulatórios</span>
             <div className="space-y-2 text-[10.5px]">
               
-              <div className="p-2.5 rounded bg-slate-900 border border-slate-800/80 flex justify-between items-center text-slate-300">
+              <div className={`p-2.5 rounded border flex justify-between items-center ${isDark ? 'bg-slate-900 border-slate-800/80 text-slate-300' : 'bg-white border-slate-205 text-slate-700 shadow-sm'}`}>
                 <span>Maior Gasto do Split:</span>
-                <span className="text-white font-mono font-bold font-mono text-red-400">
+                <span className={`font-mono font-bold ${isDark ? 'text-red-400' : 'text-red-650'}`}>
                   $ {Math.max(...weeklyPayrollHistory).toLocaleString()}
                 </span>
               </div>
 
-              <div className="p-2.5 rounded bg-slate-900 border border-slate-800/80 flex justify-between items-center text-slate-300">
+              <div className={`p-2.5 rounded border flex justify-between items-center ${isDark ? 'bg-slate-900 border-slate-800/80 text-slate-300' : 'bg-white border-slate-205 text-slate-700 shadow-sm'}`}>
                 <span>Margem de Segurança:</span>
-                <span className={isSalarCapExceeded ? "text-red-400 font-black font-mono" : "text-emerald-400 font-black font-mono"}>
+                <span className={isSalarCapExceeded ? "text-red-500 font-black font-mono" : "text-emerald-600 font-black font-mono"}>
                   {isSalarCapExceeded 
                     ? `-$ ${(basePlayerPayrollWeekly - 120000).toLocaleString()} (Excesso)` 
                     : `$ ${(120000 - basePlayerPayrollWeekly).toLocaleString()} Livres`
@@ -1779,16 +1793,16 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
                 </span>
               </div>
 
-              <div className="p-2.5 rounded bg-slate-900 border border-slate-800/80 flex justify-between items-center text-slate-300">
+              <div className={`p-2.5 rounded border flex justify-between items-center ${isDark ? 'bg-slate-900 border-slate-800/80 text-slate-305' : 'bg-white border-slate-205 text-slate-700 shadow-sm'}`}>
                 <span>Taxa Emergencial Split:</span>
-                <span className="text-white font-mono font-bold text-yellow-500">
+                <span className={`font-mono font-bold ${isDark ? 'text-yellow-500' : 'text-amber-600'}`}>
                   1.5x Multiplicador
                 </span>
               </div>
 
             </div>
 
-            <p className="text-[9.5px] text-slate-400 leading-normal">
+            <p className={`text-[9.5px] leading-normal ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
               A auditoria da liga compila sua folha todas as sextas-feiras antes da rodada. Lembre-se: folha salarial é dividida em 24 parcelas equivalentes no split.
             </p>
           </div>
@@ -1799,19 +1813,19 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* BANCO E CRÉDITO CENTER */}
-        <div className="lg:col-span-6 p-5 rounded-2xl border border-[#1e2d44] bg-[#0a1424] shadow-md space-y-5 flex flex-col justify-between">
+        <div className={`lg:col-span-6 p-5 rounded-2xl border shadow-md space-y-5 flex flex-col justify-between ${isDark ? 'border-[#1e2d44] bg-[#0a1424]' : 'border-slate-200 bg-white'}`}>
           <div className="space-y-4">
-            <div className="border-b border-[#1e2d44] pb-2.5 flex items-center justify-between">
+            <div className={`border-b pb-2.5 flex items-center justify-between ${isDark ? 'border-[#1e2d44]' : 'border-slate-100'}`}>
               <div className="flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-indigo-400" />
-                <h3 className="text-xs uppercase font-extrabold text-white">Central de Crédito Bancário Rivals</h3>
+                <h3 className={`text-xs uppercase font-extrabold ${isDark ? 'text-white' : 'text-slate-800'}`}>Central de Crédito Bancário Rivals</h3>
               </div>
-              <span className="text-[10px] bg-indigo-505/10 text-indigo-400 font-extrabold px-2.5 py-0.5 rounded border border-indigo-400/20">
+              <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded border ${isDark ? 'bg-indigo-500/10 text-indigo-400 border-indigo-400/20' : 'bg-indigo-50 text-indigo-650 border-indigo-200'}`}>
                 Score Avaliado: {playerTeam.creditScore || 720}
               </span>
             </div>
 
-            <p className="text-[10.5px] text-slate-400 leading-snug">
+            <p className={`text-[10.5px] leading-snug ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
               Nosso sistema avalia constantemente seu score de crédito baseado no histórico de empréstimos, torcedores ativos, receitas comerciais e desempenho competitivo. Score alto reduz drasticamente as taxas de juros!
             </p>
 
@@ -1820,53 +1834,65 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
               
               <button 
                 onClick={() => borrowCapital('Pessoal', 30000, 4, personalLoanRate)}
-                className="p-3.5 rounded-xl border border-indigo-500/10 bg-indigo-500/5 hover:bg-slate-800 text-slate-200 transition duration-200 uppercase flex flex-col justify-between h-28 cursor-pointer group"
+                className={`p-3.5 rounded-xl border transition duration-200 uppercase flex flex-col justify-between h-28 cursor-pointer group ${
+                  isDark 
+                    ? 'border-indigo-500/10 bg-indigo-500/5 hover:bg-slate-800 text-slate-200' 
+                    : 'border-indigo-150 bg-indigo-50/50 hover:bg-indigo-100/60 text-slate-705'
+                }`}
               >
-                <span className="font-extrabold group-hover:text-indigo-400">Pessoal</span>
-                <span className="text-[12px] font-black font-mono text-white">$ 30k</span>
-                <span className="text-[8px] text-slate-400 block font-bold leading-normal">T: 4 Sem • {personalLoanRate}% J</span>
+                <span className={`font-extrabold ${isDark ? 'group-hover:text-indigo-400' : 'text-indigo-700'}`}>Pessoal</span>
+                <span className={`text-[12px] font-black font-mono ${isDark ? 'text-white' : 'text-indigo-900'}`}>$ 30k</span>
+                <span className={`text-[8px] block font-bold leading-normal ${isDark ? 'text-slate-400' : 'text-slate-550'}`}>T: 4 Sem • {personalLoanRate}% J</span>
               </button>
 
               <button 
                 onClick={() => borrowCapital('Empresarial', 120000, 10, corporateLoanRate)}
-                className="p-3.5 rounded-xl border border-sky-500/10 bg-sky-500/5 hover:bg-slate-800 text-slate-200 transition duration-200 uppercase flex flex-col justify-between h-28 cursor-pointer group"
+                className={`p-3.5 rounded-xl border transition duration-200 uppercase flex flex-col justify-between h-28 cursor-pointer group ${
+                  isDark 
+                    ? 'border-sky-500/10 bg-sky-500/5 hover:bg-slate-800 text-slate-200' 
+                    : 'border-sky-150 bg-sky-50/50 hover:bg-sky-100/60 text-slate-705'
+                }`}
               >
-                <span className="font-extrabold group-hover:text-sky-400">Empresa</span>
-                <span className="text-[12px] font-black font-mono text-white">$ 120k</span>
-                <span className="text-[8px] text-slate-400 block font-bold leading-normal">T: 10 Sem • {corporateLoanRate}% J</span>
+                <span className={`font-extrabold ${isDark ? 'group-hover:text-sky-400' : 'text-sky-700'}`}>Empresa</span>
+                <span className={`text-[12px] font-black font-mono ${isDark ? 'text-white' : 'text-sky-900'}`}>$ 120k</span>
+                <span className={`text-[8px] block font-bold leading-normal ${isDark ? 'text-slate-400' : 'text-slate-550'}`}>T: 10 Sem • {corporateLoanRate}% J</span>
               </button>
 
               <button 
                 onClick={() => borrowCapital('Risco', 250000, 6, riskLoanRate)}
-                className="p-3.5 rounded-xl border border-red-500/10 bg-[#2d0f19]/30 hover:bg-[#3d1525]/45 text-slate-200 transition duration-200 uppercase flex flex-col justify-between h-28 cursor-pointer group"
+                className={`p-3.5 rounded-xl border transition duration-200 uppercase flex flex-col justify-between h-28 cursor-pointer group ${
+                  isDark 
+                    ? 'border-red-500/10 bg-[#2d0f19]/30 hover:bg-[#3d1525]/45 text-slate-200' 
+                    : 'border-red-200 bg-red-50 hover:bg-red-100 text-slate-705'
+                }`}
               >
-                <span className="font-extrabold group-hover:text-red-400">Contrato Risco</span>
-                <span className="text-[12px] font-black font-mono text-white">$ 250k</span>
-                <span className="text-[8px] text-red-300 block font-bold leading-normal">T: 6 Sem • {riskLoanRate}% J</span>
+                <span className={`font-extrabold ${isDark ? 'group-hover:text-red-400' : 'text-red-700'}`}>Contrato Risco</span>
+                <span className={`text-[12px] font-black font-mono ${isDark ? 'text-white' : 'text-red-900'}`}>$ 250k</span>
+                <span className={`text-[8px] block font-bold leading-normal ${isDark ? 'text-red-300' : 'text-red-600'}`}>T: 6 Sem • {riskLoanRate}% J</span>
               </button>
 
             </div>
           </div>
 
           {/* Active loans table listing */}
-          <div className="space-y-2.5 pt-3 border-t border-[#1e2d44]/50">
-            <h4 className="text-[10px] text-indigo-400 uppercase tracking-widest font-extrabold">Seus Empréstimos Ativos ({playerTeam.loans.length || 0}/3)</h4>
+          <div className={`space-y-2.5 pt-3 border-t ${isDark ? 'border-[#1e2d44]/50' : 'border-slate-100'}`}>
+            <h4 className="text-[10px] text-indigo-500 uppercase tracking-widest font-extrabold">Seus Empréstimos Ativos ({playerTeam.loans.length || 0}/3)</h4>
             
             {playerTeam.loans.length > 0 ? (
               <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1">
                 {playerTeam.loans.map((loan) => (
-                  <div key={loan.id} className="p-2.5 rounded-lg bg-slate-950/45 border border-[#1e2d44]/55 flex justify-between items-center text-[10.5px]">
+                  <div key={loan.id} className={`p-2.5 rounded-lg border flex justify-between items-center text-[10.5px] ${isDark ? 'bg-slate-950/45 border-[#1e2d44]/55' : 'bg-slate-50 border-slate-200'}`}>
                     <div className="space-y-1">
-                      <div className="font-bold flex items-center gap-1.5 text-white">
-                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                      <div className={`font-bold flex items-center gap-1.5 ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
                         <span>Empréstimo {loan.type}</span>
-                        <span className="text-[8.5px] text-slate-400 bg-slate-800 px-1 py-0.2 rounded font-mono font-normal">Restam {loan.remainingWeeks} Sem</span>
+                        <span className={`text-[8.5px] px-1 py-0.2 rounded font-mono font-normal ${isDark ? 'text-slate-400 bg-slate-800' : 'text-slate-650 bg-slate-200'}`}>Restam {loan.remainingWeeks} Sem</span>
                       </div>
-                      <p className="text-[9px] text-slate-400">Custódia Restante para Amortizar: <strong className="text-slate-200">$ {loan.totalToPay.toLocaleString()}</strong></p>
+                      <p className={`text-[9px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Custódia Restante para Amortizar: <strong className={isDark ? 'text-slate-200' : 'text-slate-800'}>$ {loan.totalToPay.toLocaleString()}</strong></p>
                     </div>
                     <button
                       onClick={() => payoffLoan(loan.id)}
-                      className="px-2.5 py-1 text-[8.5px] font-extrabold bg-indigo-500 hover:bg-indigo-600 text-white rounded uppercase cursor-pointer"
+                      className="px-2.5 py-1 text-[8.5px] font-extrabold bg-indigo-500 hover:bg-indigo-650 text-white rounded uppercase cursor-pointer"
                     >
                       Quitar à Vista ($ {loan.totalToPay.toLocaleString()})
                     </button>
@@ -1874,46 +1900,46 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
                 ))}
               </div>
             ) : (
-              <p className="text-[10px] text-slate-500 italic">Nenhum compromisso pendente com o banco.</p>
+              <p className={isDark ? "text-[10px] text-slate-400 italic" : "text-[10px] text-slate-500 italic"}>Nenhum compromisso pendente com o banco.</p>
             )}
           </div>
         </div>
 
         {/* PRODUTOS DE INVESTIMENTOS */}
-        <div className="lg:col-span-6 p-5 rounded-2xl border border-[#1e2d44] bg-[#0a1424] shadow-md space-y-4">
-          <div className="border-b border-[#1e2d44] pb-2.5 flex items-center justify-between">
+        <div className={`lg:col-span-6 p-5 rounded-2xl border shadow-md space-y-4 ${isDark ? 'border-[#1e2d44] bg-[#0a1424]' : 'border-slate-200 bg-white'}`}>
+          <div className={`border-b pb-2.5 flex items-center justify-between ${isDark ? 'border-[#1e2d44]' : 'border-slate-100'}`}>
             <div className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-emerald-400" />
-              <h3 className="text-xs uppercase font-extrabold text-white">Painel de Alocação de Investimentos</h3>
+              <TrendingUp className="w-5 h-5 text-emerald-500" />
+              <h3 className={`text-xs uppercase font-extrabold ${isDark ? 'text-white' : 'text-slate-800'}`}>Painel de Alocação de Investimentos</h3>
             </div>
-            <span className="text-[10px] text-slate-400 uppercase font-mono font-semibold">Anytime Deposits</span>
+            <span className={`text-[10px] uppercase font-mono font-semibold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Anytime Deposits</span>
           </div>
 
           <div className="space-y-3.5 max-h-[380px] overflow-y-auto pr-1">
             
             {/* 1. Renda Fixa */}
-            <div className="p-3 rounded-xl bg-slate-950/45 border border-[#1e2d44]/40 space-y-2 text-[10.5px]">
-              <div className="flex justify-between items-center bg-slate-900 px-2 py-1 rounded">
-                <span className="font-bold text-slate-100 flex items-center gap-1">🏦 Renda Fixa (Nenhum Risco)</span>
+            <div className={`p-3 rounded-xl border space-y-2 text-[10.5px] ${isDark ? 'bg-slate-950/45 border-[#1e2d44]/40' : 'bg-slate-50 border-slate-200'}`}>
+              <div className={`flex justify-between items-center px-2 py-1 rounded ${isDark ? 'bg-slate-900' : 'bg-slate-100/90'}`}>
+                <span className={`font-bold flex items-center gap-1 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>🏦 Renda Fixa (Nenhum Risco)</span>
                 <span className="text-[#00cbd6] font-mono font-black">+$ {playerTeam.investments.fixedIncome.toLocaleString()} Alocado</span>
               </div>
-              <p className="text-[9.5px] text-slate-400">Nenhum risco de perda. Retorna +2% garantidos por split (creditado em frações de 0.14% semanais).</p>
+              <p className={`text-[9.5px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Nenhum risco de perda. Retorna +2% garantidos por split (creditado em frações de 0.14% semanais).</p>
               <div className="flex items-center gap-2 pt-1">
                 <input 
                   type="number" 
                   value={fixedIncomeInput} 
                   onChange={(e) => setFixedIncomeInput(Number(e.target.value))} 
-                  className="w-24 bg-slate-800 border border-slate-700 rounded px-2 py-0.5 font-mono text-center text-white"
+                  className={`w-24 border rounded px-2 py-0.5 font-mono text-center outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-800'}`}
                 />
                 <button 
                   onClick={() => processInvestment('fixedIncome', 'deposit', fixedIncomeInput)}
-                  className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 rounded text-white font-extrabold uppercase scale-[0.9] cursor-pointer"
+                  className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 rounded text-white font-extrabold uppercase scale-[0.9] cursor-pointer transition"
                 >
                   Depositar
                 </button>
                 <button 
                   onClick={() => processInvestment('fixedIncome', 'withdraw', fixedIncomeInput)}
-                  className="px-2 py-1 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 font-extrabold uppercase scale-[0.9] cursor-pointer"
+                  className={`px-2 py-1 rounded font-extrabold uppercase scale-[0.9] cursor-pointer transition ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-200 hover:bg-slate-250 text-slate-705'}`}
                 >
                   Retirar
                 </button>
@@ -1921,28 +1947,28 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
             </div>
 
             {/* 2. Fundo Esportivo */}
-            <div className="p-3 rounded-xl bg-slate-950/45 border border-[#1e2d44]/40 space-y-2 text-[10.5px]">
-              <div className="flex justify-between items-center bg-slate-900 px-2 py-1 rounded">
-                <span className="font-bold text-slate-100 flex items-center gap-1">🏆 Fundo Esportivo (Risco Baixo)</span>
+            <div className={`p-3 rounded-xl border space-y-2 text-[10.5px] ${isDark ? 'bg-slate-950/45 border-[#1e2d44]/40' : 'bg-slate-50 border-slate-200'}`}>
+              <div className={`flex justify-between items-center px-2 py-1 rounded ${isDark ? 'bg-slate-900' : 'bg-slate-100/90'}`}>
+                <span className={`font-bold flex items-center gap-1 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>🏆 Fundo Esportivo (Risco Baixo)</span>
                 <span className="text-[#00cbd6] font-mono font-black">+$ {playerTeam.investments.sportsFund.toLocaleString()} Alocado</span>
               </div>
-              <p className="text-[9.5px] text-slate-400">Rendimento de +5% do capital alocado pago unicamente nas semanas que sua equipe vencer partidas.</p>
+              <p className={`text-[9.5px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Rendimento de +5% do capital alocado pago unicamente nas semanas que sua equipe vencer partidas.</p>
               <div className="flex items-center gap-2 pt-1">
                 <input 
                   type="number" 
                   value={sportsFundInput} 
                   onChange={(e) => setSportsFundInput(Number(e.target.value))} 
-                  className="w-24 bg-slate-800 border border-slate-700 rounded px-2 py-0.5 font-mono text-center text-white"
+                  className={`w-24 border rounded px-2 py-0.5 font-mono text-center outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-800'}`}
                 />
                 <button 
                   onClick={() => processInvestment('sportsFund', 'deposit', sportsFundInput)}
-                  className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 rounded text-white font-extrabold uppercase scale-[0.9] cursor-pointer"
+                  className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 rounded text-white font-extrabold uppercase scale-[0.9] cursor-pointer transition"
                 >
                   Depositar
                 </button>
                 <button 
                   onClick={() => processInvestment('sportsFund', 'withdraw', sportsFundInput)}
-                  className="px-2 py-1 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 font-extrabold uppercase scale-[0.9] cursor-pointer"
+                  className={`px-2 py-1 rounded font-extrabold uppercase scale-[0.9] cursor-pointer transition ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-205 hover:bg-slate-250 text-slate-705'}`}
                 >
                   Retirar
                 </button>
@@ -1950,28 +1976,28 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
             </div>
 
             {/* 3. Ações de Rivais */}
-            <div className="p-3 rounded-xl bg-slate-950/45 border border-[#1e2d44]/40 space-y-2 text-[10.5px]">
-              <div className="flex justify-between items-center bg-slate-900 px-2 py-1 rounded">
-                <span className="font-bold text-slate-100 flex items-center gap-1">📊 Ações de Rivais (Volátil)</span>
+            <div className={`p-3 rounded-xl border space-y-2 text-[10.5px] ${isDark ? 'bg-slate-950/45 border-[#1e2d44]/40' : 'bg-slate-50 border-slate-200'}`}>
+              <div className={`flex justify-between items-center px-2 py-1 rounded ${isDark ? 'bg-slate-900' : 'bg-slate-100/90'}`}>
+                <span className={`font-bold flex items-center gap-1 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>📊 Ações de Rivais (Volátil)</span>
                 <span className="text-[#00cbd6] font-mono font-black">+$ {playerTeam.investments.sharesRivals.toLocaleString()} Alocado</span>
               </div>
-              <p className="text-[9.5px] text-slate-400">Rentabilidade altíssima (+10% ou -5% de flutuação semanal). Caso possua mais de $40.000 investidos, sua torcida perderá apoio mensal por crise moral!</p>
+              <p className={`text-[9.5px] ${isDark ? 'text-slate-400' : 'text-slate-550'}`}>Rentabilidade altíssima (+10% ou -5% de flutuação semanal). Caso possua mais de $40.000 investidos, sua torcida perderá apoio mensal por crise moral!</p>
               <div className="flex items-center gap-2 pt-1">
                 <input 
                   type="number" 
                   value={sharesInput} 
                   onChange={(e) => setSharesInput(Number(e.target.value))} 
-                  className="w-24 bg-slate-800 border border-slate-700 rounded px-2 py-0.5 font-mono text-center text-white"
+                  className={`w-24 border rounded px-2 py-0.5 font-mono text-center outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-800'}`}
                 />
                 <button 
                   onClick={() => processInvestment('sharesRivals', 'deposit', sharesInput)}
-                  className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 rounded text-white font-extrabold uppercase scale-[0.9] cursor-pointer"
+                  className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 rounded text-white font-extrabold uppercase scale-[0.9] cursor-pointer transition"
                 >
                   Depositar
                 </button>
                 <button 
                   onClick={() => processInvestment('sharesRivals', 'withdraw', sharesInput)}
-                  className="px-2 py-1 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 font-extrabold uppercase scale-[0.9] cursor-pointer"
+                  className={`px-2 py-1 rounded font-extrabold uppercase scale-[0.9] cursor-pointer transition ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-205 hover:bg-slate-250 text-slate-705'}`}
                 >
                   Retirar
                 </button>
@@ -1979,10 +2005,10 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
             </div>
 
             {/* 4. Patrocínio Antecipado */}
-            <div className="p-3.5 rounded-xl bg-slate-950/45 border border-amber-500/20 text-[10.5px] flex justify-between items-center">
+            <div className={`p-3.5 rounded-xl border text-[10.5px] flex justify-between items-center ${isDark ? 'bg-slate-950/45 border-amber-500/20' : 'bg-amber-50/45 border-amber-200'}`}>
               <div>
-                <h5 className="font-bold text-amber-400 flex items-center gap-1">🤝 Patrocínio Antecipado</h5>
-                <p className="text-[9.2px] text-slate-400 leading-normal max-w-sm pt-0.5">Injeta $120.000 em caixa na hora, mas desconta $6.500 semanais durante 2 splits (28 semanas). Ideal para transferências rápidas!</p>
+                <h5 className="font-bold text-amber-500 flex items-center gap-1">🤝 Patrocínio Antecipado</h5>
+                <p className={`text-[9.2px] leading-normal max-w-sm pt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Injeta $120.000 em caixa na hora, mas desconta $6.500 semanais durante 2 splits (28 semanas). Ideal para transferências rápidas!</p>
                 {playerTeam.investments.advancedSponsorWeeks > 0 && (
                   <span className="text-[9px] font-mono text-red-400 font-extrabold block pt-1">⚠️ Ativo: Restam {playerTeam.investments.advancedSponsorWeeks} semanas de reembolso.</span>
                 )}
@@ -1990,9 +2016,9 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
               <button 
                 onClick={receiveAdvancedSponsor}
                 disabled={playerTeam.investments.advancedSponsorWeeks > 0}
-                className={`px-3 py-1.5 rounded uppercase font-extrabold shadow text-xs cursor-pointer ${
+                className={`px-3 py-1.5 rounded uppercase font-extrabold shadow text-xs cursor-pointer transition ${
                   playerTeam.investments.advancedSponsorWeeks > 0 
-                  ? 'bg-slate-800 text-slate-500 border border-slate-700' 
+                  ? (isDark ? 'bg-slate-800 text-slate-500 border border-slate-700 font-bold' : 'bg-slate-200 text-slate-400 border border-slate-300 font-bold') 
                   : 'bg-gradient-to-r from-amber-500 to-yellow-600 hover:scale-105 duration-150 text-white'
                 }`}
               >
@@ -2006,13 +2032,13 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
       </div>
 
       {/* SECTION 4: JURÍDICO, CONTRATOS, VISTOS */}
-      <div className="p-5 rounded-2xl border border-[#1e2d44] bg-[#0a1424] shadow-lg space-y-5">
-        <div className="border-b border-sky-500/10 pb-2.5 flex justify-between items-center">
+      <div className={`p-5 rounded-2xl border shadow-lg space-y-5 ${isDark ? 'border-[#1e2d44] bg-[#0a1424]' : 'border-slate-200 bg-white'}`}>
+        <div className={`border-b pb-2.5 flex justify-between items-center ${isDark ? 'border-sky-500/10' : 'border-slate-100'}`}>
           <div className="flex items-center gap-2">
             <Scale className="w-5 h-5 text-[#00cbd6]" />
-            <h3 className="text-xs uppercase font-extrabold text-white">Escritório Jurídico, Monitor de Contratos e Centro de Vistos</h3>
+            <h3 className={`text-xs uppercase font-extrabold ${isDark ? 'text-white' : 'text-slate-800'}`}>Escritório Jurídico, Monitor de Contratos e Centro de Vistos</h3>
           </div>
-          <span className="text-[10px] bg-red-500/10 text-red-400 px-2 py-0.5 border border-red-500/20 rounded font-extrabold uppercase">
+          <span className={`text-[10px] px-2 py-0.5 border rounded font-extrabold uppercase ${isDark ? 'bg-red-500/10 text-red-100' : 'bg-red-50 text-red-700 border-red-200'}`}>
             Riot Compliance Act No. 16
           </span>
         </div>
@@ -2027,41 +2053,43 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
               {playerTeam.roster.map((player) => {
                 // If months is low, show blinking warning (contractMonths represents remaining splits/months)
                 const isNearingExpiration = player.contractMonths <= 3; // roughly 3 splits/months
-                const warningBorder = isNearingExpiration ? 'border-amber-500/40 bg-amber-500/5 animate-pulse' : 'border-slate-850 bg-slate-950/45';
+                const warningBorder = isNearingExpiration 
+                  ? 'border-amber-500/40 bg-amber-500/5 animate-pulse' 
+                  : (isDark ? 'border-slate-850 bg-slate-950/45 text-slate-300' : 'border-slate-200 bg-slate-50 text-slate-700');
                 
                 return (
                   <div key={player.id} className={`p-3 rounded-xl border flex justify-between items-center text-[10.5px] ${warningBorder}`}>
                     <div className="space-y-1 truncate flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-extrabold text-white uppercase">{player.name}</span>
-                        <span className="text-[9px] font-mono bg-slate-800 text-slate-400 px-1 py-0.2 rounded font-normal uppercase">OVR {player.overallRating} • {player.position}</span>
+                        <span className={`font-extrabold uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>{player.name}</span>
+                        <span className={`text-[9px] font-mono px-1 py-0.2 rounded font-normal uppercase ${isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-200 text-slate-600'}`}>OVR {player.overallRating} • {player.position}</span>
                         {player.isImported && (
-                          <span className={`text-[8.5px] px-1 py-0.1 border rounded font-black uppercase ${player.visaApproved ? 'border-emerald-500/40 text-emerald-400 bg-emerald-500/5' : 'border-red-500/40 text-red-450 bg-red-500/5'}`}>
+                          <span className={`text-[8.5px] px-1 py-0.1 border rounded font-black uppercase ${player.visaApproved ? 'border-emerald-500/40 text-emerald-500 bg-emerald-500/5' : 'border-red-500/40 text-red-500 bg-red-100/30'}`}>
                             {player.visaApproved ? 'Visto OK' : 'Sem Visto Válido'}
                           </span>
                         )}
                         {isNearingExpiration && (
-                          <span className="text-[8.5px] text-amber-400 bg-amber-500/10 px-1.5 py-0.1 border border-amber-500/25 rounded font-black font-mono animate-bounce">
+                          <span className="text-[8.5px] text-amber-500 bg-amber-500/10 px-1.5 py-0.1 border border-amber-400/25 rounded font-black font-mono animate-bounce">
                             ⚠️ Alerta de Expiração
                           </span>
                         )}
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-3.5 text-[9.5px] text-slate-400">
-                        <span>Luvas de Contratação: <strong className="text-emerald-400">$ {(player.signOnFee || Math.round(player.marketValue * 0.25)).toLocaleString()}</strong></span>
-                        <span>Salário Semanal: <strong className="text-slate-200">$ {Math.round(player.salary / 24).toLocaleString()}</strong></span>
-                        <span>Multa Rescisória Internacional: <strong className="text-sky-400">$ {Math.round(player.marketValue * 1.8).toLocaleString()}</strong></span>
+                      <div className={`flex flex-wrap items-center gap-3.5 text-[9.5px] ${isDark ? 'text-slate-400' : 'text-slate-550'}`}>
+                        <span>Luvas de Contratação: <strong className="text-emerald-600 font-bold">$ {(player.signOnFee || Math.round(player.marketValue * 0.25)).toLocaleString()}</strong></span>
+                        <span>Salário Semanal: <strong className={isDark ? 'text-slate-200' : 'text-slate-800'}>$ {Math.round(player.salary / 24).toLocaleString()}</strong></span>
+                        <span>Multa Rescisória Internacional: <strong className="text-sky-600 font-bold">$ {Math.round(player.marketValue * 1.8).toLocaleString()}</strong></span>
                       </div>
 
                       {/* Special Clauses indications */}
                       <div className="flex flex-wrap items-center gap-2 pt-0.5">
                         {player.isMvpBonusExigido && (
-                          <span className="text-[8.5px] font-bold text-yellow-405 bg-yellow-500/10 border border-yellow-500/20 px-1.5 py-0.1 rounded uppercase">
+                          <span className="text-[8.5px] font-bold text-yellow-500 bg-yellow-500/10 border border-yellow-500/20 px-1.5 py-0.1 rounded uppercase">
                             ⭐ Bônus MVP Exigido Ativo
                           </span>
                         )}
                         {player.isTitularidadeExigida && (
-                          <span className="text-[8.5px] font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.1 rounded uppercase">
+                          <span className="text-[8.5px] font-bold text-indigo-500 bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.1 rounded uppercase">
                             🛡️ Clausula de Titularidade Exigida
                           </span>
                         )}
@@ -2069,8 +2097,8 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
                     </div>
 
                     <div className="text-right pl-3">
-                      <span className="text-[9.5px] text-slate-400 block uppercase font-bold tracking-wide">Duração Restante</span>
-                      <span className={`text-sm font-extrabold font-mono ${isNearingExpiration ? 'text-amber-500' : 'text-white'}`}>
+                      <span className={`text-[9.5px] block uppercase font-bold tracking-wide ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Duração Restante</span>
+                      <span className={`text-sm font-extrabold font-mono ${isNearingExpiration ? 'text-amber-600' : (isDark ? 'text-white' : 'text-slate-850')}`}>
                         {player.contractMonths} Splits / Meses
                       </span>
                     </div>
@@ -2082,37 +2110,37 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
 
           {/* Visa Center Progress & Immigration submissions */}
           <div id="visa-processing-center" className="lg:col-span-4 space-y-4">
-            <span className="block text-[10px] uppercase font-black tracking-widest text-indigo-400">✈️ Centro de Processamento de Vistos Governamentais</span>
+            <span className="block text-[10px] uppercase font-black tracking-widest text-[#00cbd6]">✈️ Centro de Processamento de Vistos Governamentais</span>
             
             {/* Display list of Waitlisted imported players needing visa approval */}
-            <div className="space-y-3.5 p-4 rounded-xl bg-slate-950/45 border border-[#1e2d44]/55 text-[10.5px]">
-              <span className="block text-[9.5px] font-bold text-slate-300">Candidato Estrangeiro Descoberto</span>
+            <div className={`space-y-3.5 p-4 rounded-xl border text-[10.5px] ${isDark ? 'bg-slate-950/45 border-[#1e2d44]/55' : 'bg-slate-50 border-slate-200'}`}>
+              <span className={`block text-[9.5px] font-bold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Candidatos Estrangeiros Descobertos</span>
               
               {importsEligibleForVisa.length > 0 ? (
-                <div className="space-y-3 border-b border-[#1e2d44]/40 pb-3">
+                <div className={`space-y-3 border-b pb-3 ${isDark ? 'border-[#1e2d44]/40' : 'border-slate-200'}`}>
                   {importsEligibleForVisa.map((player) => (
-                    <div key={player.id} className="p-2.5 rounded bg-slate-900 flex justify-between items-center">
+                    <div key={player.id} className={`p-2.5 rounded flex justify-between items-center ${isDark ? 'bg-slate-900' : 'bg-white border border-slate-150'}`}>
                       <div>
-                        <h6 className="font-extrabold text-white uppercase">{player.name}</h6>
-                        <p className="text-[8.5px] text-slate-400">{player.nationality} • OVR {player.overallRating}</p>
+                        <h6 className={`font-extrabold uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>{player.name}</h6>
+                        <p className={`text-[8.5px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{player.nationality} • OVR {player.overallRating}</p>
                       </div>
                       <div className="flex flex-col gap-1">
                         <button
                           onClick={() => applyImportVisa(player, 'P-1')}
-                          className="px-2 py-1 text-[8px] bg-sky-50/20 hover:bg-sky-500/35 border border-sky-400/30 text-sky-400 rounded uppercase font-extrabold cursor-pointer text-center"
+                          className="px-2 py-1 text-[8px] bg-sky-20/20 hover:bg-sky-500/25 border border-sky-400/30 text-sky-550 rounded uppercase font-extrabold cursor-pointer text-center"
                         >
-                          P-1 (Barato / 3 Sem)
+                          P-1 (3 Sem)
                         </button>
                         <button
                           onClick={() => applyImportVisa(player, 'EB-1')}
                           disabled={player.overallRating < 84}
                           className={`px-2 py-1 text-[8px] rounded uppercase font-extrabold text-center ${
                             player.overallRating >= 84 
-                            ? 'bg-amber-500/20 hover:bg-amber-505 border border-amber-400/30 text-amber-400 cursor-pointer' 
-                            : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                            ? 'bg-amber-500/20 hover:bg-amber-500 border border-amber-400/30 text-amber-600 cursor-pointer' 
+                            : 'bg-slate-350 text-slate-500 cursor-not-allowed'
                           }`}
                         >
-                          EB-1 (Urgente / 1 Sem)
+                          EB-1 (1 Sem)
                         </button>
                       </div>
                     </div>
@@ -2123,24 +2151,24 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
               )}
 
               {/* Visa Applications Waiting Queue */}
-              <div className="space-y-2.5 border-b border-[#1e2d44]/40 pb-3">
-                <span className="block text-[9.5px] font-black uppercase text-indigo-400">Processos de Visto em Análise Consulado ({playerTeam.vistasAwaiting?.length || 0})</span>
+              <div className={`space-y-2.5 border-b pb-3 ${isDark ? 'border-[#1e2d44]/40' : 'border-slate-200'}`}>
+                <span className="block text-[9.5px] font-black uppercase text-indigo-500">Processos de Visto em Análise Consulado ({playerTeam.vistasAwaiting?.length || 0})</span>
                 {playerTeam.vistasAwaiting && playerTeam.vistasAwaiting.length > 0 ? (
                   <div className="space-y-2">
                     {playerTeam.vistasAwaiting.map((app) => (
-                      <div key={app.id} className="p-2 border border-slate-800 rounded bg-slate-950/60 font-mono text-[10px]">
-                        <div className="flex justify-between items-center text-white font-bold pb-1 uppercase">
+                      <div key={app.id} className={`p-2 border rounded font-mono text-[10px] ${isDark ? 'border-slate-850 bg-slate-950/60' : 'border-slate-200 bg-white'}`}>
+                        <div className={`flex justify-between items-center font-bold pb-1 uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>
                           <span>{app.name} ({app.type})</span>
-                          <span className="text-sky-400">{app.weeksRemaining} Semanas</span>
+                          <span className="text-sky-550">{app.weeksRemaining} Semanas</span>
                         </div>
-                        <div className="w-full bg-slate-850 h-1.5 rounded overflow-hidden">
+                        <div className={`w-full h-1.5 rounded overflow-hidden ${isDark ? 'bg-slate-850' : 'bg-slate-200'}`}>
                           <div 
                             className="bg-sky-400 h-full" 
                             style={{ width: `${Math.round(((app.type === 'P-1' ? 3 : 1) - app.weeksRemaining) / (app.type === 'P-1' ? 3 : 1) * 100)}%` }}
                           />
                         </div>
                         {app.hasDocumentationRequest && (
-                          <span className="text-[8.5px] text-red-400 font-sans font-bold block pt-1 animate-pulse">⚠️ Exigência Consular Acionada (Atrasado +1 Sem)</span>
+                          <span className="text-[8.5px] text-red-500 font-sans font-bold block pt-1 animate-pulse">⚠️ Exigência Consular Acionada (Atrasado +1 Sem)</span>
                         )}
                       </div>
                     ))}
@@ -2151,17 +2179,17 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
               </div>
 
               {/* INTEGRATED INTERACTIVE VISA STATUS MONITOR & SORT SELECTOR */}
-              <div className="space-y-3 pt-2 pb-3 border-b border-[#1e2d44]/40">
+              <div className={`space-y-3 pt-2 pb-3 border-b ${isDark ? 'border-[#1e2d44]/40' : 'border-slate-205'}`}>
                 <div className="flex justify-between items-center">
-                  <span className="block text-[9.5px] font-black uppercase text-indigo-400">
+                  <span className="block text-[9.5px] font-black uppercase text-indigo-500">
                     📋 Monitor Integrado de Validade e Status (Alertas)
                   </span>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[8px] font-bold text-slate-400 uppercase">Ordenação:</span>
+                    <span className={`text-[8px] font-bold uppercase ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Ordenação:</span>
                     <select 
                       value={visaSortOrder}
                       onChange={(e) => setVisaSortOrder(e.target.value as 'expiry_asc' | 'expiry_desc')}
-                      className="bg-[#070d19] border border-[#1e2d44] text-[8.5px] font-mono text-[#00cbd6] font-extrabold rounded px-1.5 py-0.5 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                      className={`border text-[8.5px] font-mono text-[#00cbd6] font-extrabold rounded px-1.5 py-0.5 focus:outline-none focus:border-indigo-500 cursor-pointer ${isDark ? 'bg-[#070d19] border-[#1e2d44]' : 'bg-white border-slate-200'}`}
                     >
                       <option value="expiry_asc">Imediato / Crítico (Asc)</option>
                       <option value="expiry_desc">Maior Validade (Desc)</option>
@@ -2179,34 +2207,34 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
                         <div className="flex items-center gap-2">
                           {visa.status === 'Concluído' ? (
                             <div className="w-5 h-5 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shrink-0">
-                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              <Check className="w-3.5 h-3.5 text-emerald-500" />
                             </div>
                           ) : visa.subStatus === 'Sem Visto Ativo' ? (
                             <div className="w-5 h-5 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center shrink-0 animate-pulse">
-                              <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
+                              <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
                             </div>
                           ) : (
                             <div className="w-5 h-5 rounded-full bg-yellow-400/10 border border-yellow-400/30 flex items-center justify-center shrink-0">
-                              <Clock className="w-3.5 h-3.5 text-yellow-500 animate-pulse" />
+                              <Clock className="w-3.5 h-3.5 text-yellow-600 animate-pulse" />
                             </div>
                           )}
                           
                           <div>
                             <div className="flex items-center gap-1.5">
-                              <span className="font-extrabold text-white uppercase">{visa.name}</span>
-                              <span className={`text-[8.5px] font-mono font-bold uppercase ${visa.status === 'Concluído' ? 'text-emerald-400' : 'text-red-405'}`}>[{visa.status}]</span>
+                              <span className={`font-extrabold uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>{visa.name}</span>
+                              <span className={`text-[8.5px] font-mono font-bold uppercase ${visa.status === 'Concluído' ? 'text-emerald-600' : 'text-red-500'}`}>[{visa.status}]</span>
                             </div>
-                            <div className="flex items-center gap-2 text-[8.5px] text-slate-400">
-                              <span>Classe: <span className="text-slate-300 font-semibold">{visa.type}</span></span>
+                            <div className={`flex items-center gap-2 text-[8.5px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                              <span>Classe: <span className="font-semibold">{visa.type}</span></span>
                               <span>•</span>
-                              <span className="font-bold text-slate-300">{visa.subStatus}</span>
+                              <span className="font-bold">{visa.subStatus}</span>
                             </div>
                           </div>
                         </div>
 
                         <div className="text-right">
-                          <span className="block text-[8px] uppercase text-slate-400 font-bold tracking-wider">Restante</span>
-                          <span className={`font-mono font-black text-[10px] ${visa.isCritical ? 'text-red-400' : 'text-emerald-400'}`}>
+                          <span className={`block text-[8px] uppercase font-bold tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Restante</span>
+                          <span className={`font-mono font-black text-[10px] ${visa.isCritical ? 'text-red-500' : 'text-emerald-600'}`}>
                             {visa.expiryLabel}
                           </span>
                         </div>
@@ -2214,7 +2242,7 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
                     ))}
                   </div>
                 ) : (
-                  <p className="text-[10px] text-slate-500 italic">Nenhum atleta estrangeiro integrado ao elenco principal atualmente.</p>
+                  <p className="text-[10px] text-slate-505 italic">Nenhum atleta estrangeiro integrado ao elenco principal atualmente.</p>
                 )}
               </div>
 
@@ -2346,10 +2374,10 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Fan Shop Pricing Controls */}
-        <div className="lg:col-span-6 bg-[#0a1424] border border-[#1e2d44] rounded-xl p-5 shadow-md space-y-5">
-          <div className="border-b border-[#1e2d44] pb-3 flex items-center gap-2">
+        <div className={`lg:col-span-6 border rounded-xl p-5 shadow-md space-y-5 ${isDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200'}`}>
+          <div className={`border-b pb-3 flex items-center gap-2 ${isDark ? 'border-[#1e2d44]' : 'border-slate-100'}`}>
             <Store className="w-5 h-5 text-[#00cbd6]" />
-            <h3 className="text-xs uppercase font-extrabold text-white">Gere Loja de Merchandising (Fan Shop)</h3>
+            <h3 className={`text-xs uppercase font-extrabold ${isDark ? 'text-white' : 'text-slate-800'}`}>Gere Loja de Merchandising (Fan Shop)</h3>
           </div>
 
           <div className="space-y-4">
@@ -2357,8 +2385,8 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
             {/* Jersey pricing */}
             <div className="space-y-1.5">
               <div className="flex justify-between text-xs font-semibold">
-                <span className="text-slate-400">Preço da Camisa Oficial (Jersey)</span>
-                <span className="text-white font-mono font-bold">$ {jerseyPrice} dólares</span>
+                <span className={`${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Preço da Camisa Oficial (Jersey)</span>
+                <span className={`font-mono font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>$ {jerseyPrice} dólares</span>
               </div>
               <input 
                 type="range" 
@@ -2377,8 +2405,8 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
             {/* Custom pricing: Produtos Licenciados instead of ticketPrice Arena */}
             <div className="space-y-1.5">
               <div className="flex justify-between text-xs font-semibold">
-                <span className="text-slate-400">Preço de Produtos Licenciados</span>
-                <span className="text-white font-mono font-bold">$ {ticketPrice} dólares</span>
+                <span className={`${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Preço de Produtos Licenciados</span>
+                <span className={`font-mono font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>$ {ticketPrice} dólares</span>
               </div>
               <input 
                 type="range" 
@@ -2394,56 +2422,56 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
               />
             </div>
 
-            <p className="text-[10.5px] text-slate-400 italic bg-slate-500/5 p-3 rounded-lg border border-slate-205/10 leading-relaxed">
+            <p className={`p-3 rounded-lg border leading-relaxed text-[10.5px] ${isDark ? 'bg-slate-500/5 border-slate-800/40 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-650'}`}>
               💡 Nota de Marketing: Preços altos em vestuário e colecionáveis oficiais aumentam os fluxos comerciais na vitória, mas causam perda drástica de suporte e popularidade nas semanas em derrota de split. Encontre o equilíbrio ideal de mercado!
             </p>
           </div>
         </div>
 
         {/* Board Room */}
-        <div className="lg:col-span-6 bg-[#0a1424] border border-[#1e2d44] rounded-xl p-5 shadow-md space-y-5">
-          <div className="border-b border-[#1e2d44] pb-3 flex items-center gap-2">
+        <div className={`lg:col-span-6 border rounded-xl p-5 shadow-md space-y-5 ${isDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200'}`}>
+          <div className={`border-b pb-3 flex items-center gap-2 ${isDark ? 'border-[#1e2d44]' : 'border-slate-100'}`}>
             <Users className="w-5 h-5 text-indigo-400" />
-            <h3 className="text-xs uppercase font-extrabold text-white">Sala de Reuniões Táticas (Board Room)</h3>
+            <h3 className={`text-xs uppercase font-extrabold ${isDark ? 'text-white' : 'text-slate-800'}`}>Sala de Reuniões Táticas (Board Room)</h3>
           </div>
 
           <div className="space-y-3">
             <button 
               onClick={() => pitchBoardRoom('budget')}
-              className="w-full text-left p-3 rounded-lg border border-[#1e2d44] bg-[#070d19] hover:bg-slate-800/20 text-xs font-bold text-white flex justify-between items-center transition-all cursor-pointer"
+              className={`w-full text-left p-3 rounded-lg border text-xs font-bold flex justify-between items-center transition-all cursor-pointer ${isDark ? 'border-[#1e2d44] bg-[#070d19] hover:bg-slate-800/20 text-white' : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-850'}`}
             >
               <div>
                 <p>Requisitar Orçamento de Emergência</p>
-                <p className="text-[9.5px] text-slate-400 font-normal mt-1 text-slate-500 font-mono">Exige Confiança &ge; 80% • Custo: -15 Confiança</p>
+                <p className={`text-[9.5px] font-normal mt-1 font-mono ${isDark ? 'text-slate-400' : 'text-slate-550'}`}>Exige Confiança &ge; 80% • Custo: -15 Confiança</p>
               </div>
               <ChevronRight className="w-4 h-4 text-slate-500" />
             </button>
 
             <button 
               onClick={() => pitchBoardRoom('patience')}
-              className="w-full text-left p-3 rounded-lg border border-[#1e2d44] bg-[#070d19] hover:bg-slate-800/20 text-xs font-bold text-white flex justify-between items-center transition-all cursor-pointer"
+              className={`w-full text-left p-3 rounded-lg border text-xs font-bold flex justify-between items-center transition-all cursor-pointer ${isDark ? 'border-[#1e2d44] bg-[#070d19] hover:bg-slate-800/20 text-white' : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-850'}`}
             >
               <div>
                 <p>Clamar por Voto de Confiança temporária</p>
-                <p className="text-[9.5px] text-slate-400 font-normal mt-1 text-slate-500 font-mono">Exige Confiança &lt; 50% • Restabelece para 60%</p>
+                <p className={`text-[9.5px] font-normal mt-1 font-mono ${isDark ? 'text-slate-400' : 'text-slate-550'}`}>Exige Confiança &lt; 50% • Restabelece para 60%</p>
               </div>
               <ChevronRight className="w-4 h-4 text-slate-500" />
             </button>
 
             <button 
               onClick={() => pitchBoardRoom('youth_grant')}
-              className="w-full text-left p-3 rounded-lg border border-[#1e2d44] bg-[#070d19] hover:bg-slate-800/20 text-xs font-bold text-white flex justify-between items-center transition-all cursor-pointer"
+              className={`w-full text-left p-3 rounded-lg border text-xs font-bold flex justify-between items-center transition-all cursor-pointer ${isDark ? 'border-[#1e2d44] bg-[#070d19] hover:bg-slate-800/20 text-white' : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-850'}`}
             >
               <div>
                 <p>Pleitear fomento para a Base Escolar</p>
-                <p className="text-[9.5px] text-slate-400 font-normal mt-1 text-slate-500 font-mono">Exige Popularidade &ge; 75% • Custo: -10 Confiança</p>
+                <p className={`text-[9.5px] font-normal mt-1 font-mono ${isDark ? 'text-slate-400' : 'text-slate-550'}`}>Exige Popularidade &ge; 75% • Custo: -10 Confiança</p>
               </div>
               <ChevronRight className="w-4 h-4 text-slate-500" />
             </button>
           </div>
 
           {localPitchAnswer && (
-            <div className="p-3.5 bg-sky-500/10 border border-sky-400/20 text-[11px] font-semibold text-white rounded-lg flex gap-2 items-start leading-relaxed animate-fade-in">
+            <div className={`p-3.5 border text-[11px] font-semibold rounded-lg flex gap-2 items-start leading-relaxed animate-fade-in ${isDark ? 'bg-sky-500/10 border-sky-400/20 text-white' : 'bg-sky-50 border-sky-200 text-slate-800'}`}>
               <AlertCircle className="w-4.5 h-4.5 text-[#00cbd6] shrink-0" />
               <div>{localPitchAnswer}</div>
             </div>

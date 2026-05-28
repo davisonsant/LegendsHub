@@ -31,7 +31,6 @@ import CalendarTab from './components/CalendarTab';
 import EditorTab from './components/EditorTab';
 import DraftTab from './components/DraftTab';
 import MatchCenterTab from './components/MatchCenterTab';
-import SettingsScreen from './components/SettingsScreen';
 import MatchSimulatorFlow from './components/MatchSimulatorFlow';
 
 // Custom Multi-tabs integration
@@ -725,7 +724,7 @@ export default function App() {
     const exemptTabs = [
       'Central de Empregos', 'Calendário', 'Liga', 'Times', 
       'Estatísticas', 'Últimas Partidas', 'Meta', 'Carreira', 
-      'Salvar Jogo', 'Configurações'
+      'Salvar Jogo'
     ];
     if (!playerTeam && !exemptTabs.includes(activeTab)) {
       return (
@@ -996,90 +995,18 @@ export default function App() {
             } as any)}
           />
         );
-      case 'Configurações':
-        return (
-          <SettingsScreen
-            gameState={gameState}
-            onUpdateTeams={updateTeamsHandler}
-            onUpdateSponsors={updateSponsorsHandler}
-            onUpdateGameState={(nextState) => {
-              setGameState(nextState);
-              if (nextState) {
-                saveGameToSlot(1, nextState);
-              }
-            }}
-            theme={theme}
-            setTheme={setTheme}
-            onBack={() => {
-              setActiveTab('Central do Manager');
-            }}
-            onManualSave={(slotIdx) => {
-              if (gameState) {
-                saveGameToSlot(slotIdx, gameState);
-                const title = localStorage.getItem('legendshub_lang') === 'es' ? '💾 Partida Guardada' : '💾 Jogo Salvo';
-                const desc = localStorage.getItem('legendshub_lang') === 'es' 
-                  ? `Progreso guardado con éxito en el Slot ${slotIdx}.` 
-                  : `Progresso salvo com sucesso no Slot ${slotIdx}.`;
-                triggerNotification(title, desc);
-              }
-            }}
-          />
-        );
       default:
         return null;
     }
   };
-
-  // LAUNCHERS CONFIGS SETTINGS
-  if (screen === 'SETTINGS') {
-    return (
-      <SettingsScreen
-        gameState={gameState}
-        onUpdateTeams={updateTeamsHandler}
-        onUpdateSponsors={updateSponsorsHandler}
-        onUpdateGameState={(nextState) => {
-          setGameState(nextState);
-          // Auto-save to slot 1 if playing
-          if (nextState) {
-            saveGameToSlot(1, nextState);
-          }
-        }}
-        theme={theme}
-        setTheme={setTheme}
-        onBack={() => {
-          if (gameState) {
-             setScreen('HUB');
-          } else {
-             setScreen('LAUNCHER');
-          }
-        }}
-        onManualSave={(slotIdx) => {
-          if (gameState) {
-            saveGameToSlot(slotIdx, gameState);
-            const title = localStorage.getItem('legendshub_lang') === 'es' ? '💾 Partida Guardada' : '💾 Jogo Salvo';
-            const desc = localStorage.getItem('legendshub_lang') === 'es' 
-              ? `Progreso guardado con éxito en el Slot ${slotIdx}.` 
-              : `Progresso salvo com sucesso no Slot ${slotIdx}.`;
-            triggerNotification(title, desc);
-          }
-        }}
-      />
-    );
-  }
 
   if (screen === 'LAUNCHER' || !gameState) {
     return (
       <HomeLauncher
         onStartNewGame={handleStartNewGame}
         onLoadGame={handleLoadGame}
-        onOpenEditor={() => {
-          // pre initialize an empty game so editor loads default database templates
-          const partial = initializeNewGame('Alex Rivers', 'cblol_pain', 'CBLOL', 2025);
-          setGameState(partial);
-          setScreen('HUB');
-          setActiveTab('Configurações');
-        }}
-        onOpenSettings={() => setScreen('SETTINGS')}
+        onOpenEditor={() => {}}
+        onOpenSettings={() => {}}
       />
     );
   }
@@ -1143,8 +1070,7 @@ export default function App() {
               { id: 'Últimas Partidas', title: 'Últimas Partidas', icon: History },
               { id: 'Meta', title: 'Meta', icon: Sliders },
               { id: 'Carreira', title: 'Carreira', icon: Medal },
-              { id: 'Salvar Jogo', title: 'Salvar Jogo', icon: Save },
-              { id: 'Configurações', title: 'Configurações', icon: Settings }
+              { id: 'Salvar Jogo', title: 'Salvar Jogo', icon: Save }
             ].map((link) => {
               const Icon = link.icon;
               const isCurrent = activeTab === link.id;

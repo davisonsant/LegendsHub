@@ -23,9 +23,11 @@ import {
   Clock, 
   Award, 
   Radio,
-  Terminal
+  Terminal,
+  Globe
 } from 'lucide-react';
 import { GameState, InterviewQuestion, Team } from '../types';
+import { getOrCreateWeekFeedState, RssFeedX, MarqueeNews } from '../utils/feedHelper';
 import { formatMoney } from '../utils/currency';
 import { INTERVIEW_QUESTIONS } from '../data/initialDatabase';
 
@@ -311,6 +313,8 @@ export default function DashboardTab({
   })();
 
   const t = TRANSLATIONS[lang];
+
+  const unifiedFeed = getOrCreateWeekFeedState(gameState, lang);
 
   const [isConsoleExpanded, setIsConsoleExpanded] = useState(false);
   const [showManagerGuide, setShowManagerGuide] = useState(() => {
@@ -1239,59 +1243,28 @@ export default function DashboardTab({
         <div className="lg:col-span-4 space-y-6">
           
           {/* CBLOL FANS FEED - Mapped to Comunidade */}
-          <div className={`${isDark ? 'bg-[#0a1424] border border-[#1e2d44]' : 'bg-white border border-slate-200'} rounded-xl p-5 shadow-sm flex flex-col justify-between h-[510px]`}>
-            <div>
+          <div className={`${isDark ? 'bg-[#0a1424] border border-[#1e2d44]' : 'bg-white border border-slate-200'} rounded-xl p-5 shadow-sm flex flex-col h-[510px] overflow-hidden`}>
+            <div className="shrink-0">
               <div 
                 onClick={() => onSelectTab('Comunidade')}
-                className={`flex justify-between items-center mb-4 pb-3 border-b ${s.borderLine} cursor-pointer group`}
+                className={`flex justify-between items-center mb-4 pb-3 border-b ${s.borderLine} cursor-pointer group gap-2`}
               >
-                <h4 className={`font-display text-xs font-black uppercase tracking-wider ${s.textWhiteOrSlate} group-hover:text-blue-500 transition-colors`}>
-                  {t.feedXTitle}
-                </h4>
-                <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
-              </div>
-
-              {/* Feed lists with influencers specified in instructions */}
-              <div className="space-y-4 max-h-[365px] overflow-y-auto pr-1">
-                {proceduralTweets.slice(0, newsFeedCount).map((post) => (
-                  <div key={post.id} className={`${isDark ? 'bg-slate-900/60 border-slate-700/60 hover:border-blue-500' : 'bg-slate-50 border-slate-200 hover:border-blue-300'} border rounded-xl p-4 space-y-2 relative overflow-hidden group transition-all`}>
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-md overflow-hidden border border-slate-200/50 shrink-0">
-                        <img 
-                          src={post.profile_image_url} 
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = post.avatarUrl;
-                          }}
-                          referrerPolicy="no-referrer" 
-                          alt="avatar" 
-                          className="w-full h-full object-cover" 
-                        />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1 truncate">
-                          <p className={`text-[11px] font-extrabold ${s.textWhiteOrSlate} leading-tight truncate`}>{post.username}</p>
-                          {post.verified && (
-                            <span className="text-[7.5px] bg-blue-500/10 text-blue-500 border border-blue-500/25 rounded px-1 shrink-0 scale-90">✓</span>
-                          )}
-                        </div>
-                        <p className={`text-[9.5px] ${s.textMuted} font-mono tracking-tight`}>{post.handle}</p>
-                      </div>
-                    </div>
-                    <p className={`${isDark ? 'text-slate-300' : 'text-slate-650'} text-xs leading-normal`}>
-                      {post.content}
-                    </p>
-                    <div className={`flex justify-between text-[10px] ${s.textMuted} pt-1.5 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'} font-medium`}>
-                      <span>❤️ {post.likes}</span>
-                      <span>🔄 {post.retweets}</span>
-                      <span className="font-mono">{post.timeAgo}</span>
-                    </div>
-                  </div>
-                ))}
+                <div className="flex items-center gap-2 min-w-0">
+                  <Globe className="w-4 h-4 text-cyan-500 animate-pulse shrink-0" />
+                  <h4 className={`font-display text-xs font-black uppercase tracking-wider ${s.textWhiteOrSlate} group-hover:text-cyan-500 transition-colors truncate`}>
+                    REDE SOCIAL: FEED DO X (Twitter)
+                  </h4>
+                </div>
+                <span className="text-[7.5px] font-black uppercase tracking-widest text-cyan-600 dark:text-cyan-400 shrink-0 font-mono text-right">
+                  ROLAGEM VERTICAL EM LOOP INFINITO / MARQUEE
+                </span>
               </div>
             </div>
 
+            <RssFeedX tweets={unifiedFeed.tweets} isDark={isDark} />
+
             {/* Load more news feeds */}
-            <div className={`pt-4 border-t ${s.borderLine} flex justify-center`}>
+            <div className={`pt-4 mt-3 border-t ${s.borderLine} flex justify-center shrink-0`}>
               <button
                 onClick={() => onSelectTab('Comunidade')}
                 className="text-[10px] text-blue-500 hover:underline uppercase font-bold tracking-widest flex items-center gap-1 cursor-pointer"
@@ -1302,66 +1275,28 @@ export default function DashboardTab({
           </div>
 
           {/* SALA DE IMPRENSA / PRESS ROOM - Mapped to Gaming Office */}
-          <div className={`${isDark ? 'bg-[#0a1424] border border-[#1e2d44]' : 'bg-white border border-slate-200'} rounded-xl p-5 shadow-sm flex flex-col justify-between h-[510px]`}>
-            <div>
+          <div className={`${isDark ? 'bg-[#0a1424] border border-[#1e2d44]' : 'bg-white border border-slate-200'} rounded-xl p-5 shadow-sm flex flex-col h-[510px] overflow-hidden`}>
+            <div className="shrink-0">
               <div 
                 onClick={() => onSelectTab('Gaming Office')}
-                className={`flex justify-between items-center mb-4 pb-3 border-b ${s.borderLine} cursor-pointer group`}
+                className={`flex justify-between items-center mb-4 pb-3 border-b ${s.borderLine} cursor-pointer group gap-2`}
               >
-                <h4 className={`font-display text-xs font-black uppercase tracking-wider ${s.textWhiteOrSlate} group-hover:text-rose-500 transition-colors`}>
-                  {t.pressRoomPortalTitle}
-                </h4>
-                <div className="w-2.5 h-2.5 bg-rose-500 rounded-full animate-pulse" />
-              </div>
-
-              {/* Feed lists with credentials specified in instructions */}
-              <div className="space-y-4 max-h-[365px] overflow-y-auto pr-1">
-                {pressArticles.map((art) => (
-                  <div key={art.id} className={`${isDark ? 'bg-slate-900/60 border-slate-700/60' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3.5 space-y-2 relative overflow-hidden transition-all`}>
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <div className="w-5 h-5 rounded overflow-hidden bg-white/10 flex items-center justify-center shrink-0 border border-slate-200/25">
-                          <img 
-                            src={art.outlet_logo_url} 
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                              const parent = (e.target as HTMLElement).parentElement;
-                              if (parent) {
-                                parent.innerHTML = `<span class="text-[9px] font-black text-rose-500">${art.outlet[0]}</span>`;
-                              }
-                            }}
-                            referrerPolicy="no-referrer"
-                            alt="logo" 
-                            className="w-full h-full object-contain" 
-                          />
-                        </div>
-                        <span className="text-[10px] font-black uppercase text-rose-500 font-mono tracking-wider">
-                          {art.outlet}
-                        </span>
-                      </div>
-                      <div className="flex gap-1">
-                        {art.kpis.map((k, idx) => (
-                          <span key={idx} className={`text-[8.5px] font-extrabold font-mono px-1 py-0.5 rounded leading-none ${
-                            k.startsWith('-') ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'
-                          }`}>
-                            {k}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <p className={`text-[11.5px] font-extrabold leading-snug ${s.textWhiteOrSlate}`}>
-                      {art.headline}
-                    </p>
-                    <p className={`${isDark ? 'text-slate-400' : 'text-slate-600'} text-[11px] leading-relaxed italic`}>
-                      "{art.commentary}"
-                    </p>
-                  </div>
-                ))}
+                <div className="flex items-center gap-2 min-w-0">
+                  <Globe className="w-4 h-4 text-cyan-500 animate-pulse shrink-0" />
+                  <h4 className={`font-display text-xs font-black uppercase tracking-wider ${s.textWhiteOrSlate} group-hover:text-cyan-500 transition-colors truncate`}>
+                    SALA DE IMPRENSA
+                  </h4>
+                </div>
+                <span className="text-[7.5px] font-black uppercase tracking-widest text-cyan-600 dark:text-cyan-400 shrink-0 font-mono text-right">
+                  ROLAGEM VERTICAL EM LOOP INFINITO / MARQUEE
+                </span>
               </div>
             </div>
 
+            <MarqueeNews news={unifiedFeed.news} isDark={isDark} />
+
             {/* Load more press feeds */}
-            <div className={`pt-4 border-t ${s.borderLine} flex justify-center`}>
+            <div className={`pt-4 mt-3 border-t ${s.borderLine} flex justify-center shrink-0`}>
               <button
                 onClick={() => onSelectTab('Gaming Office')}
                 className="text-[10px] text-rose-500 hover:underline uppercase font-bold tracking-widest flex items-center gap-1 cursor-pointer"
@@ -1374,50 +1309,7 @@ export default function DashboardTab({
         </div>
       </div>
 
-      {/* COLLAPSIBLE DATABASE SAVE SYSTEM PREVIEW & DATA ENGINE INTEGRATED VISUALIZATION */}
-      <div className={`mt-8 ${isDark ? 'bg-[#060c14] border border-[#1e2d44]/60' : 'bg-slate-50 border border-slate-200'} rounded-xl p-5 shadow-sm`}>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
-              <Terminal className="w-4 h-4" />
-            </div>
-            <div>
-              <h4 className={`text-xs font-black uppercase tracking-wider ${s.textWhiteOrSlate}`}>
-                {t.jsonPayloadTitle}
-              </h4>
-              <p className={`text-[10px] ${s.textMuted} font-mono mt-0.5 leading-normal`}>
-                {t.apiSimTerminal}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setIsConsoleExpanded(!isConsoleExpanded)}
-            className={`px-4 py-2 text-[10px] uppercase font-mono font-black tracking-widest rounded-lg border shadow-sm transition-all cursor-pointer ${
-              isConsoleExpanded 
-                ? 'bg-rose-500/10 text-rose-500 border-rose-500/25 hover:bg-rose-500/20' 
-                : 'bg-indigo-600 hover:bg-indigo-700 text-white border-transparent'
-            }`}
-          >
-            {isConsoleExpanded ? t.ocultarPayload : t.exibirPayload}
-          </button>
-        </div>
-        <p className={`text-[11px] ${s.textMuted} mt-3.5 leading-normal max-w-4xl`}>
-          {t.apiDesc}
-        </p>
 
-        {isConsoleExpanded && (
-          <div className="mt-4 animate-fade-in space-y-2">
-            <div className="flex items-center justify-between text-[9px] font-mono font-bold text-slate-500 px-1 uppercase tracking-wider">
-              <span>STATUS: ONLINE</span>
-              <span>DATABASE_REGION: {playerTeam.region}</span>
-              <span>LANG_SET: {lang.toUpperCase()}</span>
-            </div>
-            <pre className={`bg-slate-950/95 text-emerald-400 p-4 rounded-lg overflow-x-auto text-[11px] font-mono border ${isDark ? 'border-slate-800' : 'border-slate-200'} shadow-inner max-h-[350px] leading-relaxed`}>
-              {JSON.stringify(liveJsonResponse, null, 2)}
-            </pre>
-          </div>
-        )}
-      </div>
 
       {/* ONBOARDING DIALOG: GUIA DO MANAGER */}
       {showManagerGuide && (

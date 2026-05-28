@@ -271,4 +271,25 @@ export interface GameState {
     caixa_bruto?: number;
     caixa_formatado_hud?: string;
   };
+  current_week_feed_state?: {
+    tweets: {
+      id: string;
+      username: string;
+      handle: string;
+      avatar: string;
+      content: string;
+      likes: number;
+      retweets: number;
+      timeAgo: string;
+      sentiment: 'positive' | 'negative' | 'neutral';
+      verified?: boolean;
+    }[];
+    news: {
+      id: string;
+      portal_nome: string;
+      manchete_texto: string;
+      tempo_passado: string;
+      impacto_reputacao: 'positivo' | 'negativo' | 'neutro';
+    }[];
+  };
 }
