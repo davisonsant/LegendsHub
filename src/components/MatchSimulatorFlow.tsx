@@ -89,15 +89,21 @@ export default function MatchSimulatorFlow({
 
   // X-2 DRAFT STATE
   const draftSteps = [
-    'BAN_B1', 'BAN_R1', 'BAN_B2', 'BAN_R2',
+    // Phase 1 Bans
+    'BAN_B1', 'BAN_R1', 'BAN_B2', 'BAN_R2', 'BAN_B3', 'BAN_R3',
+    // Phase 1 Picks
     'PICK_TOP_B', 'PICK_TOP_R',
     'PICK_JNG_B', 'PICK_JNG_R',
     'PICK_MID_B', 'PICK_MID_R',
+    // Phase 2 Bans
+    'BAN_R4', 'BAN_B4', 'BAN_R5', 'BAN_B5',
+    // Phase 2 Picks
     'PICK_ADC_B', 'PICK_ADC_R',
     'PICK_SUP_B', 'PICK_SUP_R'
   ];
   const [draftStepIndex, setDraftStepIndex] = useState(0);
-  const [bans, setBans] = useState<string[]>([]);
+  const [blueBans, setBlueBans] = useState<string[]>([]);
+  const [redBans, setRedBans] = useState<string[]>([]);
   const [bluePicks, setBluePicks] = useState<{ [key in Position]?: string }>({});
   const [redPicks, setRedPicks] = useState<{ [key in Position]?: string }>({});
   const [focusedChampId, setFocusedChampId] = useState<string | null>(null);
@@ -161,13 +167,13 @@ export default function MatchSimulatorFlow({
     }
 
     const currentStepStr = draftSteps[draftStepIndex];
+    if (!currentStepStr) return;
+    const isBlueStep = currentStepStr.includes('_B');
+    const isRedStep = currentStepStr.includes('_R');
+
     const isBotTurn = 
-      (currentStepStr.endsWith('R') && isPlayerBlue) || 
-      (currentStepStr.endsWith('B') && !isPlayerBlue) ||
-      (currentStepStr === 'BAN_R1' && isPlayerBlue) ||
-      (currentStepStr === 'BAN_R2' && isPlayerBlue) ||
-      (currentStepStr === 'BAN_B1' && !isPlayerBlue) ||
-      (currentStepStr === 'BAN_B2' && !isPlayerBlue);
+      (isBlueStep && !isPlayerBlue) || 
+      (isRedStep && isPlayerBlue);
 
     if (isBotTurn) {
       const timer = setTimeout(() => {
@@ -179,14 +185,20 @@ export default function MatchSimulatorFlow({
 
   const executeBotDraftChoice = () => {
     const stepStr = draftSteps[draftStepIndex];
-    const unavailable = [...bans, ...Object.values(bluePicks), ...Object.values(redPicks), ...selectedChampsInSeries].filter(Boolean) as string[];
+    if (!stepStr) return;
+    const bannedChampIds = [...blueBans, ...redBans];
+    const unavailable = [...bannedChampIds, ...Object.values(bluePicks), ...Object.values(redPicks), ...selectedChampsInSeries].filter(Boolean) as string[];
     const candidates = championsToUse.filter(c => !unavailable.includes(c.id));
 
     if (stepStr.startsWith('BAN')) {
       const sorted = [...candidates].sort((a, b) => b.power - a.power);
       const chosenBan = sorted[0]?.id || candidates[0]?.id;
       if (chosenBan) {
-        setBans(prev => [...prev, chosenBan]);
+        if (stepStr.includes('_B')) {
+          setBlueBans(prev => [...prev, chosenBan]);
+        } else {
+          setRedBans(prev => [...prev, chosenBan]);
+        }
         setDraftStepIndex(i => i + 1);
       }
     } else {
@@ -205,12 +217,18 @@ export default function MatchSimulatorFlow({
   };
 
   const handleSelectChampionUser = (champId: string) => {
-    const unavailable = [...bans, ...Object.values(bluePicks), ...Object.values(redPicks), ...selectedChampsInSeries].filter(Boolean) as string[];
+    const bannedChampIds = [...blueBans, ...redBans];
+    const unavailable = [...bannedChampIds, ...Object.values(bluePicks), ...Object.values(redPicks), ...selectedChampsInSeries].filter(Boolean) as string[];
     if (unavailable.includes(champId)) return;
 
     const stepStr = draftSteps[draftStepIndex];
+    if (!stepStr) return;
     if (stepStr.startsWith('BAN')) {
-      setBans(prev => [...prev, champId]);
+      if (stepStr.includes('_B')) {
+        setBlueBans(prev => [...prev, champId]);
+      } else {
+        setRedBans(prev => [...prev, champId]);
+      }
       setDraftStepIndex(i => i + 1);
     } else {
       const posExtract = stepStr.split('_')[1] as Position;
@@ -432,7 +450,8 @@ export default function MatchSimulatorFlow({
     } else {
       // Loop back with incremented game counter
       setCurrentGameIndex(idx => idx + 1);
-      setBans([]);
+      setBlueBans([]);
+      setRedBans([]);
       setBluePicks({});
       setRedPicks({});
       setActiveMinute(0);
@@ -441,10 +460,6 @@ export default function MatchSimulatorFlow({
       setCurrentStep('BRIEFING');
     }
   };
-
-  // Split bans
-  const blueBans = bans.filter((_, idx) => idx % 2 === 0);
-  const redBans = bans.filter((_, idx) => idx % 2 === 1);
 
   // Formatting helpers for narration log rows
   const formatLogRow = (log: MatchLog) => {
@@ -466,7 +481,7 @@ export default function MatchSimulatorFlow({
         text = `${text} [PULSING ALERT]`;
       }
       text = text.replace('[SUCCESS]', '');
-      textColorClass = 'text-red-500 font-extrabold bg-red-500/10 border border-red-500/20 px-2.5 py-1 rounded block mb-1';
+      textColorClass = 'text-red-500 font-extrabold bg-red-500/10 border border-red-550/20 px-2.5 py-1 rounded block mb-1';
       isPulsing = true;
       label = 'CLASH';
     } else {
@@ -492,36 +507,15 @@ export default function MatchSimulatorFlow({
     return images[seed % images.length];
   };
 
-  const getAIExplainMatchup = (fid: string) => {
-    const ch = championsToUse.find(c => c.id === fid);
-    if (!ch) return "Selecione um campeão para ver a análise estratégica da IA.";
-    const clist = ch.counters.map(c => c.toUpperCase()).join(', ');
-    const slist = ch.synergies.map(s => s.toUpperCase()).join(', ');
-    return `EXPLICAÇÃO SENSÍVEL DE LOCK-IN COM ${ch.name.toUpperCase()}: É forte nas lutas, tendo counters recomendados como: ${clist}. Possui forte sinergia com ${slist}. Playstyle ideal: ${ch.idealPlaystyle}`;
-  };
-
-  const getAICountersRecommended = (fid: string | null) => {
-    const listFallback = [
-      { champion: "Ezreal", role: "Jinx Counter", desc: "Meos monnvester pareielign ses counter assode matchups." },
-      { champion: "Graves", role: "Lee Sin Counter", desc: "Idos Counter, oecepeto de teameleretes matchups." },
-      { champion: "Ezreal", role: "Jinx Counter", desc: "Jins counter, sooxxt atrengico." }
-    ];
-    if (!fid) return listFallback;
-    const ch = championsToUse.find(c => c.id === fid);
-    if (!ch) return listFallback;
-    return [
-      { champion: ch.counters[0] ? ch.counters[0].toUpperCase() : 'EZREAL', role: `${ch.name} Counter`, desc: `Excelente matchup recomendado para conter a presença e mitigação de ${ch.name} no game.` },
-      { champion: ch.synergies[0] ? ch.synergies[0].toUpperCase() : 'GRAVES', role: `${ch.name} Sinergista`, desc: `Parceiro de rota ou selva perfeito que maximiza a agressividade nas skirmishes táticas.` },
-      { champion: 'AETHER', role: 'Flex Pick', desc: 'Opção excelente de neutralização para flexibilizar a rota.' }
-    ];
-  };
-
   // Dragon PNG lookup corresponding sequentially to index
   const getDragonConqueredList = (count: number) => {
     return DRAGON_FILES.slice(0, Math.min(count, 4));
   };
 
-  const currentOpBannedName = bans.length > 0 ? championsToUse.find(c => c.id === bans[bans.length - 1])?.name || 'LEE SIN' : 'LEE SIN';
+  const lastBanId = draftStepIndex - 1 >= 0 && draftSteps[draftStepIndex - 1]?.startsWith('BAN')
+    ? (draftSteps[draftStepIndex - 1].includes('_B') ? blueBans[blueBans.length - 1] : redBans[redBans.length - 1])
+    : null;
+  const currentOpBannedName = lastBanId ? championsToUse.find(c => c.id === lastBanId)?.name || 'LEE SIN' : 'LEE SIN';
 
   return (
     <div className={`min-h-screen font-sans select-none relative transition-colors duration-300 ${
@@ -707,7 +701,7 @@ export default function MatchSimulatorFlow({
       {currentStep === 'DRAFT' && (
         <div className="py-8 px-6">
           
-          {/* Topo: Exibição limpa de exatamente 6 BANIMENTOS totais do oponente */}
+          {/* Topo: Exibição limpa de exatamente 10 BANIMENTOS competitivos divididos em fases */}
           <div className={`p-4 rounded-xl border mb-6 flex flex-col md:flex-row items-center justify-between gap-4 ${
             isDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200'
           }`}>
@@ -716,23 +710,23 @@ export default function MatchSimulatorFlow({
               <span className="text-[10px] font-black tracking-widest text-red-500 uppercase">FASE DE BANIMENTOS</span>
             </div>
 
-            {/* Bans Blue Side */}
-            <div className="flex items-center gap-3">
-              <span className="text-[9px] font-black text-sky-400 uppercase">AZUL BANS:</span>
-              <div className="flex gap-2">
-                {[0, 1, 2].map(idx => {
+            {/* Bans Blue Side (5 total: 3 phase 1, 2 phase 2) */}
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-black text-sky-400 uppercase tracking-wider font-mono">AZUL BANS:</span>
+              <div className="flex gap-1.5 items-center">
+                {[0, 1, 2, 3, 4].map((idx, banIdx) => {
                   const bId = blueBans[idx];
                   return (
-                    <div key={idx} className="relative w-8 h-8 rounded-full border border-red-500/50 bg-red-500/10 overflow-hidden flex items-center justify-center shrink-0">
+                    <div key={idx} className={`relative w-7 h-7 rounded border border-rose-500/30 bg-rose-950/10 overflow-hidden flex items-center justify-center shrink-0 ${
+                      banIdx === 2 ? 'mr-2.5 border-r-2 border-rose-500/60' : ''
+                    }`} title={banIdx < 3 ? "Ban Fase 1" : "Ban Fase 2"}>
                       {bId ? (
                         <>
                           <img src={getChampAvatar(bId)} alt="banned" className="w-full h-full object-cover filter grayscale opacity-70" />
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="w-full h-0.5 bg-red-600 rotate-45 transform" />
-                          </div>
+                          <div className="absolute inset-x-0 top-1/2 h-0.5 bg-red-650 rotate-45 transform" />
                         </>
                       ) : (
-                        <Ban className="w-3.5 h-3.5 text-gray-500/50" />
+                        <Ban className="w-3 text-red-500/40" />
                       )}
                     </div>
                   );
@@ -746,23 +740,23 @@ export default function MatchSimulatorFlow({
               </span>
             </div>
 
-            {/* Bans Red Side */}
-            <div className="flex items-center gap-3">
-              <span className="text-[9px] font-black text-red-400 uppercase">VERMELHO BANS:</span>
-              <div className="flex gap-2">
-                {[0, 1, 2].map(idx => {
+            {/* Bans Red Side (5 total: 3 phase 1, 2 phase 2) */}
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-black text-rose-500 uppercase tracking-wider font-mono">VERMELHO BANS:</span>
+              <div className="flex gap-1.5 items-center">
+                {[0, 1, 2, 3, 4].map((idx, banIdx) => {
                   const bId = redBans[idx];
                   return (
-                    <div key={idx} className="relative w-8 h-8 rounded-full border border-red-500/50 bg-red-500/10 overflow-hidden flex items-center justify-center shrink-0">
+                    <div key={idx} className={`relative w-7 h-7 rounded border border-rose-500/30 bg-rose-950/10 overflow-hidden flex items-center justify-center shrink-0 ${
+                      banIdx === 2 ? 'mr-2.5 border-r-2 border-rose-500/60' : ''
+                    }`} title={banIdx < 3 ? "Ban Fase 1" : "Ban Fase 2"}>
                       {bId ? (
                         <>
                           <img src={getChampAvatar(bId)} alt="banned" className="w-full h-full object-cover filter grayscale opacity-70" />
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="w-full h-0.5 bg-red-600 rotate-45 transform" />
-                          </div>
+                          <div className="absolute inset-x-0 top-1/2 h-0.5 bg-red-650 rotate-45 transform" />
                         </>
                       ) : (
-                        <Ban className="w-3.5 h-3.5 text-gray-500/50" />
+                        <Ban className="w-3 text-red-500/40" />
                       )}
                     </div>
                   );
@@ -829,22 +823,7 @@ export default function MatchSimulatorFlow({
             }`}>
               
               <div>
-                {/* Popover/Tooltip: Balão de sobreposição intitulado "EXPLAIN COMMETA MATCHUPS" */}
-                {focusedChampId && (
-                  <div className={`mb-4 p-4 rounded-xl border transition-all duration-300 ${
-                    isDark 
-                      ? 'bg-black text-slate-100 border-sky-500 shadow-[0_0_15px_rgba(56,189,248,0.25)]' 
-                      : 'bg-sky-50 text-slate-900 border-sky-200 shadow-md'
-                  }`}>
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" />
-                      <span className="text-[10px] font-black tracking-widest uppercase text-amber-500">EXPLAIN COMMETA MATCHUPS</span>
-                    </div>
-                    <p className="text-[10.5px] leading-relaxed font-semibold">
-                      {getAIExplainMatchup(focusedChampId)}
-                    </p>
-                  </div>
-                )}
+                {/* Insights de Matchup */}
 
                 {/* Filters */}
                 <div className="flex justify-center gap-1.5 mb-4 overflow-x-auto py-1">
@@ -864,11 +843,11 @@ export default function MatchSimulatorFlow({
                 </div>
 
                 {/* Grid com os retratos dos campeões da pool. Se Fearless Draft active, used champs are blocked */}
-                <div className="grid grid-cols-4 sm:grid-cols-5 gap-2.5 max-h-[290px] overflow-y-auto pr-1">
+                <div className="grid grid-cols-6 sm:grid-cols-7 lg:grid-cols-8 gap-1.5 max-h-[295px] overflow-y-auto pr-1">
                   {championsToUse
                     .filter(c => routeFilter === 'ALL' || c.roles.includes(routeFilter as Position))
                     .map(champ => {
-                      const isBanned = bans.includes(champ.id);
+                      const isBanned = blueBans.includes(champ.id) || redBans.includes(champ.id);
                       const isSelected = Object.values(bluePicks).includes(champ.id) || Object.values(redPicks).includes(champ.id);
                       const isFearlessBanned = selectedChampsInSeries.includes(champ.id);
                       const isAvailable = !isBanned && !isSelected && !isFearlessBanned;
@@ -926,76 +905,53 @@ export default function MatchSimulatorFlow({
               </div>
             </div>
 
-            {/* Right team card & IA recommendations (AI COUNTER) */}
-            <div className="lg:col-span-3 h-[550px] flex flex-col justify-between gap-6">
-              
-              {/* Picks Red side */}
-              <div className={`rounded-xl p-4 border flex-1 flex flex-col justify-between ${
-                isDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200'
-              }`}>
-                <div>
-                  <div className={`border-b pb-2 mb-3 ${isDark ? 'border-[#1e2d44]' : 'border-slate-200'}`}>
-                    <h4 className="font-display text-xs font-black uppercase tracking-wider text-red-500">
-                      {currentRedTeam.name.toUpperCase()}
-                    </h4>
-                    <span className="text-[9px] text-gray-450 block uppercase font-bold mt-0.5">LADO VERMELHO</span>
-                  </div>
+            {/* Right team card */}
+            <div className={`lg:col-span-3 rounded-2xl p-5 border flex flex-col justify-between h-[550px] shadow-sm ${
+              isDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200'
+            }`}>
+              <div>
+                <div className={`border-b pb-3 mb-4 ${isDark ? 'border-[#1e2d44]' : 'border-slate-200'}`}>
+                  <h4 className="font-display text-xs font-black uppercase tracking-wider text-red-500">
+                    {currentRedTeam.name.toUpperCase()}
+                  </h4>
+                  <span className="text-[9px] text-gray-500 block uppercase font-bold mt-1">LADO VERMELHO</span>
+                </div>
 
-                  <div className="space-y-2">
-                    {(['TOP', 'JNG', 'MID', 'ADC', 'SUP'] as Position[]).map(pos => {
-                      const champId = redPicks[pos];
-                      const champ = championsToUse.find(c => c.id === champId);
-                      const isPicking = draftSteps[draftStepIndex] === `PICK_${pos}_R`;
+                <div className="space-y-3">
+                  {(['TOP', 'JNG', 'MID', 'ADC', 'SUP'] as Position[]).map(pos => {
+                    const champId = redPicks[pos];
+                    const champ = championsToUse.find(c => c.id === champId);
+                    const isPicking = draftSteps[draftStepIndex] === `PICK_${pos}_R`;
 
-                      return (
-                        <div key={pos} className={`p-2.5 rounded-lg border flex items-center justify-between transition-all ${
-                          isPicking 
-                            ? 'border-red-400 bg-red-400/5 ring-2 ring-red-400/20' 
-                            : isDark ? 'bg-[#070d19] border-[#1e2d44]' : 'bg-slate-50 border-slate-250'
-                        }`}>
-                          <div className="flex items-center gap-2">
-                            <span className="font-display text-[9px] font-black px-1.5 py-0.5 bg-red-600 text-white rounded uppercase">{pos}</span>
-                            <span className={`text-[11px] uppercase tracking-wide font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                              {champ ? champ.name : isPicking ? 'Escolhendo...' : 'Aguardando'}
-                            </span>
-                          </div>
+                    return (
+                      <div key={pos} className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+                        isPicking 
+                          ? 'border-red-400 bg-red-400/5 ring-2 ring-red-400/20' 
+                          : isDark ? 'bg-[#070d19] border-[#1e2d44]' : 'bg-slate-50 border-slate-250'
+                      }`}>
+                        <div className="flex items-center gap-3">
+                          <span className="font-display text-[9px] font-black px-1.5 py-0.5 bg-red-650 text-white rounded uppercase mr-2">{pos}</span>
+                          <strong className={`text-xs uppercase tracking-wider font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                            {champ ? champ.name : isPicking ? 'Escolhendo...' : 'Aguardando'}
+                          </strong>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className={`p-2 border rounded-lg text-center ${isDark ? 'border-red-500/10 bg-red-500/5' : 'border-slate-250 bg-slate-50'}`}>
-                  <span className="font-black text-[9px] text-red-400 block">DRAFT PODER: {redAnalysis.draftPower}</span>
-                </div>
-              </div>
-
-              {/* AI Counter cards */}
-              <div className={`rounded-xl p-4 border flex flex-col justify-between h-[230px] ${
-                isDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200'
-              }`}>
-                <div className="border-b pb-1.5 mb-2">
-                  <span className="text-[9.5px] font-black tracking-widest text-sky-400 block uppercase">
-                    AI Recommendations
-                  </span>
-                </div>
-
-                <div className="space-y-2 overflow-y-auto flex-1 pr-1">
-                  {getAICountersRecommended(focusedChampId).map((rec, idx) => (
-                    <div key={idx} className={`p-2 rounded border text-[10px] ${
-                      isDark ? 'bg-[#070d19]/80 border-[#1e2d44]' : 'bg-slate-50 border-slate-200'
-                    }`}>
-                      <div className="flex justify-between items-center mb-0.5">
-                        <span className="font-extrabold text-red-400 text-[9px] uppercase">AI COUNTER</span>
-                        <span className="text-[8px] font-bold text-sky-400">{rec.role}</span>
+                        {champ && <img src={getChampAvatar(champ.id)} alt="avatar" className="w-7 h-7 rounded-full object-cover border border-red-400/20" />}
                       </div>
-                      <h5 className="font-black text-slate-200 uppercase tracking-wider">{rec.champion}</h5>
-                      <p className="text-[8.5px] leading-snug text-gray-500 w-full mt-0.5 truncate">{rec.desc}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
+              <div className={`p-3 border rounded-xl ${isDark ? 'border-red-500/10 bg-red-500/5' : 'border-slate-200 bg-slate-50'}`}>
+                <div className="flex justify-between items-center text-xs mb-1">
+                  <span className="text-gray-400 font-bold text-[10px]">Poder de Composição:</span>
+                  <strong className="text-red-500 font-black">{redAnalysis.draftPower}</strong>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-400 font-bold text-[10px]">Sinergia Geral:</span>
+                  <strong className="text-emerald-500 font-black">{redAnalysis.synergyLevel}%</strong>
+                </div>
+              </div>
             </div>
           </div>
         </div>

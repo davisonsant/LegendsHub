@@ -844,6 +844,8 @@ export default function App() {
               onBuyPlayer: buyPlayerHandler,
               onSellProposeAccept: sellProposeAcceptHandler,
               theme,
+              onUpdateGameState: setGameState,
+              triggerNotification,
               onSelectPlayer: (pId: string) => {
                 setSelectedPlayerId(pId);
                 setIsDetailedProfileOpen(true);

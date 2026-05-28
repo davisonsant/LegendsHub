@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Mail, ChevronRight, CornerDownRight, Trash2, ArrowLeftRight, Users, Briefcase, Eye } from 'lucide-react';
 import { GameState } from '../types';
 import { formatMoney } from '../utils/currency';
@@ -28,7 +28,16 @@ export default function InboxTab({ gameState, theme, onSelectTab, triggerNotific
   
   // Local state for emails to support mark as read and delete actions!
   const [emails, setEmails] = useState<Email[]>(() => {
-    return [
+    const saved = localStorage.getItem('legendshub_custom_events_emails');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        // ignore fallback
+      }
+    }
+
+    const defaultEmails = [
       {
         id: 'email-1',
         sender: 'Conselho Executivo',
@@ -58,7 +67,7 @@ export default function InboxTab({ gameState, theme, onSelectTab, triggerNotific
         sender: 'Agente do Atleta',
         senderRole: 'Representante de Jogador',
         subject: '⚡ Intenção de Extensão Contratual Antecipada',
-        body: `Olá! Nosso atleta que atua na organização está muito satisfeito com as instalações da Gaming House. Ele deseja assinar uma extensão de contrato de 12 meses antes dos playoffs da liga para garantir foco absoluto. Solicitamos uma rodada de conversações ou reajuste contratual básico.`,
+        body: `Olá! Nosso atleta que atua na organização está muito satisfeito com as instalações da Gaming House. He deseja assinar uma extensão de contrato de 12 meses antes dos playoffs da liga para garantir foco absoluto. Solicitamos uma rodada de conversações ou reajuste contratual básico.`,
         date: 'Semana Atual',
         category: 'Jogadores',
         read: false,
@@ -102,9 +111,16 @@ export default function InboxTab({ gameState, theme, onSelectTab, triggerNotific
         linkTab: 'Central de Empregos'
       }
     ];
+
+    localStorage.setItem('legendshub_custom_events_emails', JSON.stringify(defaultEmails));
+    return defaultEmails;
   });
 
-  const [activeSubTab, setActiveSubTab] = useState<'Direção' | 'Jogadores' | 'Propostas'>('Direção');
+  useEffect(() => {
+    localStorage.setItem('legendshub_custom_events_emails', JSON.stringify(emails));
+  }, [emails]);
+
+   const [activeSubTab, setActiveSubTab] = useState<'Direção' | 'Jogadores' | 'Propostas'>('Direção');
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
 
   const filteredEmails = emails.filter(e => e.category === activeSubTab);

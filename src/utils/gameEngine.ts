@@ -15,12 +15,58 @@ export function initializeNewGame(
   selectedRegion: 'CBLOL' | 'LCK' | 'LPL' | 'LEC' | 'LCS' | 'LCP' = 'CBLOL',
   selectedYear: number = 2026
 ): GameState {
-  // Load ALL 60 teams across all 6 regions to allow full global system (transfers, scouting, etc.)
+  // Load ALL 60 teams from default database or custom local storage override
+  let activeDb = REGIONAL_TEAMS_DATABASE;
+  const isBrowser = typeof window !== 'undefined';
+  if (isBrowser) {
+    const rawCustomDb = localStorage.getItem('legendshub_custom_db');
+    if (rawCustomDb) {
+      try {
+        activeDb = JSON.parse(rawCustomDb);
+      } catch (e) {
+        console.error("Failed to parse custom teams database", e);
+      }
+    }
+  }
+
+  // Load custom champions if modified in the independent db editor
+  let activeChamps = CHAMPIONS_LIST;
+  if (isBrowser) {
+    const rawChamps = localStorage.getItem('legendshub_custom_champions');
+    if (rawChamps) {
+      try {
+        activeChamps = JSON.parse(rawChamps);
+      } catch (e) {}
+    }
+  }
+
+  // Load custom sponsors if modified in the independent db editor
+  let activeSponsors = [...SPONSOR_PRESETS];
+  if (isBrowser) {
+    const rawSponsors = localStorage.getItem('legendshub_custom_sponsors');
+    if (rawSponsors) {
+      try {
+        activeSponsors = JSON.parse(rawSponsors);
+      } catch (e) {}
+    }
+  }
+
+  // Load custom players dictionary overrides
+  let customPlayersDict: { [id: string]: any } = {};
+  if (isBrowser) {
+    const rawPlayers = localStorage.getItem('legendshub_custom_players_dict');
+    if (rawPlayers) {
+      try {
+        customPlayersDict = JSON.parse(rawPlayers);
+      } catch (e) {}
+    }
+  }
+
   const regions: ('CBLOL' | 'LCK' | 'LPL' | 'LEC' | 'LCS' | 'LCP')[] = ['CBLOL', 'LCK', 'LPL', 'LEC', 'LCS', 'LCP'];
   const allTeams: Team[] = [];
 
   regions.forEach(reg => {
-    const regionalData = REGIONAL_TEAMS_DATABASE[reg] || [];
+    const regionalData = activeDb[reg] || [];
     regionalData.forEach(tData => {
       const isPlayer = tData.id === selectedTeamId;
       
@@ -43,6 +89,30 @@ export function initializeNewGame(
           generateProceduralPlayer('MID', ratings - 8)
         ];
       }
+
+      // Map dynamic local overrides on individual custom player profiles edited in our Database Editor
+      const mapCustomAttributes = (pList: Player[]): Player[] => {
+        return pList.map(p => {
+          const dictKey = `${tData.id}_${p.id}_${p.name}`;
+          const dictKeyAlt = p.id;
+          const override = customPlayersDict[dictKey] || customPlayersDict[dictKeyAlt];
+          if (override) {
+            return {
+              ...p,
+              name: override.name || p.name,
+              realName: override.realName || p.realName,
+              overallRating: Number(override.overallRating ?? p.overallRating),
+              age: Number(override.age ?? p.age),
+              nationality: override.nationality || p.nationality,
+              photoUrl: override.photoUrl || p.photoUrl
+            };
+          }
+          return p;
+        });
+      };
+
+      roster = mapCustomAttributes(roster);
+      substitutes = mapCustomAttributes(substitutes);
       
       // Generate 3 young academy talents for every team to fuel "drafts and academy"
       const academy = [
@@ -64,7 +134,7 @@ export function initializeNewGame(
         roster,
         substitutes,
         academy,
-        sponsors: isPlayer ? [] : [SPONSOR_PRESETS[0]],
+        sponsors: isPlayer ? [] : [activeSponsors[0]],
         infrastructure: {
           gamingHouseLevel: 1,
           trainingCenterLevel: 1,
@@ -127,12 +197,12 @@ export function initializeNewGame(
     stage: 'OFFSEASON',
     playerTeamId: selectedTeamId,
     teams: allTeams, // contains all 60 teams globally loaded in memory
-    champions: CHAMPIONS_LIST,
+    champions: activeChamps,
     currentPatch: generateDynamicPatch(0),
     roundsPlayedThisWeek: false,
     calendarSchedule,
     socialFeed: startingSocial,
-    sponsorsMarket: [...SPONSOR_PRESETS],
+    sponsorsMarket: [...activeSponsors],
     availableStaff,
     careerHistory: [],
     selectedRegion,
@@ -946,6 +1016,35 @@ export function executeOffseasonTransition(gameState: GameState): GameState {
 
   // Re-roll sponsor market
   updatedState.sponsorsMarket = [...SPONSOR_PRESETS];
+
+  // Meta Shifts Event by Riot Games exactly every cycle of 7 months (7 months * 4 weeks = 28 weeks)
+  if (updatedState.week > 0 && updatedState.week % 28 === 0) {
+    updatedState.socialFeed.unshift({
+      id: generateId(),
+      username: "Riot @riot",
+      handle: "@riot",
+      avatarUrl: "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=100",
+      content: "🚨 Anúncio oficial de atualização drástica e mudanças nas diretrizes do Meta competitivo de League of Legends (alterando coeficientes de draft e prioridades de rota).",
+      likes: 62000,
+      retweets: 24000,
+      timeAgo: "Agora",
+      sentiment: "neutral",
+      verified: true
+    });
+    
+    updatedState.socialFeed.unshift({
+      id: generateId(),
+      username: "Riot Esports @riotesports",
+      handle: "@riotesports",
+      avatarUrl: "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=100",
+      content: "📢 RIOT OFFICIAL: Estão sendo alterados todos os pesos estratégicos de lanes de rotas e prioridades de Picks & Bans competitivos em League of Legends. Ajustem suas drafts!",
+      likes: 45000,
+      retweets: 12500,
+      timeAgo: "Agora",
+      sentiment: "neutral",
+      verified: true
+    });
+  }
 
   return updatedState;
 }
