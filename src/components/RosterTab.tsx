@@ -162,22 +162,53 @@ const AnimatedRadarChart: React.FC<AnimatedRadarChartProps> = ({
 };
 
 // Helpers for immersive visual features of individual players
-const getIsForeign = (player: Player) => {
-  const nat = (player.nationality || '').toLowerCase();
+const getIsForeign = (player: Player, teamRegion?: string) => {
+  if (!teamRegion) teamRegion = 'CBLOL';
+  const nat = (player.nationality || '').trim().toLowerCase();
+  if (teamRegion === 'CBLOL') {
+    return nat !== 'brasil' && nat !== 'br' && nat !== 'brazil';
+  }
+  if (teamRegion === 'LCK') {
+    return nat !== 'coreia do sul' && nat !== 'south korea' && nat !== 'kr' && nat !== 'korean' && nat !== 'coreia';
+  }
+  if (teamRegion === 'LPL') {
+    return nat !== 'china' && nat !== 'chinese' && nat !== 'cn';
+  }
+  if (teamRegion === 'LCS') {
+    return nat !== 'eua' && nat !== 'usa' && nat !== 'united states' && nat !== 'canadá' && nat !== 'canada' && nat !== 'norte-americano';
+  }
+  if (teamRegion === 'LEC') {
+    const europeans = [
+      'alemanha', 'germany', 'de',
+      'reino unido', 'united kingdom', 'gb', 'uk',
+      'suécia', 'sweden', 'se',
+      'frança', 'france', 'fr',
+      'espanha', 'spain', 'es',
+      'polônia', 'poland', 'pl',
+      'portugal', 'pt',
+      'itália', 'italy',
+      'grécia', 'greece',
+      'dinamarca', 'denmark'
+    ];
+    return !europeans.includes(nat);
+  }
   return nat !== 'brasil' && nat !== 'br' && nat !== 'brazil';
 };
 
-const getVistoStatus = (player: Player) => {
-  if (!getIsForeign(player)) {
-    return { label: 'Permanente', visaClass: 'Permanente', timeRemaining: 'Permanente' };
+const getVistoStatus = (player: Player, teamRegion?: string, vistoEspecialTorneioAtivo?: boolean, vistoEspecialTorneioNome?: string) => {
+  if (vistoEspecialTorneioAtivo) {
+    return { label: `[ATIVO] (${vistoEspecialTorneioNome})`, visaClass: 'Visto Especial de Torneio', timeRemaining: 'Temporário' };
   }
-  const visaClass = player.overallRating >= 85 ? 'EB-1 (Extraordinary Ability)' : 'P-1 (Athletic Visa)';
+  if (!getIsForeign(player, teamRegion)) {
+    return { label: '[VISTO PERMANENTE / ATLETA LOCAL]', visaClass: 'Atleta Local', timeRemaining: 'Permanente' };
+  }
+  const visaClass = player.overallRating >= 85 ? 'Visto EB-1 (Excelência)' : 'Visto P-1 (Atleta Internacional)';
   const months = Math.max(4, (player.contractMonths || 12) + 2);
   return { label: `${months} meses restantes`, visaClass, timeRemaining: `${months} meses` };
 };
 
-const getBehavioralAttributes = (player: Player) => {
-  const isForeign = getIsForeign(player);
+const getBehavioralAttributes = (player: Player, teamRegion?: string) => {
+  const isForeign = getIsForeign(player, teamRegion);
   const adaptacaoCultural = isForeign ? Math.round(65 + (player.chemistry || 70) * 0.3) : 100;
   const humorValue = player.motivation || 75;
   const confianca = Math.round(player.overallRating * 0.75 + (player.stamina || 80) * 0.25);
@@ -327,6 +358,14 @@ export default function RosterTab({
           nextSubstitutes.push(removed);
         } else if (subIdx >= 0) {
           // Move from reserve to starter of that position
+          const removedPlayer = nextSubstitutes[subIdx];
+          const isTravelVisaActive = !!t.vistoEspecialTorneioAtivo;
+          
+          if (removedPlayer.isImported && !removedPlayer.visaApproved && !isTravelVisaActive) {
+            alert(`🚫 [BLOQUEIO DE ESCALAÇÃO] O atleta importado ${removedPlayer.name} não possui o visto regulatório P-1 aprovado e está proibido de disputar partidas oficiais pela liga.`);
+            return t; // Abort operation and return unmodified team
+          }
+          
           const removed = nextSubstitutes.splice(subIdx, 1)[0];
           const existingStarterIdx = nextRoster.findIndex(p => p.position === removed.position);
           if (existingStarterIdx >= 0) {
@@ -464,8 +503,8 @@ export default function RosterTab({
   const renderDetailedProfile = () => {
     if (!activePlayer) return null;
     
-    const behavioral = getBehavioralAttributes(activePlayer);
-    const visto = getVistoStatus(activePlayer);
+    const behavioral = getBehavioralAttributes(activePlayer, playerTeam?.region);
+    const visto = getVistoStatus(activePlayer, playerTeam?.region, playerTeam?.vistoEspecialTorneioAtivo, playerTeam?.vistoEspecialTorneioNome);
     const mental = getMentalHealthStatus(activePlayer.motivation || 75);
     const history = getPlayerHistory(activePlayer);
     const achievements = getPlayerAchievements(activePlayer);
@@ -1206,7 +1245,7 @@ export default function RosterTab({
                               {activePlayer.age || 20} ANOS
                             </span>
                             <span className="bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-550 dark:text-slate-400 text-[8px] font-mono font-black rounded uppercase px-1.5 py-0.5">
-                              {getIsForeign(activePlayer) ? '🌎 ESTRANGEIRO' : '🇧🇷 BRASILEIRO'}
+                              {getIsForeign(activePlayer, userTeam.region) ? '🌎 IMPORTADO / ESTRANGEIRO' : '🛡️ ATLETA LOCAL / VISTO PERMANENTE'}
                             </span>
                           </div>
                         </div>

@@ -881,7 +881,24 @@ export default function MarketTab({
                       <div className="col-span-12 md:col-span-2 flex items-center gap-1.5 mt-1 md:mt-0">
                         {team ? (
                           <div className="flex items-center gap-2 truncate">
-                            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: team.primaryColor || '#94a3b8' }} />
+                            {team.logoUrl ? (
+                              <div className="w-5 h-5 rounded flex items-center justify-center shrink-0 overflow-hidden bg-slate-900/5 dark:bg-white/5 relative p-0.5">
+                                <img
+                                  src={team.logoUrl}
+                                  alt={team.name}
+                                  className="w-full h-full object-contain"
+                                  referrerPolicy="no-referrer"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    const sibling = e.currentTarget.nextElementSibling as HTMLElement;
+                                    if (sibling) sibling.style.display = 'block';
+                                  }}
+                                />
+                                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: team.primaryColor || '#94a3b8', display: 'none' }} />
+                              </div>
+                            ) : (
+                              <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: team.primaryColor || '#94a3b8' }} />
+                            )}
                             <span className={`text-xs font-bold truncate uppercase tracking-widest leading-none ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
                               {team.acronym}
                             </span>
@@ -1150,12 +1167,27 @@ export default function MarketTab({
                   <p className="text-[10px] text-slate-401 mt-1 leading-tight font-semibold">
                     Classificação: OVR {negotiatingPlayer.overallRating} • Idade: {negotiatingPlayer.age} anos • País: {negotiatingPlayer.nationality}
                   </p>
-                  <p className="text-[10.5px] text-sky-400 mt-1 font-bold leading-none">
-                    {isPreContrato 
-                      ? '⚠️ PRÉ-CONTRATO DISPONÍVEL: Restam menos de 6 meses. O passe é de graça! O atleta migrará ao término do split atual.' 
-                      : negotiatingTeam 
-                        ? `Pertence ao clube: ${negotiatingTeam.name} (${negotiatingTeam.acronym})` 
-                        : 'Atleta Agente Livre: Sem multa rescisória, negociação facilitada.'}
+                  <p className="text-[10.5px] text-sky-400 mt-1 font-bold flex items-center gap-1.5 leading-none">
+                    {isPreContrato ? (
+                      <span>⚠️ PRÉ-CONTRATO DISPONÍVEL: Restam menos de 6 meses. O passe é de graça! O atleta migrará ao término do split atual.</span>
+                    ) : negotiatingTeam ? (
+                      <span className="flex items-center gap-1.5 flex-wrap">
+                        Pertence ao clube: 
+                        {isPreContrato ? null : negotiatingTeam.logoUrl ? (
+                          <img 
+                            src={negotiatingTeam.logoUrl} 
+                            alt={negotiatingTeam.name} 
+                            className="w-4.5 h-4.5 object-contain bg-slate-950/40 dark:bg-white/10 p-0.5 rounded inline-block align-middle"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <span className="w-1.5 h-3 rounded-full shrink-0 inline-block align-middle" style={{ backgroundColor: negotiatingTeam.primaryColor }} />
+                        )}
+                        <strong>{negotiatingTeam.name} ({negotiatingTeam.acronym})</strong>
+                      </span>
+                    ) : (
+                      <span>Atleta Agente Livre: Sem multa rescisória, negociação facilitada.</span>
+                    )}
                   </p>
                 </div>
               </div>

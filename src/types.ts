@@ -77,6 +77,23 @@ export interface Staff {
   };
 }
 
+export interface CorporationStaff {
+  id: string;
+  nome: string;
+  cargo: string;
+  departamento: 'COMISSÃO TÉCNICA' | 'TI' | 'MARKETING' | 'SAÚDE' | 'JURÍDICO' | 'OLHEIROS' | 'RH';
+  salario_semanal: number;
+  semanas_contrato: number;
+  nivel_eficiencia: number; // 0 a 100
+  patrocinio_bonus?: number; // ex: 0.15
+  fotoUrl: string;
+  nacionalidade: string;
+  bandeira: string;
+  idade: number;
+  especialidade: string;
+  atribuido_scouting?: boolean;
+}
+
 export interface Sponsor {
   id: string;
   name: string;
@@ -131,6 +148,8 @@ export interface Team {
   poachingPenaltiesWeeks?: number;
   ticketPrice?: number;
   jerseyPrice?: number;
+  vistoEspecialTorneioAtivo?: boolean;
+  vistoEspecialTorneioNome?: string;
 }
 
 export interface Champion {
@@ -256,6 +275,8 @@ export interface GameState {
   socialFeed: SocialPost[];
   sponsorsMarket: Sponsor[];
   availableStaff: Staff[];
+  corporationStaffEmployees?: CorporationStaff[];
+  corporationStaffJobPool?: CorporationStaff[];
   careerHistory: {
     year: number;
     teamName: string;
@@ -292,4 +313,6 @@ export interface GameState {
       impacto_reputacao: 'positivo' | 'negativo' | 'neutro';
     }[];
   };
+  lastEditorSyncTimestamp?: number;
+  editorSyncStatusMessage?: string;
 }

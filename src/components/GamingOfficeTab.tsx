@@ -7,9 +7,9 @@ import React, { useState, useEffect } from 'react';
 import { 
   Building2, Tv, Heart, Keyboard, Users, ShieldAlert, Globe, 
   MapPin, DollarSign, Calendar, Check, Play, UserMinus, Plus,
-  Sparkles, Award, FileText, X, AlertCircle, Terminal, Copy, RefreshCw
+  Sparkles, Award, FileText, X, AlertCircle, Terminal, Copy, RefreshCw, Star, StarHalf, TrendingUp
 } from 'lucide-react';
-import { GameState, Team, Player, Staff } from '../types';
+import { GameState, Team, Player, Staff, CorporationStaff } from '../types';
 import { getOrCreateWeekFeedState, RssFeedX, MarqueeNews } from '../utils/feedHelper';
 
 interface GamingOfficeTabProps {
@@ -17,17 +17,6 @@ interface GamingOfficeTabProps {
   onUpdateGameState: (state: GameState) => void;
   triggerNotification: (title: string, desc: string) => void;
   theme?: 'light' | 'dark';
-}
-
-// 2. Staff Roster schema
-export interface CorporationStaff {
-  id: string;
-  nome: string;
-  cargo: string;
-  salario_semanal: number;
-  semanas_contrato: number;
-  nivel_eficiencia: number; // 0 a 100
-  patrocinio_bonus?: number; // ex: 0.15
 }
 
 // 4. TV Rights slots schema
@@ -46,35 +35,178 @@ const INITIAL_STAFF_EMPLOYEES: CorporationStaff[] = [
     id: 'emp-1',
     nome: 'Maurício "Spacca" Ramos',
     cargo: 'Head Coach',
+    departamento: 'COMISSÃO TÉCNICA',
     salario_semanal: 3500,
-    semanas_contrato: 12,
+    semanas_contrato: 32,
     nivel_eficiencia: 85,
-    patrocinio_bonus: 0.05
+    patrocinio_bonus: 0.05,
+    fotoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200',
+    nacionalidade: 'Brasil',
+    bandeira: '🇧🇷',
+    idade: 37,
+    especialidade: 'Leitura Tática de Rift e Vetos de Patch'
   },
   {
     id: 'emp-2',
     nome: 'Ana Lívia Santos',
     cargo: 'Gerente de Marketing',
+    departamento: 'MARKETING',
     salario_semanal: 2800,
-    semanas_contrato: 24,
+    semanas_contrato: 48,
     nivel_eficiencia: 90,
-    patrocinio_bonus: 0.15
+    patrocinio_bonus: 0.15,
+    fotoUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200',
+    nacionalidade: 'Brasil',
+    bandeira: '🇧🇷',
+    idade: 29,
+    especialidade: 'Campanhas de Engajamento e Expansão Digital'
   },
   {
     id: 'emp-3',
     nome: 'Dr. Roberto de Souza',
-    cargo: 'Psicólogo de Linha',
+    cargo: 'Psicólogo',
+    departamento: 'SAÚDE',
     salario_semanal: 2500,
-    semanas_contrato: 8,
-    nivel_eficiencia: 78
+    semanas_contrato: 24,
+    nivel_eficiencia: 78,
+    fotoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=200',
+    nacionalidade: 'Brasil',
+    bandeira: '🇧🇷',
+    idade: 43,
+    especialidade: 'Trabalho Psicológico de Pressão e Foco Mental'
   }
 ];
 
 const JOB_MARKET_POOL: CorporationStaff[] = [
-  { id: 'job-1', nome: 'Felipe "YoDa" Noronha', cargo: 'Analista de Macro', salario_semanal: 3200, semanas_contrato: 16, nivel_eficiencia: 88, patrocinio_bonus: 0.1 },
-  { id: 'job-2', nome: 'Sulamita Vieira', cargo: 'Fisioterapeuta Postural', salario_semanal: 2200, semanas_contrato: 20, nivel_eficiencia: 82 },
-  { id: 'job-3', nome: 'Gabriel "Kami" Bohm', cargo: 'Gerente de Conteúdo', salario_semanal: 4000, semanas_contrato: 30, nivel_eficiencia: 94, patrocinio_bonus: 0.2 },
-  { id: 'job-4', nome: 'Juliana Paes', cargo: 'Relações Públicas / PR', salario_semanal: 2600, semanas_contrato: 12, nivel_eficiencia: 80, patrocinio_bonus: 0.08 }
+  {
+    id: 'job-1',
+    nome: 'Felipe "YoDa" Noronha',
+    cargo: 'Coach',
+    departamento: 'COMISSÃO TÉCNICA',
+    salario_semanal: 3200,
+    semanas_contrato: 32,
+    nivel_eficiencia: 90,
+    patrocinio_bonus: 0.1,
+    fotoUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=200',
+    nacionalidade: 'Brasil',
+    bandeira: '🇧🇷',
+    idade: 28,
+    especialidade: 'Trabalho de Motivação Externa e Comunicação'
+  },
+  {
+    id: 'job-2',
+    nome: 'Sulamita Vieira',
+    cargo: 'Fisioterapeuta Postural',
+    departamento: 'SAÚDE',
+    salario_semanal: 2200,
+    semanas_contrato: 32,
+    nivel_eficiencia: 85,
+    fotoUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200',
+    nacionalidade: 'Brasil',
+    bandeira: '🇧🇷',
+    idade: 32,
+    especialidade: 'Prevenção de Lesões RPG e Ergonomia'
+  },
+  {
+    id: 'job-3',
+    nome: 'Gabriel "Kami" Bohm',
+    cargo: 'Analista Macro',
+    departamento: 'COMISSÃO TÉCNICA',
+    salario_semanal: 4000,
+    semanas_contrato: 64,
+    nivel_eficiencia: 95,
+    patrocinio_bonus: 0.2,
+    fotoUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=200',
+    nacionalidade: 'Brasil',
+    bandeira: '🇧🇷',
+    idade: 29,
+    especialidade: 'Controle de Macrogame Geral e Lutas Controladas'
+  },
+  {
+    id: 'job-4',
+    nome: 'Juliana Paes',
+    cargo: 'Relações Públicas / PR',
+    departamento: 'RH',
+    salario_semanal: 2605,
+    semanas_contrato: 32,
+    nivel_eficiencia: 80,
+    patrocinio_bonus: 0.08,
+    fotoUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=200',
+    nacionalidade: 'Brasil',
+    bandeira: '🇧🇷',
+    idade: 31,
+    especialidade: 'Media Training e Gestão de Crise de Torcida'
+  },
+  {
+    id: 'job-5',
+    nome: 'Arthur Pendragon',
+    cargo: 'Analista de TI',
+    departamento: 'TI',
+    salario_semanal: 1900,
+    semanas_contrato: 32,
+    nivel_eficiencia: 75,
+    fotoUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=200',
+    nacionalidade: 'Reino Unido',
+    bandeira: '🇬🇧',
+    idade: 25,
+    especialidade: 'Redes Isoladas e Mitigação de Ping'
+  },
+  {
+    id: 'job-6',
+    nome: 'Guilherme Salles',
+    cargo: 'Olheiro',
+    departamento: 'OLHEIROS',
+    salario_semanal: 2400,
+    semanas_contrato: 32,
+    nivel_eficiencia: 88,
+    fotoUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=200',
+    nacionalidade: 'Brasil',
+    bandeira: '🇧🇷',
+    idade: 33,
+    especialidade: 'Deteção de Rota Inferior (CBLOL/Amador)'
+  },
+  {
+    id: 'job-7',
+    nome: 'Aiko Sato',
+    cargo: 'Olheiro',
+    departamento: 'OLHEIROS',
+    salario_semanal: 3500,
+    semanas_contrato: 64,
+    nivel_eficiencia: 96,
+    fotoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
+    nacionalidade: 'Japão',
+    bandeira: '🇯🇵',
+    idade: 36,
+    especialidade: 'Análise de Solo-lanes de Alta Classificação (LCK/LPL)'
+  },
+  {
+    id: 'job-8',
+    nome: 'Dr. Lucas Montenegro',
+    cargo: 'Advogado',
+    departamento: 'JURÍDICO',
+    salario_semanal: 3100,
+    semanas_contrato: 32,
+    nivel_eficiencia: 82,
+    fotoUrl: 'https://images.unsplash.com/photo-1507591064344-4c6b5614d601?auto=format&fit=crop&q=80&w=200',
+    nacionalidade: 'Brasil',
+    bandeira: '🇧🇷',
+    idade: 39,
+    especialidade: 'Contratos de Atletas e Multas Trabalhistas'
+  },
+  {
+    id: 'job-9',
+    nome: 'Dra. Sofia Alencar',
+    cargo: 'Advogado',
+    departamento: 'JURÍDICO',
+    salario_semanal: 3600,
+    semanas_contrato: 48,
+    nivel_eficiencia: 91,
+    fotoUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=200',
+    nacionalidade: 'Brasil',
+    bandeira: '🇧🇷',
+    idade: 30,
+    especialidade: 'Tratativa de Direitos Desportivos de Atletas'
+  }
 ];
 
 const OFFERS_TV_POOL = [
@@ -391,15 +523,30 @@ export default function GamingOfficeTab({
 
   // Hired staff list state
   const [employees, setEmployees] = useState<CorporationStaff[]>(() => {
+    if (gameState.corporationStaffEmployees && gameState.corporationStaffEmployees.length > 0) return gameState.corporationStaffEmployees;
     const saved = localStorage.getItem('legendshub_corporation_staff');
     return saved ? JSON.parse(saved) : INITIAL_STAFF_EMPLOYEES;
   });
 
   // Hirable Employment Center Job pool
   const [jobPool, setJobPool] = useState<CorporationStaff[]>(() => {
+    if (gameState.corporationStaffJobPool && gameState.corporationStaffJobPool.length > 0) return gameState.corporationStaffJobPool;
     const saved = localStorage.getItem('legendshub_jobs_market');
     return saved ? JSON.parse(saved) : JOB_MARKET_POOL;
   });
+
+  // Watch for external sync (so CentralDeEmpregos changes apply instantly)
+  useEffect(() => {
+    if (gameState.corporationStaffEmployees) {
+      setEmployees(gameState.corporationStaffEmployees);
+    }
+  }, [gameState.corporationStaffEmployees]);
+
+  useEffect(() => {
+    if (gameState.corporationStaffJobPool) {
+      setJobPool(gameState.corporationStaffJobPool);
+    }
+  }, [gameState.corporationStaffJobPool]);
 
   // TV rights list state (exactly 3 slots)
   const [tvSlots, setTvSlots] = useState<TvRightsSlot[]>(() => {
@@ -415,10 +562,22 @@ export default function GamingOfficeTab({
   // Save to persistence
   useEffect(() => {
     localStorage.setItem('legendshub_corporation_staff', JSON.stringify(employees));
+    if (JSON.stringify(gameState.corporationStaffEmployees) !== JSON.stringify(employees)) {
+      onUpdateGameState({
+        ...gameState,
+        corporationStaffEmployees: employees
+      });
+    }
   }, [employees]);
 
   useEffect(() => {
     localStorage.setItem('legendshub_jobs_market', JSON.stringify(jobPool));
+    if (JSON.stringify(gameState.corporationStaffJobPool) !== JSON.stringify(jobPool)) {
+      onUpdateGameState({
+        ...gameState,
+        corporationStaffJobPool: jobPool
+      });
+    }
   }, [jobPool]);
 
   useEffect(() => {
@@ -714,6 +873,54 @@ export default function GamingOfficeTab({
     triggerNotification("📡 Staff Desligado", `${name} foi demitido e não faz mais parte da listagem de despesas financeiras.`);
   };
 
+  const handlePromoteEmployee = (id: string) => {
+    const target = employees.find(e => e.id === id);
+    if (!target) return;
+
+    let nextCargo = '';
+    if (target.cargo === 'Advogado') nextCargo = 'Gerente Jurídico';
+    else if (target.cargo === 'Analista de TI') nextCargo = 'Gerente de TI';
+    else if (target.cargo === 'Analista de Marketing') nextCargo = 'Gerente de Marketing';
+    else if (target.cargo === 'Coach') nextCargo = 'Head Coach';
+    else if (target.cargo === 'Analista Macro') nextCargo = 'Coordenador Técnico';
+    else if (target.cargo === 'Olheiro') nextCargo = 'Olheiro Sênior';
+    else if (target.cargo === 'Psicólogo') nextCargo = 'Coordenador Mental';
+    else nextCargo = `Chefe Executivo / ${target.cargo}`;
+
+    const updated = employees.map(e => {
+      if (e.id === id) {
+        return {
+          ...e,
+          cargo: nextCargo,
+          salario_semanal: Math.round(e.salario_semanal * 1.25),
+          nivel_eficiencia: Math.min(100, (e.nivel_eficiencia || 70) + 12)
+        };
+      }
+      return e;
+    });
+
+    setEmployees(updated);
+    triggerNotification("📈 Cargos & Carreira Atualizados", `Parabéns! ${target.nome} foi promovido a ${nextCargo} com +12% de eficiência operacional e +25% de reajuste salarial.`);
+  };
+
+  const handleProlongEmployee = (id: string, extWeeks: number) => {
+    const target = employees.find(e => e.id === id);
+    if (!target) return;
+
+    const updated = employees.map(e => {
+      if (e.id === id) {
+        return {
+          ...e,
+          semanas_contrato: e.semanas_contrato + extWeeks
+        };
+      }
+      return e;
+    });
+
+    setEmployees(updated);
+    triggerNotification("🤝 Contrato Estendido!", `O contrato de ${target.nome} foi prolongado por mais ${extWeeks} semanas para consolidação do trabalho.`);
+  };
+
   // TV Rights slots logic
   const handleOpenTvProposal = (slotId: string) => {
     setIsTvSelectorOpen(slotId);
@@ -924,51 +1131,140 @@ export default function GamingOfficeTab({
               </button>
             </div>
 
-            <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
               {employees.length > 0 ? (
-                employees.map(employee => (
-                  <div key={employee.id} className={`p-3.5 rounded-xl border flex flex-col md:flex-row justify-between items-start md:items-center gap-4 ${
-                    isDark ? 'bg-[#070d19] border-[#1e2d44]' : 'bg-slate-50 border-slate-200'
-                  }`}>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-xs uppercase font-extrabold text-blue-500">{employee.nome}</h4>
-                        <span className={`text-[8px] font-mono tracking-widest px-1.5 py-0.5 rounded-md ${
-                          isDark ? 'bg-[#00E5FF]/10 text-[#00E5FF]' : 'bg-indigo-50 text-indigo-650 font-bold'
-                        }`}>
-                          {employee.cargo}
-                        </span>
-                      </div>
-                      <div className="text-[10px] text-slate-400 mt-1 flex flex-wrap items-center gap-2.5">
-                        <span>{TRANSLATIONS[lang].eficiencia}: <strong className="text-cyan-400">{employee.nivel_eficiencia}%</strong></span>
-                        <span>•</span>
-                        <span>{TRANSLATIONS[lang].contrato}: <strong>{employee.semanas_contrato} sem</strong></span>
-                        {employee.patrocinio_bonus && (
-                          <>
-                            <span>•</span>
-                            <span className="text-emerald-400 font-extrabold">+{(employee.patrocinio_bonus * 10).toFixed(0)}% receita mkt</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
+                employees.map(employee => {
+                  const defaultFoto = 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200';
+                  const foto = employee.fotoUrl || defaultFoto;
+                  const idade = employee.idade || 28;
+                  const nacionalidade = employee.nacionalidade || 'Brasil';
+                  const bandeira = employee.bandeira || '🇧🇷';
+                  const especialidade = employee.especialidade || 'Trabalho Estratégico e Coordenação de Suporte';
+                  const starsCount = Math.round((employee.nivel_eficiencia || 70) / 10) / 2; // out of 5
+                  const fullStars = Math.floor(starsCount);
+                  const halfStar = starsCount % 1 !== 0;
 
-                    <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end border-t border-slate-800/20 md:border-t-0 pt-2.5 md:pt-0">
-                      <div>
-                        <span className="text-[7.5px] uppercase text-gray-400 block font-bold leading-none mb-0.5">{TRANSLATIONS[lang].custo}</span>
-                        <span className="text-xs font-mono font-black text-rose-500">$ {employee.salario_semanal.toLocaleString()}/sem</span>
+                  return (
+                    <div key={employee.id} className={`p-4 rounded-xl border flex flex-col gap-4 ${
+                      isDark ? 'bg-[#070d19] border-[#1e2d44]' : 'bg-slate-50 border-slate-200'
+                    }`}>
+                      <div className="flex items-start gap-3.5">
+                        <img 
+                          src={foto} 
+                          alt={employee.nome} 
+                          className="w-12 h-12 rounded-lg object-cover border border-cyan-500/20 shrink-0"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="text-xs uppercase font-extrabold text-blue-500 truncate">{employee.nome}</h4>
+                            <span className="text-[10px] text-slate-400">
+                              ({idade} anos • {bandeira} {nacionalidade})
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className={`text-[8px] font-mono tracking-widest px-1.5 py-0.5 rounded-md uppercase font-black ${
+                              isDark ? 'bg-cyan-500/10 text-[#00E5FF]' : 'bg-indigo-50 text-indigo-650'
+                            }`}>
+                              {employee.cargo}
+                            </span>
+                            <span className="text-[9px] text-[#00E5FF]/70 uppercase font-mono font-bold">
+                              {employee.departamento || 'OPERACIONAL'}
+                            </span>
+                          </div>
+
+                          <p className="text-[10px] text-slate-500 italic mt-1.5 leading-tight">
+                            Especialidade: <strong className={isDark ? 'text-slate-300' : 'text-slate-700'}>{especialidade}</strong>
+                          </p>
+
+                          <div className="flex items-center gap-2.5 mt-2 flex-wrap">
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-slate-500 font-bold">Avaliação:</span>
+                              <div className="flex items-center text-amber-400">
+                                {Array.from({ length: 5 }).map((_, idx) => {
+                                  if (idx < fullStars) {
+                                    return <Star key={idx} className="w-3 h-3 fill-amber-400 text-amber-400" />;
+                                  } else if (idx === fullStars && halfStar) {
+                                    return <StarHalf key={idx} className="w-3 h-3 fill-amber-400 text-amber-400 animate-pulse" />;
+                                  } else {
+                                    return <Star key={idx} className="w-3 h-3 text-slate-600" />;
+                                  }
+                                })}
+                              </div>
+                            </div>
+                            <span className="text-slate-600">•</span>
+                            <span className="text-[10px] text-slate-400">
+                              Contrato: <strong className={isDark ? 'text-white' : 'text-slate-800'}>{employee.semanas_contrato} sem</strong>
+                            </span>
+                            {employee.patrocinio_bonus && (
+                              <>
+                                <span className="text-slate-600">•</span>
+                                <span className="text-[10px] text-emerald-400 font-bold">
+                                  +{(employee.patrocinio_bonus * 100).toFixed(0)}% receita mkt
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col items-end gap-1.5 shrink-0 text-right">
+                          <span className="text-[7.5px] uppercase text-slate-400 font-mono font-bold leading-none">{TRANSLATIONS[lang].custo}</span>
+                          <span className="text-xs font-mono font-black text-rose-500 block leading-none">$ {employee.salario_semanal.toLocaleString()}/sem</span>
+                          <button
+                            onClick={() => handleFireEmployee(employee.id, employee.nome)}
+                            className={`p-1.5 rounded-lg border transition ${
+                              isDark ? 'border-red-500/20 text-red-400 hover:bg-red-500/10' : 'border-slate-200 text-slate-400 hover:text-red-650 hover:bg-red-50'
+                            }`}
+                            title="Demitir do elenco"
+                          >
+                            <UserMinus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
-                      <button
-                        onClick={() => handleFireEmployee(employee.id, employee.nome)}
-                        className={`p-1.5 rounded-lg border transition ${
-                          isDark ? 'border-red-500/20 text-red-400 hover:bg-red-500/10' : 'border-slate-250 text-slate-400 hover:text-red-650 hover:bg-red-50'
-                        }`}
-                        title="Demitir do elenco corporativo"
-                      >
-                        <UserMinus className="w-3.5 h-3.5" />
-                      </button>
+
+                      {/* Micro-management interactive buttons action tray for Promover & Prolongar Contrato */}
+                      <div className="border-t border-slate-800/10 dark:border-slate-800/50 pt-2.5 mt-0.5 flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => handlePromoteEmployee(employee.id)}
+                            className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1 transition ${
+                              isDark 
+                                ? 'bg-[#00E5FF]/10 text-[#00E5FF] hover:bg-[#00E5FF]/20 border border-[#00E5FF]/20' 
+                                : 'bg-blue-50 text-indigo-700 hover:bg-blue-100 border border-blue-100'
+                            }`}
+                          >
+                            <TrendingUp className="w-3 h-3 shrink-0" /> PROMOVER (+25% Custo • +12 Efic.)
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[8.5px] font-bold text-slate-500 uppercase">Prolongar Vínculo:</span>
+                          <button
+                            onClick={() => handleProlongEmployee(employee.id, 32)}
+                            className={`px-2 py-1 rounded-md text-[8px] font-mono font-black border transition ${
+                              isDark 
+                                ? 'bg-slate-800/40 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800' 
+                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            +32 SEM (1 ANO)
+                          </button>
+                          <button
+                            onClick={() => handleProlongEmployee(employee.id, 64)}
+                            className={`px-2 py-1 rounded-md text-[8px] font-mono font-black border transition ${
+                              isDark 
+                                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/25' 
+                                : 'bg-emerald-50 border-emerald-100 text-emerald-700 hover:bg-emerald-100'
+                            }`}
+                          >
+                            +64 SEM (2 ANOS)
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="text-center py-8 text-slate-500 text-[10px] uppercase font-black border border-dashed border-slate-800/40 rounded-xl">
                   Nenhum funcionário na sede corporativa. Contrate novos na agência.

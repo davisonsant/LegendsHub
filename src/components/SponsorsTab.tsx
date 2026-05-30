@@ -281,7 +281,67 @@ export default function SponsorsTab({
     });
   }, [gameState.sponsorsMarket, activeLang]);
 
-  // Handle Sign Sponsor Contract
+  // Modals & Selection States for Contract Actions and Substitution (Troca Direta)
+  const [activeModal, setActiveModal] = useState<'NONE' | 'RESCIND_CONFIRM' | 'SWAP_SELECT' | 'SWAP_CONFIRM'>('NONE');
+  const [sponsorToRescind, setSponsorToRescind] = useState<Sponsor | null>(null);
+  const [newSponsorToSign, setNewSponsorToSign] = useState<Sponsor | null>(null);
+  const [oldSponsorToReplace, setOldSponsorToReplace] = useState<Sponsor | null>(null);
+  const [commercialTrust, setCommercialTrust] = useState<number>(() => {
+    const saved = localStorage.getItem('legendshub_commercial_trust');
+    return saved ? Math.max(0, Math.min(100, parseInt(saved))) : 85;
+  });
+
+  const injectEmailIntoInbox = (sender: string, senderRole: string, subject: string, body: string, category: 'Direção' | 'Jogadores' | 'Propostas') => {
+    const raw = localStorage.getItem('legendshub_custom_events_emails');
+    let current: any[] = [];
+    if (raw) {
+      try {
+        current = JSON.parse(raw);
+      } catch (e) {
+        current = [];
+      }
+    }
+    const newEmail = {
+      id: `email-sponsor-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      sender,
+      senderRole,
+      subject,
+      body,
+      date: 'Hoje / Semana Atual',
+      category,
+      read: false
+    };
+    localStorage.setItem('legendshub_custom_events_emails', JSON.stringify([newEmail, ...current]));
+  };
+
+  // Direct registration when slot is vacant
+  const completeSignDirect = (s: Sponsor) => {
+    const updatedState = { ...gameState };
+    const team = updatedState.teams.find(t => t.id === updatedState.playerTeamId)!;
+
+    // Apply BOTH signature bonus and first weekly inflow immediately
+    team.budget += s.signatureBonus + s.incomePerWeek;
+
+    team.sponsors.push({
+      ...s,
+      activeWeeks: s.termsInWeeks,
+      isSigned: true
+    });
+
+    // Remove from active market
+    updatedState.sponsorsMarket = updatedState.sponsorsMarket.filter(m => m.id !== s.id);
+
+    // Save state globally
+    if (onUpdateGameState) {
+      onUpdateGameState(updatedState);
+      const successMsg = `Contrato firmado! Foram creditados ${formatMoney(s.signatureBonus)} (luvas) e ${formatMoney(s.incomePerWeek)} (primeiro inflow semanal) imediatamente!`;
+      if (triggerNotification) {
+        triggerNotification('💼 ' + t.status_firmado, successMsg);
+      }
+    }
+  };
+
+  // Handle active sponsor contract signing with Troca Direta fallback
   const executeSignSponsor = (sponsorId: string) => {
     const s = enrichedMarketProposals.find(item => item.id === sponsorId);
     if (!s) return;
@@ -295,84 +355,203 @@ export default function SponsorsTab({
     }
 
     const type = getSponsorClass(s);
-    const updatedState = { ...gameState };
-    const team = updatedState.teams.find(t => t.id === updatedState.playerTeamId)!;
-
     if (type === 'MASTER') {
       if (masterSponsor) {
-        const msg = t.limite_master_erro;
-        if (triggerNotification) triggerNotification('⚠️ Limite Excedido', msg);
-        else alert(msg);
+        // TROCA DIRETA! Slot occupied. Show swap confirm.
+        setNewSponsorToSign(s);
+        setOldSponsorToReplace(masterSponsor);
+        setActiveModal('SWAP_CONFIRM');
         return;
       }
     } else {
       if (secondarySponsors.length >= 3) {
-        const msg = t.limite_secundario_erro;
-        if (triggerNotification) triggerNotification('⚠️ Slots Esgotados', msg);
-        else alert(msg);
+        // TROCA DIRETA! All secondary slots occupied. Choose which one to swap.
+        setNewSponsorToSign(s);
+        setActiveModal('SWAP_SELECT');
         return;
       }
     }
 
-    // Apply signing transaction
-    team.budget += s.signatureBonus;
-    team.sponsors.push({
-      ...s,
-      activeWeeks: s.termsInWeeks,
-      isSigned: true
-    });
-
-    // Remove from active market
-    updatedState.sponsorsMarket = updatedState.sponsorsMarket.filter(m => m.id !== sponsorId);
-
-    // Save state globally
-    if (onUpdateGameState) {
-      onUpdateGameState(updatedState);
-      const successMsg = `${t.assinatura_sucesso} ${formatMoney(s.signatureBonus)}`;
-      if (triggerNotification) {
-        triggerNotification('💼 ' + t.status_firmado, successMsg);
-      }
-    } else {
-      onSignSponsor(sponsorId);
-    }
+    // Direct vacant slot sign
+    completeSignDirect(s);
   };
 
-  // Handle Terminate/Rescindir contract with penalty fee calculations
-  const executeRescindSponsor = (sponsorId: string, currentSponsor: Sponsor) => {
-    // Penalty calculation: 3.5 weeks of income, representing standard clause penalty
-    const penaltyFee = Math.round(currentSponsor.incomePerWeek * 3.5);
-
-    if (playerTeam.budget < penaltyFee) {
-      const errorMsg = `${t.rescisao_erro} ${formatMoney(penaltyFee)}`;
-      if (triggerNotification) triggerNotification('❌ Saldo Insuficiente', errorMsg);
-      else alert(errorMsg);
-      return;
-    }
+  // Confirm standard contract termination
+  const confirmRescindSponsor = () => {
+    if (!sponsorToRescind) return;
+    
+    // Penalty calculation: 3 weeks of income as requested!
+    const penaltyFee = Math.round(sponsorToRescind.incomePerWeek * 3);
 
     const updatedState = { ...gameState };
     const team = updatedState.teams.find(t => t.id === updatedState.playerTeamId)!;
 
+    if (team.budget < penaltyFee) {
+      const errorMsg = `Saldo insuficiente para quitar a multa rescisória de ${formatMoney(penaltyFee)}!`;
+      if (triggerNotification) triggerNotification('❌ Saldo Insuficiente', errorMsg);
+      else alert(errorMsg);
+      setActiveModal('NONE');
+      setSponsorToRescind(null);
+      return;
+    }
+
     // Deduct penalty fee
     team.budget -= penaltyFee;
 
+    // Deduct popularity matching proportional remaining term: 5% to 15%
+    const weeksRemaining = sponsorToRescind.activeWeeks || sponsorToRescind.termsInWeeks;
+    const termsInWeeks = sponsorToRescind.termsInWeeks;
+    const ratio = weeksRemaining / termsInWeeks;
+    const popularityPenalty = Math.max(5, Math.min(15, Math.round(ratio * 15)));
+    team.popularity = Math.max(0, team.popularity - popularityPenalty);
+
+    // Deduct Commercial trust by 20 points
+    const nextTrust = Math.max(0, commercialTrust - 20);
+    setCommercialTrust(nextTrust);
+    localStorage.setItem('legendshub_commercial_trust', String(nextTrust));
+
     // Remove from team sponsors
-    team.sponsors = team.sponsors.filter(s => s.id !== sponsorId);
+    team.sponsors = team.sponsors.filter(s => s.id !== sponsorToRescind.id);
 
     // Create fresh proposal on market
-    updatedState.sponsorsMarket.push({
-      ...currentSponsor,
-      isSigned: false,
-      activeWeeks: undefined
-    });
+    const exists = updatedState.sponsorsMarket.some(m => m.id === sponsorToRescind.id);
+    if (!exists) {
+      updatedState.sponsorsMarket.push({
+        ...sponsorToRescind,
+        isSigned: false,
+        activeWeeks: undefined
+      });
+    }
+
+    // Email trigger A (Queda na confiabilidade)
+    injectEmailIntoInbox(
+      'Head de Marketing',
+      'Diretor Comercial',
+      'Alerta Crítico: Nossa reputação no mercado corporativo despencou',
+      `Manager, a nossa recente instabilidade com parceiros comerciais afetou drasticamente nossa Confiabilidade Comercial (atualmente em ${nextTrust}%). O mercado está nos enxergando como uma organização instável. Se não estabilizarmos nossos contratos ativos, as próximas marcas de grande porte que analisarem nossa equipe vão exigir metas muito mais agressivas ou oferecerão bônus de assinatura reduzidos. Sugiro cautela nas próximas decisões.`,
+      'Direção'
+    );
 
     // Save state globally
     if (onUpdateGameState) {
       onUpdateGameState(updatedState);
-      const successMsg = `${t.rescisao_sucesso} ${formatMoney(penaltyFee)}`;
+      const successMsg = `Contrato rescindido! Penalidade paga: ${formatMoney(penaltyFee)}. Confiabilidade Comercial faliu por -20pts.`;
       if (triggerNotification) {
         triggerNotification('💼 Contrato Rescindido', successMsg);
       }
     }
+
+    setActiveModal('NONE');
+    setSponsorToRescind(null);
+  };
+
+  // Confirm direct sponsor replace/swap
+  const confirmSponsorSwap = () => {
+    if (!newSponsorToSign || !oldSponsorToReplace) return;
+
+    // Penalty: 3x old sponsor inflow
+    const penaltyFee = Math.round(oldSponsorToReplace.incomePerWeek * 3);
+
+    const updatedState = { ...gameState };
+    const team = updatedState.teams.find(t => t.id === updatedState.playerTeamId)!;
+
+    if (team.budget < penaltyFee) {
+      const errorMsg = `Saldo insuficiente para pagar a multa de rescisão de ${formatMoney(penaltyFee)}!`;
+      if (triggerNotification) triggerNotification('❌ Saldo Insuficiente', errorMsg);
+      else alert(errorMsg);
+      setActiveModal('NONE');
+      setNewSponsorToSign(null);
+      setOldSponsorToReplace(null);
+      return;
+    }
+
+    // Deduct penalty
+    team.budget -= penaltyFee;
+
+    // Deduct popularity: 5% to 15%
+    const weeksRemaining = oldSponsorToReplace.activeWeeks || oldSponsorToReplace.termsInWeeks;
+    const termsInWeeks = oldSponsorToReplace.termsInWeeks;
+    const ratio = weeksRemaining / termsInWeeks;
+    const popularityPenalty = Math.max(5, Math.min(15, Math.round(ratio * 15)));
+    team.popularity = Math.max(0, team.popularity - popularityPenalty);
+
+    // Deduct Commercial trust by 20 points
+    const nextTrust = Math.max(0, commercialTrust - 20);
+    setCommercialTrust(nextTrust);
+    localStorage.setItem('legendshub_commercial_trust', String(nextTrust));
+
+    // Remove old sponsor
+    team.sponsors = team.sponsors.filter(s => s.id !== oldSponsorToReplace.id);
+
+    // Add new sponsor - BOTH signature bonus and first weekly inflow computed immediately
+    team.budget += newSponsorToSign.signatureBonus + newSponsorToSign.incomePerWeek;
+
+    team.sponsors.push({
+      ...newSponsorToSign,
+      activeWeeks: newSponsorToSign.termsInWeeks,
+      isSigned: true
+    });
+
+    // Remove new sponsor from market
+    updatedState.sponsorsMarket = updatedState.sponsorsMarket.filter(m => m.id !== newSponsorToSign.id);
+
+    // Put old sponsor back into market
+    const exists = updatedState.sponsorsMarket.some(m => m.id === oldSponsorToReplace.id);
+    if (!exists) {
+      updatedState.sponsorsMarket.push({
+        ...oldSponsorToReplace,
+        isSigned: false,
+        activeWeeks: undefined
+      });
+    }
+
+    // TRIGGERS FOR EMAILS
+    // GATILHO A
+    injectEmailIntoInbox(
+      'Head de Marketing',
+      'Diretor Comercial',
+      'Alerta Crítico: Nossa reputação no mercado corporativo despencou',
+      `Manager, a nossa recente instabilidade com parceiros comerciais afetou drasticamente nossa Confiabilidade Comercial (atualmente em ${nextTrust}%). O mercado está nos enxergando como uma organização instável. Se não estabilizarmos nossos contratos ativos, as próximas marcas de grande porte que analisarem nossa equipe vão exigir metas muito mais agressivas ou oferecerão bônus de assinatura reduzidos. Sugiro cautela nas próximas decisões.`,
+      'Direção'
+    );
+
+    // GATILHO B
+    const valorNovo = newSponsorToSign.incomePerWeek;
+    const penalty = 3 * oldSponsorToReplace.incomePerWeek;
+    const newTerm = newSponsorToSign.termsInWeeks || 12;
+    const multaFracionada = penalty / newTerm;
+    const comparisonVal = oldSponsorToReplace.incomePerWeek + multaFracionada;
+
+    if (valorNovo > comparisonVal) {
+      injectEmailIntoInbox(
+        'Diretoria Executiva',
+        'Conselho Executivo',
+        'Feedback de Gestão: Excelente movimentação de mercado',
+        `Prezado Manager, analisamos os termos da troca do slot corporativo. Embora a rescisão tenha gerado custos imediatos e uma leve turbulência na nossa confiabilidade, o novo aporte financeiro semanal de ${formatMoney(valorNovo)} compensa amplamente o movimento a médio prazo. Você conseguiu valorizar a nossa camisa. Bom trabalho.`,
+        'Direção'
+      );
+    } else {
+      injectEmailIntoInbox(
+        'Diretoria Executiva',
+        'Conselho Executivo',
+        'Alerta de Gestão: Preocupação com os termos do novo patrocínio',
+        `Manager, fomos notificados sobre a substituição de patrocinador e estamos seriamente preocupados. O valor do novo contrato (${formatMoney(valorNovo)}) não justifica a multa que pagamos e o desgaste desnecessário da nossa imagem pública. Foi um mau negócio financeiro que estrangula nossa margem de lucro semanal. Esperamos critérios mais rigorosos de sua parte nas próximas propostas.`,
+        'Direção'
+      );
+    }
+
+    // Save Game State
+    if (onUpdateGameState) {
+      onUpdateGameState(updatedState);
+    }
+
+    if (triggerNotification) {
+      triggerNotification('🔄 Troca de Patrocinador', `Substituição efetuada! Sua caixa postal foi atualizada com relatórios de performance.`);
+    }
+
+    setActiveModal('NONE');
+    setNewSponsorToSign(null);
+    setOldSponsorToReplace(null);
   };
 
   // Evaluate dynamic cláusula Hype multiplier
@@ -454,9 +633,10 @@ export default function SponsorsTab({
       },
       moeda_ativa: symbol,
       data_engine_status: "ONLINE",
+      data_engine_log: gameState?.editorSyncStatusMessage || "[STATUS: ONLINE] [ENGINE: ACTIVE] Editor Payload Synced Successfully. 0 keys updated.",
       linguagem_ativa: activeLang.toUpperCase()
     };
-  }, [playerTeam, masterSponsor, secondarySponsors, enrichedMarketProposals, activeLang, totalSponsorInflowCurrent, isHypeActive]);
+  }, [playerTeam, masterSponsor, secondarySponsors, enrichedMarketProposals, activeLang, totalSponsorInflowCurrent, isHypeActive, gameState]);
 
   // Execute manual JSON Command dispatchers for testing
   const submitTerminalCommand = () => {
@@ -500,37 +680,41 @@ export default function SponsorsTab({
     }
   };
 
+  const isDark = theme !== 'light';
+
   return (
     <div className="space-y-6">
       
       {/* 1. Header Status Bar */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-[#0a1424] border border-[#1e2d44] p-5 rounded-xl select-none">
+      <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 p-5 rounded-xl select-none border ${
+        isDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200 shadow-sm'
+      }`}>
         <div className="space-y-1">
-          <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest leading-none">
+          <p className={`text-[10px] font-black uppercase tracking-widest leading-none ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
             {t.saldo_caixa}
           </p>
-          <h3 className="font-display text-[#00FF88] text-2xl font-black tracking-tight">
+          <h3 className={`font-display text-2xl font-black tracking-tight ${isDark ? 'text-[#00FF88]' : 'text-emerald-600'}`}>
             {formatMoney(playerTeam.budget)}
           </h3>
         </div>
-        <div className="space-y-1 border-t md:border-t-0 md:border-l border-[#1e2d44]/60 pt-3 md:pt-0 md:pl-4">
-          <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest leading-none flex items-center gap-1.5">
+        <div className={`space-y-1 border-t md:border-t-0 md:border-l pt-3 md:pt-0 md:pl-4 ${isDark ? 'border-[#1e2d44]/60' : 'border-slate-200'}`}>
+          <p className={`text-[10px] font-black uppercase tracking-widest leading-none flex items-center gap-1.5 ${isDark ? 'text-gray-500' : 'text-slate-500'}`}>
             {t.inflow_semanal_patrocinio}
-            {isHypeActive && <Sparkles className="w-3.5 h-3.5 text-[#00FF88] animate-pulse" />}
+            {isHypeActive && <Sparkles className={`w-3.5 h-3.5 animate-pulse ${isDark ? 'text-[#00FF88]' : 'text-amber-500'}`} />}
           </p>
           <div className="flex items-baseline gap-2">
-            <h3 className="font-display text-[#00E5FF] text-2xl font-black tracking-tight">
+            <h3 className={`font-display text-2xl font-black tracking-tight ${isDark ? 'text-[#00E5FF]' : 'text-cyan-600'}`}>
               + {formatMoney(totalSponsorInflowCurrent)}
             </h3>
-            <span className="text-[9px] text-gray-500 font-mono font-bold uppercase">/ {langStored === 'en' ? 'wk' : 'sem'}</span>
+            <span className={`text-[9px] font-mono font-bold uppercase ${isDark ? 'text-gray-500' : 'text-slate-400'}`}>/ {langStored === 'en' ? 'wk' : 'sem'}</span>
           </div>
         </div>
-        <div className="space-y-1 border-t md:border-t-0 md:border-l border-[#1e2d44]/60 pt-3 md:pt-0 md:pl-4">
-          <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest leading-none">
-            {t.metricas_de_fas}
+        <div className={`space-y-1 border-t md:border-t-0 md:border-l pt-3 md:pt-0 md:pl-4 ${isDark ? 'border-[#1e2d44]/60' : 'border-slate-200'}`}>
+          <p className={`text-[10px] font-black uppercase tracking-widest leading-none ${isDark ? 'text-gray-500' : 'text-slate-400'}`}>
+            {activeLang === 'pt' ? 'Fãs Ativos' : t.metricas_de_fas}
           </p>
-          <h3 className="font-display text-white text-2xl font-black tracking-tight">
-            Popularity {playerTeam.popularity}%
+          <h3 className={`font-display text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            {activeLang === 'pt' ? `Popularidade ${playerTeam.popularity}%` : `Popularity {playerTeam.popularity}%`}
           </h3>
         </div>
       </div>
@@ -538,12 +722,14 @@ export default function SponsorsTab({
       <div className="w-full space-y-6">
         
         {/* 2. SLOOTED ACTIVE SPONSORS VIEW (Occupies FULL width of the container!) */}
-        <div className="bg-[#0a1424] border border-[#1e2d44] rounded-xl p-6 shadow-lg space-y-5">
-          <div className="flex justify-between items-center border-b border-[#1e2d44] pb-3">
-            <h4 className="font-display text-xs font-black uppercase tracking-wider text-[#00E5FF] flex items-center gap-2">
-              <Award className="w-4 h-4 text-[#00E5FF]" /> {t.titulo_ativos}
+        <div className={`rounded-xl p-6 shadow-lg space-y-5 border ${isDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200'}`}>
+          <div className={`flex justify-between items-center border-b pb-3 ${isDark ? 'border-[#1e2d44]' : 'border-slate-100'}`}>
+            <h4 className={`font-display text-xs font-black uppercase tracking-wider flex items-center gap-2 ${isDark ? 'text-[#00E5FF]' : 'text-cyan-700'}`}>
+              <Award className="w-4 h-4" /> {t.titulo_ativos}
             </h4>
-            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[9px] font-mono font-black rounded uppercase">
+            <div className={`flex items-center gap-1.5 px-2 py-0.5 text-[9px] font-mono font-black rounded uppercase ${
+              isDark ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+            }`}>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               SLOTS 4 / 4 OK
             </div>
@@ -554,51 +740,64 @@ export default function SponsorsTab({
             {/* Slot 1: Master Slot */}
             <div className={`rounded-xl p-4 border flex flex-col justify-between min-h-[220px] transition-all duration-300 relative overflow-hidden group ${
               masterSponsor 
-                ? 'bg-[#0b1b34]/95 border-[#00E5FF]/40 hover:border-[#00E5FF]/80 shadow-[0_0_15px_-3px_rgba(0,229,255,0.15)]' 
-                : 'bg-[#070d19]/80 border-dashed border-[#1e2d44] hover:bg-[#081224]/80'
+                ? (isDark 
+                    ? 'bg-[#0b1b34]/95 border-[#00E5FF]/40 hover:border-[#00E5FF]/80 shadow-[0_0_15px_-3px_rgba(0,229,255,0.15)]' 
+                    : 'bg-cyan-50/65 border-cyan-200/80 hover:border-cyan-300 shadow-sm')
+                : (isDark 
+                    ? 'bg-[#070d19]/80 border-dashed border-[#1e2d44] hover:bg-[#081224]/80' 
+                    : 'bg-slate-50/50 border-dashed border-slate-200 hover:bg-slate-50')
             }`}>
               <div className="space-y-3">
                 <div className="flex justify-between items-start">
-                  <span className="text-[9px] px-1.5 py-0.5 bg-[#00E5FF]/10 text-[#00E5FF] font-mono font-black uppercase rounded tracking-wider">
+                  <span className={`text-[9px] px-1.5 py-0.5 font-mono font-black uppercase rounded tracking-wider border ${
+                    isDark ? 'bg-[#00E5FF]/10 text-[#00E5FF] border-[#00E5FF]/10' : 'bg-cyan-100 text-cyan-800 border-cyan-200'
+                  }`}>
                     {t.slot_master}
                   </span>
-                  {masterSponsor && <Sparkles className="w-3.5 h-3.5 text-[#00E5FF] animate-bounce" />}
+                  {masterSponsor && <Sparkles className={`w-3.5 h-3.5 animate-bounce ${isDark ? 'text-[#00E5FF]' : 'text-cyan-600'}`} />}
                 </div>
 
                 {masterSponsor ? (
                   <div className="space-y-2">
-                    <h5 className="font-display text-sm font-black text-white uppercase tracking-tight">{masterSponsor.name}</h5>
+                    <h5 className={`font-display text-sm font-black uppercase tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>{masterSponsor.name}</h5>
                     <div className="space-y-1">
-                      <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">
-                        {t.meta_contratual}: <span className="text-white font-medium block mt-0.5">{masterSponsor.objective}</span>
+                      <p className={`text-[10px] uppercase tracking-wider font-bold ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                        {t.meta_contratual}: <span className={`font-medium block mt-0.5 ${isDark ? 'text-white' : 'text-slate-800'}`}>{masterSponsor.objective}</span>
                       </p>
-                      <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">
-                        {t.termo_restante}: <span className="text-white block mt-0.5">{masterSponsor.activeWeeks || masterSponsor.termsInWeeks} {t.semanas}</span>
+                      <p className={`text-[10px] uppercase tracking-wider font-bold ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                        {t.termo_restante}: <span className={`block mt-0.5 ${isDark ? 'text-white' : 'text-slate-800'}`}>{masterSponsor.activeWeeks || masterSponsor.termsInWeeks} {t.semanas}</span>
                       </p>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-[11px] text-gray-500 leading-relaxed font-semibold italic mt-4">
+                  <p className={`text-[11px] leading-relaxed font-semibold italic mt-4 ${isDark ? 'text-gray-500' : 'text-slate-400'}`}>
                     {t.vazio_ativos}
                   </p>
                 )}
               </div>
 
               {masterSponsor ? (
-                <div className="border-t border-[#1e2d44] pt-3 mt-4 space-y-2.5">
+                <div className={`border-t pt-3 mt-4 space-y-2.5 ${isDark ? 'border-[#1e2d44]' : 'border-cyan-100'}`}>
                   <div className="flex justify-between items-center text-[11px]">
-                    <span className="text-gray-400 font-bold">{t.saldo_caixa}</span>
-                    <span className="text-[#00FF88] font-black">+{formatMoney(Math.round(masterSponsor.incomePerWeek * hypeBonusMultiplier))} / sem</span>
+                    <span className={isDark ? 'text-gray-400' : 'text-slate-500'}>{t.saldo_caixa}</span>
+                    <span className={`font-black ${isDark ? 'text-[#00FF88]' : 'text-emerald-600'}`}>+{formatMoney(Math.round(masterSponsor.incomePerWeek * hypeBonusMultiplier))} / sem</span>
                   </div>
                   <button
-                    onClick={() => executeRescindSponsor(masterSponsor.id, masterSponsor)}
-                    className="w-full py-1.5 bg-[#0e1726] hover:bg-rose-950/40 text-rose-500 hover:text-rose-400 border border-slate-700 hover:border-rose-500/30 text-[9px] font-mono font-black uppercase tracking-widest rounded-lg cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-1"
+                    onClick={() => {
+                      setSponsorToRescind(masterSponsor);
+                      setActiveModal('RESCIND_CONFIRM');
+                    }}
+                    className={`w-full py-1.5 text-[9px] font-mono font-black uppercase tracking-widest rounded-lg cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-1 ${
+                      isDark 
+                        ? 'bg-[#0e1726] hover:bg-[#ffebee]/10 text-rose-500 hover:text-rose-400 border border-slate-700 hover:border-rose-500/30' 
+                        : 'bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 hover:text-rose-700 shadow-sm'
+                    }`}
                   >
                     <ShieldAlert className="w-3 h-3" /> {t.btn_rescindir}
                   </button>
                 </div>
               ) : (
-                <div className="text-[9px] text-[#00E5FF]/70 font-mono tracking-tight mt-6 uppercase">
+                <div className={`text-[9px] font-mono tracking-tight mt-6 uppercase ${isDark ? 'text-[#00E5FF]/70' : 'text-slate-400'}`}>
                   {t.vazio}
                 </div>
               )}
@@ -610,50 +809,63 @@ export default function SponsorsTab({
               return (
                 <div key={idx} className={`rounded-xl p-4 border flex flex-col justify-between min-h-[220px] transition-all duration-300 group ${
                   s 
-                    ? 'bg-[#0f172a]/95 border-emerald-500/20 hover:border-emerald-500/60 shadow-inner' 
-                    : 'bg-[#070d19]/80 border-dashed border-[#1e2d44] hover:bg-[#081224]/80'
+                    ? (isDark 
+                        ? 'bg-[#0f172a]/95 border-emerald-500/20 hover:border-emerald-500/60 shadow-inner' 
+                        : 'bg-emerald-58/60 border-emerald-200/80 hover:border-emerald-300 shadow-sm')
+                    : (isDark 
+                        ? 'bg-[#070d19]/80 border-dashed border-[#1e2d44] hover:bg-[#081224]/80' 
+                        : 'bg-slate-50/50 border-dashed border-slate-200 hover:bg-slate-50')
                 }`}>
                   <div className="space-y-3">
                     <div className="flex justify-between items-start">
-                      <span className="text-[9px] px-1.5 py-0.5 bg-gray-800 text-gray-400 font-mono font-extrabold uppercase rounded tracking-wider">
+                      <span className={`text-[9px] px-1.5 py-0.5 font-mono font-extrabold uppercase rounded tracking-wider border ${
+                        isDark ? 'bg-gray-800 text-gray-400 border-transparent' : 'bg-slate-100 text-slate-600 border-slate-200'
+                      }`}>
                         {idx === 0 ? t.slot_sec_1 : idx === 1 ? t.slot_sec_2 : t.slot_sec_3}
                       </span>
                     </div>
 
                     {s ? (
                       <div className="space-y-2">
-                        <h5 className="font-display text-sm font-black text-white uppercase tracking-tight">{s.name}</h5>
+                        <h5 className={`font-display text-sm font-black uppercase tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>{s.name}</h5>
                         <div className="space-y-1">
-                          <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">
-                            {t.meta_contratual}: <span className="text-white block mt-0.5 font-medium">{s.objective}</span>
+                          <p className={`text-[10px] uppercase tracking-wider font-bold ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                            {t.meta_contratual}: <span className={`block mt-0.5 font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>{s.objective}</span>
                           </p>
-                          <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">
-                            {t.termo_restante}: <span className="text-white block mt-0.5">{s.activeWeeks || s.termsInWeeks} {t.semanas}</span>
+                          <p className={`text-[10px] uppercase tracking-wider font-bold ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                            {t.termo_restante}: <span className={`block mt-0.5 ${isDark ? 'text-white' : 'text-slate-800'}`}>{s.activeWeeks || s.termsInWeeks} {t.semanas}</span>
                           </p>
                         </div>
                       </div>
                     ) : (
-                      <p className="text-[11px] text-gray-500 leading-relaxed font-semibold italic mt-4">
+                      <p className={`text-[11px] leading-relaxed font-semibold italic mt-4 ${isDark ? 'text-gray-500' : 'text-slate-400'}`}>
                         {t.vazio_ativos}
                       </p>
                     )}
                   </div>
 
                   {s ? (
-                    <div className="border-t border-[#1e2d44] pt-3 mt-4 space-y-2.5">
+                    <div className={`border-t pt-3 mt-4 space-y-2.5 ${isDark ? 'border-[#1e2d44]' : 'border-emerald-100'}`}>
                       <div className="flex justify-between items-center text-[11px]">
-                        <span className="text-gray-400 font-bold">{t.saldo_caixa}</span>
-                        <span className="text-[#00FF88] font-black">+{formatMoney(Math.round(s.incomePerWeek * hypeBonusMultiplier))} / sem</span>
+                        <span className={isDark ? 'text-gray-400' : 'text-slate-500'}>{t.saldo_caixa}</span>
+                        <span className={`font-black ${isDark ? 'text-[#00FF88]' : 'text-emerald-700'}`}>+{formatMoney(Math.round(s.incomePerWeek * hypeBonusMultiplier))} / sem</span>
                       </div>
                       <button
-                        onClick={() => executeRescindSponsor(s.id, s)}
-                        className="w-full py-1.5 bg-[#0e1726] hover:bg-rose-950/40 text-rose-500 hover:text-rose-400 border border-slate-700 hover:border-rose-500/30 text-[9px] font-mono font-black uppercase tracking-widest rounded-lg cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-1"
+                        onClick={() => {
+                          setSponsorToRescind(s);
+                          setActiveModal('RESCIND_CONFIRM');
+                        }}
+                        className={`w-full py-1.5 text-[9px] font-mono font-black uppercase tracking-widest rounded-lg cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-1 ${
+                          isDark 
+                            ? 'bg-[#0e1726] hover:bg-[#ffebee]/10 text-rose-500 hover:text-rose-400 border border-slate-700 hover:border-rose-500/30' 
+                            : 'bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 hover:text-rose-700 shadow-sm'
+                        }`}
                       >
                         <ShieldAlert className="w-3 h-3" /> {t.btn_rescindir}
                       </button>
                     </div>
                   ) : (
-                    <div className="text-[9px] text-[#00FF88]/40 font-mono tracking-tight mt-6 uppercase font-bold">
+                    <div className={`text-[9px] font-mono tracking-tight mt-6 uppercase font-bold ${isDark ? 'text-[#00FF88]/40' : 'text-slate-400'}`}>
                       {t.vazio}
                     </div>
                   )}
@@ -665,13 +877,13 @@ export default function SponsorsTab({
         </div>
 
         {/* 3. OPEN MARKET SPONSOR PROPOSALS LIST */}
-        <div className="bg-[#0a1424] border border-[#1e2d44] rounded-xl p-6 shadow-lg space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#1e2d44] pb-3">
-            <h4 className="font-display text-xs font-black uppercase tracking-wider text-white">
+        <div className={`rounded-xl p-6 shadow-lg space-y-5 border ${isDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200'}`}>
+          <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3 ${isDark ? 'border-[#1e2d44]' : 'border-slate-100'}`}>
+            <h4 className={`font-display text-xs font-black uppercase tracking-wider ${isDark ? 'text-white' : 'text-slate-900'}`}>
               {t.titulo_propostas}
             </h4>
-            <div className="text-[9px] font-mono font-semibold text-slate-400 flex items-center gap-1.5">
-              <TrendingUp className="w-3.5 h-3.5" /> Fãs Atuais da Organização: <span className="font-bold text-white">{playerTeam.popularity}%</span>
+            <div className={`text-[9.5px] font-mono font-semibold flex items-center gap-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              <TrendingUp className="w-3.5 h-3.5 text-cyan-600" /> {activeLang === 'pt' ? 'Popularidade Atual:' : 'Current Popularity:'} <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{playerTeam.popularity}%</span>
             </div>
           </div>
 
@@ -682,46 +894,48 @@ export default function SponsorsTab({
                 const isMasterSpon = getSponsorClass(s) === 'MASTER';
                 
                 return (
-                  <div key={s.id} className="relative bg-[#070d19] border border-[#1e2d44] rounded-xl p-5 hover:border-slate-700 transition-all flex flex-col justify-between space-y-4">
+                  <div key={s.id} className={`relative rounded-xl p-5 hover:border-slate-400 transition-all flex flex-col justify-between space-y-4 border ${
+                    isDark ? 'bg-[#070d19] border-[#1e2d44] hover:border-slate-700' : 'bg-white border-slate-200 hover:shadow-md'
+                  }`}>
                     <div className="space-y-3">
                       <div className="flex justify-between items-start">
                         <div className="flex items-center gap-2">
-                          <h5 className="font-display text-sm font-black text-white uppercase tracking-tight">{s.name}</h5>
+                          <h5 className={`font-display text-sm font-black uppercase tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>{s.name}</h5>
                           <span className={`text-[8px] px-1.5 py-0.5 font-mono font-black uppercase rounded tracking-wider border ${
                             isMasterSpon 
                               ? 'bg-[#00E5FF]/10 text-[#00E5FF] border-[#00E5FF]/20' 
-                              : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                              : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
                           }`}>
                             {isMasterSpon ? 'MASTER' : 'SECONDARY'}
                           </span>
                         </div>
-                        <span className="text-[9px] font-mono text-rose-500 flex items-center gap-1 bg-rose-500/10 px-1.5 py-0.5 rounded uppercase font-black tracking-widest">
+                        <span className="text-[9px] font-mono text-rose-500 flex items-center gap-1 bg-rose-500/10 dark:bg-rose-950/20 px-1.5 py-0.5 rounded uppercase font-black tracking-widest">
                           🛡️ {t.vence_em}: {s.validityWeeks || 2}w
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 text-[10.5px] border-y border-[#1e2d44]/50 py-3">
+                      <div className={`grid grid-cols-2 gap-2 text-[10.5px] border-y py-3 ${isDark ? 'border-[#1e2d44]/50' : 'border-slate-100'}`}>
                         <div>
-                          <p className="text-gray-500 font-extrabold uppercase text-[9px]">{t.bonus_assinatura}</p>
-                          <p className="text-white font-black mt-0.5">{formatMoney(s.signatureBonus)}</p>
+                          <p className={`font-extrabold uppercase text-[9px] ${isDark ? 'text-gray-500' : 'text-slate-400'}`}>{t.bonus_assinatura}</p>
+                          <p className={`font-black mt-0.5 ${isDark ? 'text-white' : 'text-slate-800'}`}>{formatMoney(s.signatureBonus)}</p>
                         </div>
                         <div>
-                          <p className="text-gray-500 font-extrabold uppercase text-[9px]">{t.saldo_caixa}</p>
-                          <p className="text-[#00FF88] font-black mt-0.5">+{formatMoney(s.incomePerWeek)}/sem</p>
+                          <p className={`font-extrabold uppercase text-[9px] ${isDark ? 'text-gray-500' : 'text-slate-400'}`}>{t.saldo_caixa}</p>
+                          <p className={`font-black mt-0.5 ${isDark ? 'text-[#00FF88]' : 'text-emerald-600'}`}>+{formatMoney(s.incomePerWeek)}/sem</p>
                         </div>
                         <div className="col-span-2">
-                          <p className="text-gray-500 font-extrabold uppercase text-[9px]">{t.meta_exigida}</p>
-                          <p className="text-white mt-0.5 font-medium">{s.objective}</p>
+                          <p className={`font-extrabold uppercase text-[9px] ${isDark ? 'text-gray-500' : 'text-slate-400'}`}>{t.meta_exigida}</p>
+                          <p className={`mt-0.5 font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>{s.objective}</p>
                         </div>
                       </div>
                     </div>
 
                     <div className="flex justify-between items-center pt-2">
                       <div className="text-[9.5px]">
-                        <p className="text-gray-400 font-bold uppercase">
-                          {t.requisitos_minimos}: <strong className="text-gray-200">{s.minPopularity}% {t.fãs}</strong>
+                        <p className={`font-bold uppercase ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
+                          {t.requisitos_minimos}: <strong className={isDark ? 'text-gray-200' : 'text-slate-800'}>{s.minPopularity}% {t.fãs}</strong>
                         </p>
-                        <p className="text-gray-500 font-medium">Term: {s.termsInWeeks} {t.semanas}</p>
+                        <p className={isDark ? 'text-gray-500' : 'text-slate-400'}>Term: {s.termsInWeeks} {t.semanas}</p>
                       </div>
                       
                       <button
@@ -729,8 +943,10 @@ export default function SponsorsTab({
                         disabled={!popularityCheck}
                         className={`px-4 py-2 text-[9px] font-mono font-black uppercase tracking-widest rounded-lg transition-all cursor-pointer ${
                           popularityCheck 
-                            ? 'bg-[#00E5FF] text-black hover:bg-[#33ebff] active:scale-95 shadow-md shadow-[#00E5FF]/10' 
-                            : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'
+                            ? (isDark 
+                                ? 'bg-[#00E5FF] text-black hover:bg-[#33ebff] active:scale-95 shadow-md shadow-[#00E5FF]/10' 
+                                : 'bg-cyan-600 text-white hover:bg-cyan-700 active:scale-95 shadow-sm')
+                            : 'bg-gray-800 dark:bg-slate-800 text-gray-500 cursor-not-allowed border border-gray-700 dark:border-slate-700'
                         }`}
                       >
                         {t.btn_assinar}
@@ -750,39 +966,51 @@ export default function SponsorsTab({
         {/* 4. IMMERSIVE EXPERIENCE CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           
-          <div className="bg-[#0a1424] border border-[#1e2d44] rounded-xl p-5 space-y-3 shadow-md">
-            <h5 className="text-[10px] uppercase font-black tracking-widest text-[#00E5FF] flex items-center gap-1.5 select-none">
-              <Percent className="w-4 h-4" /> {t.progresso_porcentagem}
+          <div className={`border rounded-xl p-5 space-y-3 shadow-md ${isDark ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200 shadow-sm'}`}>
+            <h5 className={`text-[10px] uppercase font-black tracking-widest flex items-center gap-1.5 select-none ${isDark ? 'text-[#00E5FF]' : 'text-cyan-600'}`}>
+              <Percent className="w-4 h-4" /> Nível de Confiabilidade Comercial
             </h5>
             <div className="flex justify-between items-center font-mono text-xs font-black select-none mt-1">
-              <span className="text-gray-400">STATUS: {t.status_excelente}</span>
-              <span className="text-[#00FF88]">85%</span>
+              <span className={isDark ? 'text-gray-400' : 'text-slate-600'}>
+                STATUS: {commercialTrust >= 80 ? t.status_excelente : commercialTrust >= 50 ? t.status_bom : t.status_regular}
+              </span>
+              <span className={isDark ? 'text-[#00FF88]' : 'text-emerald-600'}>{commercialTrust}%</span>
             </div>
-            <div className="w-full bg-slate-900 border border-slate-800 h-2.5 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-emerald-500 to-[#00E5FF] rounded-full" style={{ width: '85%' }} />
+            <div className="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 h-2.5 rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-emerald-500 to-[#00E5FF] rounded-full" style={{ width: `${commercialTrust}%` }} />
             </div>
-            <p className="text-[10.5px] text-gray-400 leading-normal leading-relaxed">
+            <p className={`text-[10.5px] leading-relaxed ${isDark ? 'text-gray-400' : 'text-slate-500'}`}>
               {t.confiabilidade_desc}
             </p>
           </div>
 
           <div className={`border rounded-xl p-5 space-y-3 shadow-md transition-all duration-300 ${
             isHypeActive 
-              ? 'bg-[#082025]/30 border-[#00E5FF]/20 shadow-[0_0_15px_-4px_rgba(0,229,255,0.1)]' 
-              : 'bg-[#0a1424] border-[#1e2d44]'
+              ? (isDark 
+                  ? 'bg-[#082025]/30 border-[#00E5FF]/20 shadow-[0_0_15px_-4px_rgba(0,229,255,0.1)]' 
+                  : 'bg-[#f0fdf4] border-[#bbf7d0] shadow-sm')
+              : (isDark 
+                  ? 'bg-[#0a1424] border-[#1e2d44]' 
+                  : 'bg-white border-slate-200 shadow-sm')
           }`}>
-            <h5 className="text-[10px] uppercase font-black tracking-widest text-[#00E5FF] flex items-center gap-1.5 select-none">
-              <Zap className="w-4 h-4 fill-current text-amber-400" /> {t.clausula_hype_performance}
+            <h5 className={`text-[10px] uppercase font-black tracking-widest flex items-center gap-1.5 select-none ${isDark ? 'text-[#00E5FF]' : 'text-cyan-600'}`}>
+              <Zap className="w-4 h-4 fill-current text-amber-400 animate-bounce" /> {t.clausula_hype_performance}
             </h5>
             <div className="flex items-center gap-2 mt-1">
               <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-black uppercase ${
-                isHypeActive ? 'bg-[#00FF88]/10 text-[#00FF88]' : 'bg-gray-800 text-gray-500'
+                isHypeActive 
+                  ? 'bg-emerald-500/10 text-emerald-500' 
+                  : 'bg-gray-800 text-gray-500'
               }`}>
                 {isHypeActive ? 'ACTIVE (+10%)' : 'INACTIVE'}
               </span>
-              <span className="text-gray-400 font-mono text-xs font-bold">Streak: {playerTeam.streak || '-'}</span>
+              <span className={isDark ? 'text-gray-400 font-mono text-xs font-bold' : 'text-slate-500 font-mono text-xs font-bold'}>Streak: {playerTeam.streak || '-'}</span>
             </div>
-            <p className="text-[10.5px] text-gray-400 leading-relaxed font-medium">
+            <p className={`text-[10.5px] leading-relaxed font-semibold ${
+              isHypeActive 
+                ? (isDark ? 'text-[#00E5FF]' : 'text-[#166534]')
+                : (isDark ? 'text-gray-400' : 'text-slate-500')
+            }`}>
               {isHypeActive ? t.clausula_hype_desc_active : t.clausula_hype_desc_inactive}
             </p>
           </div>
@@ -790,6 +1018,171 @@ export default function SponsorsTab({
         </div>
 
       </div>
+
+      {/* --- CONFIRMATION AND SUBSTITUTION MODALS STACK --- */}
+      {activeModal !== 'NONE' && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-6 animate-scale-up">
+            
+            {activeModal === 'RESCIND_CONFIRM' && sponsorToRescind && (
+              <>
+                <div className="space-y-2">
+                  <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center">
+                    <ShieldAlert className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <h3 className="text-lg font-black text-white uppercase tracking-tight">Quebra de Vínculo Contratual</h3>
+                  <p className="text-xs text-slate-400">Você está rescindindo precocemente o patrocinador <strong className="text-white">{sponsorToRescind.name}</strong>.</p>
+                </div>
+                
+                <div className="bg-slate-950/70 p-4 rounded-xl border border-rose-500/25 space-y-3.5">
+                  <h4 className="text-[10.5px] font-bold uppercase text-rose-400 tracking-wide">Cláusulas de Penalidade:</h4>
+                  <ul className="text-xs text-slate-300 space-y-2 font-medium">
+                    <li className="flex justify-between">
+                      <span>• Multa Financeira de Rescisão:</span>
+                      <strong className="text-rose-400">{formatMoney(sponsorToRescind.incomePerWeek * 3)}</strong>
+                    </li>
+                    <li className="flex justify-between">
+                      <span>• Recuo de Popularidade Org:</span>
+                      <strong className="text-rose-400">- {Math.max(5, Math.min(15, Math.round(((sponsorToRescind.activeWeeks || sponsorToRescind.termsInWeeks) / sponsorToRescind.termsInWeeks) * 15)))}%</strong>
+                    </li>
+                    <li className="flex justify-between">
+                      <span>• Confiabilidade Comercial:</span>
+                      <strong className="text-rose-400">- 20 Pontos</strong>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      setActiveModal('NONE');
+                      setSponsorToRescind(null);
+                    }}
+                    className="flex-1 py-3 bg-slate-850 hover:bg-slate-800 text-slate-300 text-xs font-mono font-black uppercase tracking-widest rounded-xl transition-all border border-slate-700 cursor-pointer"
+                  >
+                    Voltar
+                  </button>
+                  <button 
+                    onClick={confirmRescindSponsor}
+                    className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white text-xs font-mono font-black uppercase tracking-widest rounded-xl transition-all shadow-md shadow-rose-600/10 cursor-pointer"
+                  >
+                    Rescindir
+                  </button>
+                </div>
+              </>
+            )}
+
+            {activeModal === 'SWAP_SELECT' && newSponsorToSign && (
+              <>
+                <div className="space-y-2">
+                  <div className="w-12 h-12 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center">
+                    <RefreshCw className="w-6 h-6 animate-spin-slow" />
+                  </div>
+                  <h3 className="text-lg font-black text-white uppercase tracking-tight">Slots de Patrocínio Cheios</h3>
+                  <p className="text-xs text-slate-400">Você já conta com os 3 slots corporativos secundários preenchidos. Escolha qual deles você deseja substituir (Troca Direta):</p>
+                </div>
+                
+                <div className="space-y-2">
+                  {secondarySponsors.map((act, index) => (
+                    <button
+                      key={act.id}
+                      onClick={() => {
+                        setOldSponsorToReplace(act);
+                        setActiveModal('SWAP_CONFIRM');
+                      }}
+                      className="w-full p-4 bg-slate-950 hover:bg-slate-850 border border-slate-800 hover:border-cyan-500/40 rounded-xl text-left transition-all flex justify-between items-center group cursor-pointer"
+                    >
+                      <div>
+                        <p className="text-xs font-black text-white uppercase">{act.name}</p>
+                        <p className="text-[10px] text-slate-500 font-medium">Inflow Semanal: {formatMoney(act.incomePerWeek)}</p>
+                      </div>
+                      <span className="text-[10px] text-cyan-400 font-mono font-extrabold uppercase group-hover:translate-x-1 transition-transform">Substituir →</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="pt-2">
+                  <button 
+                    onClick={() => {
+                      setActiveModal('NONE');
+                      setNewSponsorToSign(null);
+                    }}
+                    className="w-full py-3 bg-slate-850 hover:bg-slate-800 text-slate-300 text-xs font-mono font-black uppercase tracking-widest rounded-xl transition-all border border-slate-700 cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </>
+            )}
+
+            {activeModal === 'SWAP_CONFIRM' && newSponsorToSign && oldSponsorToReplace && (
+              <>
+                <div className="space-y-2">
+                  <div className="w-12 h-12 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center">
+                    <RefreshCw className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-lg font-black text-white uppercase tracking-tight">Confirmação de Troca Direta</h3>
+                  <p className="text-xs text-slate-400">Você está descontinuando o patrocínio de <strong className="text-rose-400">{oldSponsorToReplace.name}</strong> para assinar com <strong className="text-emerald-400">{newSponsorToSign.name}</strong>.</p>
+                </div>
+
+                <div className="bg-slate-950/70 p-4 rounded-xl border border-cyan-500/20 space-y-3.5">
+                  <h4 className="text-[10.5px] font-bold uppercase text-rose-400 tracking-wide">Encargos de Quebra e Troca:</h4>
+                  <ul className="text-xs text-slate-300 space-y-2 font-medium border-b border-slate-800 pb-3">
+                    <li className="flex justify-between">
+                      <span>• Multa de Quebra (3x antigo inflow):</span>
+                      <strong className="text-rose-400">{formatMoney(oldSponsorToReplace.incomePerWeek * 3)}</strong>
+                    </li>
+                    <li className="flex justify-between">
+                      <span>• Queda de Popularidade:</span>
+                      <strong className="text-rose-400">- {Math.max(5, Math.min(15, Math.round(((oldSponsorToReplace.activeWeeks || oldSponsorToReplace.termsInWeeks) / oldSponsorToReplace.termsInWeeks) * 15)))}%</strong>
+                    </li>
+                    <li className="flex justify-between">
+                      <span>• Redução Reputação Comercial:</span>
+                      <strong className="text-rose-400">- 20 Pts</strong>
+                    </li>
+                  </ul>
+                  
+                  <h4 className="text-[10.5px] font-bold uppercase text-emerald-400 tracking-wide">Retorno Imediato Estimado:</h4>
+                  <ul className="text-xs text-slate-300 space-y-2 font-medium">
+                    <li className="flex justify-between">
+                      <span>• Luvas + 1º Inflow (Creditado Agora):</span>
+                      <strong className="text-emerald-400">+{formatMoney(newSponsorToSign.signatureBonus + newSponsorToSign.incomePerWeek)}</strong>
+                    </li>
+                    <li className="flex justify-between">
+                      <span>• Novo Inflow Semanal Corrente:</span>
+                      <strong className="text-emerald-400">+{formatMoney(newSponsorToSign.incomePerWeek)}/sem</strong>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      if (getSponsorClass(newSponsorToSign) === 'SECUNDARIO') {
+                        setActiveModal('SWAP_SELECT');
+                      } else {
+                        setActiveModal('NONE');
+                        setNewSponsorToSign(null);
+                        setOldSponsorToReplace(null);
+                      }
+                    }}
+                    className="flex-1 py-3 bg-slate-850 hover:bg-slate-800 text-slate-300 text-xs font-mono font-black uppercase tracking-widest rounded-xl transition-all border border-slate-700 cursor-pointer"
+                  >
+                    Voltar
+                  </button>
+                  <button 
+                    onClick={confirmSponsorSwap}
+                    className="flex-1 py-3 bg-cyan-600 hover:bg-cyan-500 text-slate-950 text-xs font-mono font-black uppercase tracking-widest rounded-xl transition-all shadow-md shadow-cyan-500/10 cursor-pointer"
+                  >
+                    Confirmar Troca
+                  </button>
+                </div>
+              </>
+            )}
+
+          </div>
+        </div>
+      )}
 
       {/* 5. COLLAPSIBLE DATA ENGINE / DATABASE PAYLOAD CONSOLE */}
       <div className="bg-[#040a14] border border-[#1e2d44]/70 rounded-xl p-5 shadow-lg">

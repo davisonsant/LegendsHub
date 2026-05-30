@@ -15,6 +15,7 @@ import {
   Plus, 
   Check, 
   AlertTriangle, 
+  AlertCircle,
   DollarSign, 
   ArrowRight, 
   Sliders, 
@@ -27,6 +28,7 @@ import {
   Globe
 } from 'lucide-react';
 import { GameState, InterviewQuestion, Team } from '../types';
+import { sortTeamsByLeagueRules } from '../utils/gameEngine';
 import { getOrCreateWeekFeedState, RssFeedX, MarqueeNews } from '../utils/feedHelper';
 import { formatMoney } from '../utils/currency';
 import { INTERVIEW_QUESTIONS } from '../data/initialDatabase';
@@ -382,13 +384,14 @@ export default function DashboardTab({
   const runwayWeeks = weeklyExpense > 0 ? Math.floor(playerTeam.budget / weeklyExpense) : 99;
 
   // Standings Mini Table sorting with player highlight injection
-  const regionalSortedStandings = [...gameState.teams]
-    .filter(t => {
+  const regionalSortedStandings = sortTeamsByLeagueRules(
+    gameState.teams.filter(t => {
       const pReg = playerTeam.region || 'CBLOL';
       const tReg = t.region || 'CBLOL';
       return tReg === pReg;
-    })
-    .sort((a, b) => b.wins - a.wins || b.points - a.points || b.name.localeCompare(a.name));
+    }),
+    gameState.calendarSchedule
+  );
 
   const playerIdxInLeague = regionalSortedStandings.findIndex(t => t.id === playerTeam.id);
   const isPlayerInTop3List = playerIdxInLeague >= 0 && playerIdxInLeague < 3;
@@ -762,6 +765,16 @@ export default function DashboardTab({
   return (
     <div className={s.bgPage}>
       
+      {playerTeamId === '' && (
+        <div className="bg-amber-600/10 border border-amber-500/30 p-4 rounded-xl flex items-center gap-4 text-xs font-sans mb-4">
+          <AlertCircle className="w-8 h-8 text-amber-500 shrink-0" />
+          <div>
+            <h4 className="font-extrabold uppercase text-amber-500 tracking-wide text-xs">Você está desvinculado (Free Agent / Desempregado)</h4>
+            <p className="text-slate-300 text-[11px] mt-0.5">As rodadas CBLOL continuam sendo simuladas normalmente na liga. Para assumir uma nova organização e gerenciar finanças, staff e elenco, acesse a aba <strong className="text-white">"Central de Empregos"</strong> para assinar com uma equipe sob novas condições!</p>
+          </div>
+        </div>
+      )}
+
       {/* 1. HEADER & ALERTS HUD TRAY */}
       <div className="space-y-4">
         {/* News Ticker */}
@@ -952,8 +965,22 @@ export default function DashboardTab({
                 <div className="grid grid-cols-3 items-center">
                   {/* Home Player Team */}
                   <div className="flex flex-col items-center text-center">
-                    <div className={`w-16 h-16 rounded-full ${isDark ? 'bg-slate-900 border-emerald-500' : 'bg-slate-50 border-emerald-600'} border-2 flex items-center justify-center font-bold text-xl relative shadow-md`}>
-                      <Shield className={`w-7 h-7 text-emerald-500`} />
+                    <div className={`w-16 h-16 rounded-full ${isDark ? 'bg-slate-900 border-emerald-500' : 'bg-slate-50 border-emerald-600'} border-2 flex items-center justify-center font-bold text-xl relative overflow-hidden shadow-md`}
+                         style={{ backgroundColor: playerTeam.logoUrl ? (isDark ? '#060f1e' : '#f8fafc') : undefined }}>
+                      {playerTeam.logoUrl ? (
+                        <img 
+                          src={playerTeam.logoUrl} 
+                          alt={playerTeam.name} 
+                          className="w-12 h-12 object-contain p-0.5" 
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            const sibling = e.currentTarget.nextElementSibling as HTMLElement;
+                            if (sibling) sibling.style.display = 'block';
+                          }}
+                        />
+                      ) : null}
+                      <Shield className={`w-7 h-7 text-emerald-500`} style={{ display: playerTeam.logoUrl ? 'none' : 'block' }} />
                     </div>
                     <p className={`font-display text-xs font-bold ${s.textWhiteOrSlate} uppercase mt-3 tracking-wider leading-tight max-w-[120px] truncate`}>
                       {playerTeam.name}
@@ -1001,9 +1028,22 @@ export default function DashboardTab({
 
                   {/* Away Opponent Team */}
                   <div className="flex flex-col items-center text-center">
-                    <div className="w-16 h-16 rounded-full border-2 flex items-center justify-center font-bold text-xl relative shadow-md"
+                    <div className="w-16 h-16 rounded-full border-2 flex items-center justify-center font-bold text-xl relative overflow-hidden shadow-md"
                          style={{ borderColor: opponentTeamObj.primaryColor, backgroundColor: isDark ? '#060f1e' : '#f8fafc' }}>
-                      <Shield className="w-7 h-7" style={{ color: opponentTeamObj.primaryColor }} />
+                      {opponentTeamObj.logoUrl ? (
+                        <img 
+                          src={opponentTeamObj.logoUrl} 
+                          alt={opponentTeamObj.name} 
+                          className="w-12 h-12 object-contain p-0.5" 
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            const sibling = e.currentTarget.nextElementSibling as HTMLElement;
+                            if (sibling) sibling.style.display = 'block';
+                          }}
+                        />
+                      ) : null}
+                      <Shield className="w-7 h-7" style={{ color: opponentTeamObj.primaryColor, display: opponentTeamObj.logoUrl ? 'none' : 'block' }} />
                     </div>
                     <p className={`font-display text-xs font-bold ${s.textWhiteOrSlate} mt-3 tracking-wider max-w-[120px] truncate uppercase`}>
                       {opponentTeamObj.name}

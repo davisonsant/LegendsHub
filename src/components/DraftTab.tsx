@@ -21,6 +21,22 @@ interface DraftTabProps {
 }
 
 const getChampAvatar = (champId: string, seed: number) => {
+  let customChamps: any[] = [];
+  try {
+    const saved = localStorage.getItem('legendshub_custom_champions');
+    if (saved) {
+      customChamps = JSON.parse(saved);
+    }
+  } catch (e) {}
+
+  const champ = customChamps.find((c: any) => c.id === champId) || CHAMPIONS_LIST.find((c: any) => c.id === champId);
+  if (champ) {
+    if (champ.imageUrl) return champ.imageUrl;
+    const ideal = champ.idealPlaystyle;
+    const anyIdeal = ideal && (ideal.startsWith('http') || ideal.startsWith('data:image') || ideal.includes('.'));
+    if (anyIdeal) return ideal;
+  }
+
   const images = [
     "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=120", // blue gaming
     "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&q=80&w=120", // red/black neon

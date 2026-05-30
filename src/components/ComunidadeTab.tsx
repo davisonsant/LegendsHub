@@ -704,7 +704,9 @@ export function ComunidadeTab({ gameState, onUpdateGameState, triggerNotificatio
       auto_saved: true,
       arquivo_modificado: "database_master.db",
       tabela_alterada: "comunidade_torcidas"
-    }
+    },
+    data_engine_status: "ONLINE",
+    data_engine_log: gameState?.editorSyncStatusMessage || "[STATUS: ONLINE] [ENGINE: ACTIVE] Editor Payload Synced Successfully. 0 keys updated."
   };
 
   return (

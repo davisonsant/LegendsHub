@@ -18,6 +18,7 @@ import { GameState, Team, Player, Sponsor, InterviewQuestion } from './types';
 import { initializeNewGame, advanceGameWeek, signSponsorContract, hireStaffMember } from './utils/gameEngine';
 import { CHAMPIONS_LIST } from './data/initialDatabase';
 import { getPlayersForTeam } from './data/realPlayers';
+import { syncGameWithEditor, getEditorTimestamp } from './utils/editorSync';
 
 // Visual Screens and components
 import HomeLauncher from './components/HomeLauncher';
@@ -96,6 +97,22 @@ export default function App() {
   const [screen, setScreen] = useState<'LAUNCHER' | 'HUB' | 'DRAFT' | 'MATCH' | 'SETTINGS'>('LAUNCHER');
   const [activeTab, setActiveTab] = useState<string>('Central do Manager');
   const [rawGameState, rawSetGameState] = useState<GameState | null>(null);
+
+  // Trigger Hot-Reload check on every screen or tab transition to sync with the Editor
+  useEffect(() => {
+    if (screen === 'HUB' && rawGameState) {
+      const editorTs = getEditorTimestamp();
+      const gameTs = rawGameState.lastEditorSyncTimestamp || 0;
+      if (editorTs > gameTs) {
+        const { syncedState, keysUpdated } = syncGameWithEditor(rawGameState);
+        if (keysUpdated > 0 || !rawGameState.lastEditorSyncTimestamp) {
+          rawSetGameState(syncedState);
+          saveGameToSlot(1, syncedState);
+          window.dispatchEvent(new CustomEvent('editor_db_synced', { detail: { keysUpdated } }));
+        }
+      }
+    }
+  }, [screen, activeTab, rawGameState]);
 
   const setGameState = useCallback((nextStateOrFn: GameState | null | ((prev: GameState | null) => GameState | null)) => {
     rawSetGameState(prev => {
@@ -568,13 +585,13 @@ export default function App() {
     if (!gameState) return;
 
     // Capture pre-advance finance snapshots from current gameState before mutation
-    const playerTeam = gameState.teams.find(t => t.id === gameState.playerTeamId)!;
-    const sponsorIncome = playerTeam.sponsors.reduce((acc, s) => acc + s.incomePerWeek, 0);
-    const merchIncome = playerTeam.popularity * 1500;
-    const athleteCosts = [...playerTeam.roster, ...playerTeam.substitutes].reduce((acc, p) => acc + p.salary / 24, 0);
-    const operatingCosts = (playerTeam.infrastructure.gamingHouseLevel * 8000) + 
+    const playerTeam = gameState.teams.find(t => t.id === gameState.playerTeamId);
+    const sponsorIncome = playerTeam ? playerTeam.sponsors.reduce((acc, s) => acc + s.incomePerWeek, 0) : 0;
+    const merchIncome = playerTeam ? playerTeam.popularity * 1500 : 0;
+    const athleteCosts = playerTeam ? [...playerTeam.roster, ...playerTeam.substitutes].reduce((acc, p) => acc + p.salary / 24, 0) : 0;
+    const operatingCosts = playerTeam ? ((playerTeam.infrastructure.gamingHouseLevel * 8000) + 
                            (playerTeam.infrastructure.trainingCenterLevel * 6000) +
-                           (playerTeam.infrastructure.mediaTeamLevel * 4000);
+                           (playerTeam.infrastructure.mediaTeamLevel * 4000)) : 0;
     
     // Staff payroll filters matching engine
     const staffCosts = gameState.availableStaff.filter(s => s.hired).reduce((acc, s) => acc + s.salary, 0);
@@ -592,7 +609,7 @@ export default function App() {
     setRecapReport({
       prevWeek,
       nextWeek: nextWeekState.week,
-      teamName: playerTeam.name,
+      teamName: playerTeam ? playerTeam.name : "Free Agent",
       sponsorIncome,
       merchIncome,
       athleteCosts,
@@ -1097,9 +1114,9 @@ export default function App() {
         <div className="space-y-2 border-t pt-3.5">
           <button
             onClick={advanceWeekHandler}
-            disabled={!gameState.roundsPlayedThisWeek}
+            disabled={gameState.playerTeamId !== '' && !gameState.roundsPlayedThisWeek}
             className={`w-full py-2 px-3 font-display text-[10px] font-black uppercase tracking-widest rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              gameState.roundsPlayedThisWeek
+              (gameState.playerTeamId === '' || gameState.roundsPlayedThisWeek)
                 ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-500/10'
                 : 'bg-slate-100 dark:bg-slate-900/40 text-slate-400 dark:text-slate-600 border border-slate-205 dark:border-slate-800 cursor-not-allowed'
             }`}
@@ -1802,7 +1819,7 @@ export default function App() {
                 {/* Vertical tasks checklist */}
                 <div className="w-full max-w-sm text-left space-y-3 bg-slate-50 border border-slate-200/60 p-5 rounded-xl text-xs">
                   {[
-                    "Sincronizando com a API do CBLOL...",
+                    `Sincronizando com a API da ${gameState?.selectedRegion || 'CBLOL'}...`,
                     "Consolidando receitas corporativas e taxas...",
                     "Simulando batalhas das demais organizações...",
                     "Concedendo stamina e evoluções de atletas...",

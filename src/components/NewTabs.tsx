@@ -9,10 +9,11 @@ import {
   TrendingUp, BarChart3, Tv, Award, Play, Sliders, Zap, Gamepad2, 
   Calendar, Check, AlertCircle, Sparkles, ChevronRight, ChevronLeft, ArrowLeft, Heart, Crown, 
   Medal, Save, HardDrive, Trash2, Import, Download, User, Briefcase, Megaphone,
-  Percent, Lock, Scale, Clock, AlertTriangle, MapPin, Star, Globe, Terminal
+  Percent, Lock, Scale, Clock, AlertTriangle, MapPin, Star, StarHalf, Globe, Terminal
 } from 'lucide-react';
-import { GameState, Team, Player, Sponsor, Champion, MatchSeries, Position } from '../types';
+import { GameState, Team, Player, Sponsor, Champion, MatchSeries, Position, CorporationStaff } from '../types';
 import { formatMoney, getCurrencySymbol, getCaixaFormatadoHud } from '../utils/currency';
+import { sortTeamsByLeagueRules } from '../utils/gameEngine';
 import { ComunidadeTab as ComunidadeTabOriginal } from './ComunidadeTab';
 
 // ==========================================
@@ -468,7 +469,7 @@ export function LigaTab({ gameState, theme }: LigaTabProps) {
     if (selectedTourney.category === 'Regional') {
       // Filter current save teams that belong to match region
       const regional = teams.filter(t => (t.region || 'CBLOL') === selectedTourney.region);
-      return regional.sort((a, b) => b.wins - a.wins || (b.gameWins - b.gameLosses) - (a.gameWins - a.gameLosses));
+      return sortTeamsByLeagueRules(regional, calendarSchedule);
     }
 
     // Dynamic Tier 2 Academy categories
@@ -491,10 +492,10 @@ export function LigaTab({ gameState, theme }: LigaTabProps) {
           gameWins: simulatedWins * 2,
           gameLosses: simulatedLosses * 2,
           points: simulatedWins * 3,
-          region: matchRegion
+          region: matchRegion as any
         };
       });
-      return baseTeams.sort((a, b) => b.wins - a.wins || (b.gameWins - b.gameLosses) - (a.gameWins - a.gameLosses));
+      return sortTeamsByLeagueRules(baseTeams, calendarSchedule);
     }
 
     // Unified Inter-Connection logic for CBOLÃO (15 qualified base teams)
@@ -518,7 +519,7 @@ export function LigaTab({ gameState, theme }: LigaTabProps) {
             originalRegion: region
           };
         });
-        const sorted = academyTeams.sort((a, b) => b.wins - a.wins || (b.gameWins - b.gameLosses) - (a.gameWins - a.gameLosses));
+        const sorted = sortTeamsByLeagueRules(academyTeams, calendarSchedule);
         return sorted.slice(0, 3);
       };
 
@@ -530,11 +531,11 @@ export function LigaTab({ gameState, theme }: LigaTabProps) {
 
       // 15 classified teams automatically promoted by merit of performance!
       const allPromoted = [...topLEC, ...topCBLOL, ...topLCK, ...topLPL, ...topLCS];
-      return allPromoted.sort((a, b) => b.wins - a.wins || b.popularity - a.popularity);
+      return sortTeamsByLeagueRules(allPromoted, calendarSchedule);
     }
 
     // MSI / Worlds Global Mixed Leaderboard
-    const sortedAll = [...teams].sort((a, b) => b.wins - a.wins);
+    const sortedAll = sortTeamsByLeagueRules(teams, calendarSchedule);
     if (selectedTourney.id === 'MSI') {
       const regionsList = ['CBLOL', 'LCK', 'LPL', 'LEC', 'LCS'];
       const msiSelected: Team[] = [];
@@ -542,7 +543,7 @@ export function LigaTab({ gameState, theme }: LigaTabProps) {
         const bestInReg = sortedAll.filter(t => (t.region || 'CBLOL') === reg).slice(0, 2);
         msiSelected.push(...bestInReg);
       });
-      return msiSelected.sort((a, b) => b.wins - a.wins);
+      return sortTeamsByLeagueRules(msiSelected, calendarSchedule);
     }
 
     // Default Worlds: Top 3
@@ -552,7 +553,7 @@ export function LigaTab({ gameState, theme }: LigaTabProps) {
       const bestInReg = sortedAll.filter(t => (t.region || 'CBLOL') === reg).slice(0, 3);
       worldsSelected.push(...bestInReg);
     });
-    return worldsSelected.sort((a, b) => b.wins - a.wins);
+    return sortTeamsByLeagueRules(worldsSelected, calendarSchedule);
   };
 
   const standings = getDynamicStandings();
@@ -836,9 +837,32 @@ export function LigaTab({ gameState, theme }: LigaTabProps) {
                       </span>
                     </div>
 
-                    {/* Team Name badge */}
+                     {/* Team Name badge */}
                     <div className="col-span-4 flex items-center gap-3">
                       <div className="w-1.5 h-6 rounded-full shrink-0" style={{ backgroundColor: team.primaryColor || '#00cbd6' }} />
+                      
+                      {/* Real Dynamic logo / fallback initials badge */}
+                      <div className="w-6 h-6 rounded flex items-center justify-center shrink-0 overflow-hidden relative"
+                           style={{ backgroundColor: team.logoUrl ? 'transparent' : (team.primaryColor || '#00cbd6') }}>
+                        {team.logoUrl ? (
+                          <img 
+                            src={team.logoUrl} 
+                            alt={team.name} 
+                            className="w-full h-full object-contain p-0.5 rounded"
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              const sibling = e.currentTarget.nextElementSibling as HTMLElement;
+                              if (sibling) sibling.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div className="absolute inset-0 flex items-center justify-center font-mono font-black text-[9px] text-white uppercase"
+                             style={{ display: team.logoUrl ? 'none' : 'flex' }}>
+                          {team.acronym.substring(0, 2)}
+                        </div>
+                      </div>
+
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className={`text-[11.5px] uppercase font-black truncate tracking-wide ${s.textWhiteOrSlate}`}>
                           {team.name}
@@ -1521,6 +1545,7 @@ export function TimesTab({ gameState, theme, onSelectPlayer }: TimesTabProps) {
 
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [selectedDivision, setSelectedDivision] = useState<'roster' | 'academy'>('roster');
 
   const activeTeam = teams.find(t => t.id === selectedTeamId);
   const activeRegion = LEAGUE_DATABASE.find(l => l.id === selectedRegionId);
@@ -1535,59 +1560,95 @@ export function TimesTab({ gameState, theme, onSelectPlayer }: TimesTabProps) {
     setSelectedTeamId(null);
   };
 
-  // 1. LEAGUE / REGION SELECTION SCREEN
+  const regionBadgeMap: { [key: string]: string } = {
+    'CBLOL': 'BRASIL',
+    'LCK': 'COREIA DO SUL',
+    'LPL': 'CHINA',
+    'LEC': 'EUROPA',
+    'LCS': 'AMÉRICA DO NORTE',
+    'LCP': 'ÁSIA-PACÍFICO'
+  };
+
+  const getTeamOvr = (t: Team, civ: 'roster' | 'academy') => {
+    const list = civ === 'roster' ? (t.roster || []) : (t.academy || []);
+    if (list.length > 0) {
+      return Math.floor(list.reduce((sum, p) => sum + p.overallRating, 0) / list.length);
+    }
+    const fallbackBase = Math.floor((t.roster || []).reduce((sum, p) => sum + p.overallRating, 0) / 5);
+    return civ === 'academy' ? Math.max(50, fallbackBase - 15) : fallbackBase;
+  };
+
+  // 1. LEAGUE / REGION SELECTION SCREEN (MASTER VIEW)
   if (!selectedRegionId) {
     return (
       <div className="space-y-6 select-none font-sans">
-        <div className="space-y-1.5 border-b pb-4 border-slate-200/20 dark:border-[#1e2d44]/40">
-          <h2 className={`font-display text-lg font-black tracking-wider uppercase flex items-center gap-2 ${s.textWhiteOrSlate}`}>
-            <Shield className="w-5 h-5 text-sky-400" /> Circuito Global de Ligas Rivais
+        {/* Main Descriptive Header */}
+        <div className="space-y-2 border-b pb-4 border-slate-200/20 dark:border-[#1e2d44]/40">
+          <h2 className={`font-display text-base font-black tracking-wider uppercase flex items-center gap-2 ${s.textWhiteOrSlate}`}>
+            <Shield className="w-5 h-5 text-cyan-400" /> CIRCUITO GLOBAL DE LIGAS RIVAIS
           </h2>
-          <p className={`text-xs ${s.textMuted} font-medium`}>
-            Explore e organize os melhores clubes do mundo por região operacional. Escolha uma das ligas para ver dados de orçamento, infraestrutura dos centros de treinamento e elencos ativos.
+          <p className={`text-xs ${s.textMuted} font-medium leading-relaxed max-w-4xl`}>
+            Explore e organize as ligas profissionais mais importantes do mundo. Compare a força operacional de múltiplos campeonatos e navegue pelos elencos ativos, divisões de base e patrimônios fiduciários.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {/* Responsive Grid of leagues */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {LEAGUE_DATABASE.map((league) => {
             const leagueTeamsCount = teams.filter(t => (t.region || 'CBLOL') === league.id).length;
+            const regionTag = regionBadgeMap[league.id] || league.country.toUpperCase();
+
             return (
               <button
                 key={league.id}
                 onClick={() => setSelectedRegionId(league.id)}
-                className={`relative overflow-hidden rounded-xl border text-left flex flex-col justify-between h-48 transition-all duration-300 hover:scale-[1.02] focus:outline-none focus:ring-1 focus:ring-sky-400/50 group cursor-pointer ${
+                className={`relative overflow-hidden rounded-2xl border text-left flex flex-col justify-between h-56 transition-all duration-300 hover:scale-[1.02] hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 group cursor-pointer ${
                   isDark 
-                    ? 'border-[#1e2d44] hover:border-sky-500 bg-slate-950/80 hover:shadow-[0_0_20px_rgba(2,132,199,0.15)]' 
-                    : 'border-slate-200 hover:border-blue-500 bg-white shadow-sm hover:shadow-md'
+                    ? 'border-[#1e2d44] hover:border-cyan-500 bg-slate-950/90 shadow-[0_4px_20px_rgba(0,0,0,0.3)] hover:shadow-[0_0_25px_rgba(0,210,253,0.15)]' 
+                    : 'border-slate-200 hover:border-blue-500 bg-white shadow-sm hover:shadow-lg'
                 }`}
               >
                 {/* Image Backdrop */}
-                <div className="absolute inset-0">
+                <div className="absolute inset-0 z-0">
                   <img 
                     src={league.img} 
                     alt={league.name} 
-                    className="w-full h-full object-cover opacity-35 group-hover:opacity-45 transition-opacity duration-300"
+                    className="w-full h-full object-cover opacity-30 group-hover:opacity-45 transition-opacity duration-300 blur-[0.5px]"
                     referrerPolicy="no-referrer"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent" />
                 </div>
 
-                {/* Content */}
-                <div className="relative p-4 z-10 w-full flex flex-col justify-between h-full">
+                {/* Content Overlay */}
+                <div className="relative p-5 z-10 w-full flex flex-col justify-between h-full">
                   <div className="flex justify-between items-start">
-                    <span className="bg-sky-500/15 border border-sky-400/35 text-sky-400 text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded tracking-wide">
-                      {league.country}
+                    {/* Badge Regional */}
+                    <span className="bg-sky-500/15 border border-sky-450/40 text-sky-400 text-[9px] font-black uppercase px-2.5 py-1 rounded-md tracking-wider">
+                      {regionTag}
                     </span>
-                    <span className="text-slate-400 font-mono text-[10px] uppercase font-bold">
-                      {leagueTeamsCount} Clubes
+                    <span className="text-slate-300 font-mono text-[10px] uppercase font-black bg-black/50 px-2 py-0.5 rounded border border-white/5">
+                      {leagueTeamsCount} CLUBES
                     </span>
                   </div>
 
-                  <div className="space-y-1.5 mt-auto">
-                    <h3 className="font-display font-black text-xl text-white tracking-wide flex items-center gap-1.5 group-hover:text-sky-400 transition-colors">
-                      {league.name} <ChevronRight className="w-4 h-4 text-sky-400/50 group-hover:translate-x-1 duration-200" />
-                    </h3>
-                    <p className="text-[10px] text-slate-300 pr-2 line-clamp-2 leading-relaxed">
+                  {/* Identification & Mascot Visual Symbol Container */}
+                  <div className="flex items-center gap-3.5 my-3">
+                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-cyan-600 via-sky-550 to-indigo-600 p-0.5 shadow-md flex items-center justify-center font-display font-black text-xs text-white uppercase tracking-widest border border-white/10 shrink-0">
+                      <div className="w-full h-full rounded-[10px] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center font-extrabold text-cyan-400 text-[11px]">
+                        {league.id}
+                      </div>
+                    </div>
+                    <div className="truncate">
+                      <h3 className="font-display font-black text-sm text-white tracking-wider flex items-center gap-1 group-hover:text-cyan-400 transition-colors uppercase">
+                        {league.name} <ChevronRight className="w-4 h-4 text-cyan-400 group-hover:translate-x-1.5 duration-200 shrink-0" />
+                      </h3>
+                      <span className="text-[8px] text-slate-400 uppercase tracking-widest font-mono font-bold">{league.country} Region</span>
+                    </div>
+                  </div>
+
+                  {/* Description Concept */}
+                  <div className="mt-1">
+                    <p className="text-[10px] text-slate-300 line-clamp-2 leading-relaxed pr-1 font-medium">
                       {league.description}
                     </p>
                   </div>
@@ -1600,31 +1661,46 @@ export function TimesTab({ gameState, theme, onSelectPlayer }: TimesTabProps) {
     );
   }
 
-  // 2. TEAMS LIST SCREEN IN SELECTED LEAGUE
+  // 2. TEAMS LIST SCREEN IN SELECTED LEAGUE (DETAIL VIEW)
   if (selectedRegionId && !selectedTeamId) {
     const regionalTeams = teams.filter(t => (t.region || 'CBLOL') === selectedRegionId);
     return (
       <div className="space-y-6 select-none font-sans">
-        <div className="flex items-center justify-between border-b pb-4 border-slate-200/20 dark:border-[#1e2d44]/40">
-          <div className="flex items-center gap-3">
+        {/* Return Breadcrumb header */}
+        <div className="flex flex-col sm:flex-row gap-3 justify-between sm:items-center border-b pb-4 border-slate-200/20 dark:border-[#1e2d44]/40">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={handleBackToLeagues}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg border transition-all duration-200 hover:scale-105 cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-black uppercase tracking-wider rounded-lg border transition-all duration-200 hover:scale-105 cursor-pointer ${
                 isDark 
-                  ? 'bg-slate-900 border-[#1e2d44] hover:bg-slate-800 text-sky-400' 
-                  : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-600'
+                  ? 'bg-slate-900 border-[#1e2d44] hover:bg-slate-800 text-[#00cbd6]' 
+                  : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
               }`}
             >
-              <ArrowLeft className="w-3.5 h-3.5" /> Voltar para Ligas
+              <ArrowLeft className="w-3.5 h-3.5 text-cyan-400" /> [ {"<"} Voltar para Circuitos ]
             </button>
             <div className="hidden sm:block h-5 w-[1px] bg-slate-200/20" />
-            <h3 className={`font-display text-base font-black uppercase tracking-wider ${s.textWhiteOrSlate}`}>
-              Clubes em atividade na liga {selectedRegionId}
+            <h3 className={`font-display text-xs font-black uppercase tracking-wider flex items-center gap-1.5 ${s.textWhiteOrSlate}`}>
+              Ligas / <span className="text-cyan-400">{selectedRegionId} ({activeRegion?.country})</span>
             </h3>
           </div>
-          <span className="text-[10px] font-mono font-bold bg-sky-500/10 text-sky-400 px-2 py-0.5 rounded uppercase">
-            {activeRegion?.country}
-          </span>
+
+          {/* Division horizontal tabs */}
+          <div className="flex items-center gap-1 p-1 bg-slate-950/40 dark:bg-black/30 rounded-lg max-w-sm border border-slate-200/5 dark:border-[#1e2d44]/25">
+            {(['roster', 'academy'] as const).map(div => (
+              <button
+                key={div}
+                onClick={() => setSelectedDivision(div)}
+                className={`text-center py-2 px-3 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-150 ${
+                  selectedDivision === div
+                    ? 'bg-sky-500/15 text-[#00cbd6] border border-sky-500/30'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {div === 'roster' ? '[ TIME PRINCIPAL ]' : '[ ACADEMY / ACADEMIA ]'}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Small League Banner */}
@@ -1644,7 +1720,7 @@ export function TimesTab({ gameState, theme, onSelectPlayer }: TimesTabProps) {
         {/* Teams List Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {regionalTeams.map((t) => {
-            const teamOvr = Math.floor(t.roster.reduce((sum, p) => sum + p.overallRating, 0) / 5);
+            const teamOvr = getTeamOvr(t, selectedDivision);
             return (
               <button
                 key={t.id}
@@ -1655,28 +1731,47 @@ export function TimesTab({ gameState, theme, onSelectPlayer }: TimesTabProps) {
                     : 'border-slate-200 bg-white hover:border-blue-500 shadow-sm'
                 }`}
               >
+                {/* Header Information */}
                 <div className="flex items-start justify-between w-full">
                   <div className="flex items-center gap-2.5 truncate">
-                    <div 
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-extrabold text-sm uppercase shadow-sm"
-                      style={{ backgroundColor: t.primaryColor }}
-                    >
-                      {t.acronym.substring(0, 3)}
+                    {/* Team logo or acronym visual shield */}
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 overflow-hidden relative"
+                         style={{ backgroundColor: t.logoUrl ? 'transparent' : (t.primaryColor || '#00cbd6') }}>
+                      {t.logoUrl ? (
+                        <img 
+                          src={t.logoUrl} 
+                          alt={t.name} 
+                          className="w-full h-full object-contain p-0.5 rounded"
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            const sibling = e.currentTarget.nextElementSibling as HTMLElement;
+                            if (sibling) sibling.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div className="absolute inset-0 flex items-center justify-center font-mono font-black text-[10px] text-white uppercase"
+                           style={{ display: t.logoUrl ? 'none' : 'flex' }}>
+                        {t.acronym.substring(0, 3)}
+                      </div>
                     </div>
+
                     <div className="truncate">
-                      <h4 className={`text-xs font-black uppercase tracking-wider group-hover:text-sky-400 duration-150 ${s.textWhiteOrSlate}`}>{t.name}</h4>
+                      <h4 className={`text-xs font-black uppercase tracking-wider group-hover:text-cyan-400 duration-150 ${s.textWhiteOrSlate}`}>{t.name}</h4>
                       <p className={`text-[9.5px] font-bold ${s.textMuted} font-mono mt-0.5`}>Sigla: {t.acronym}</p>
                     </div>
                   </div>
-                  <div className="bg-sky-500/10 border border-sky-400/35 text-sky-400 rounded px-2 py-0.5 text-[9.5px] font-mono font-black">
+
+                  <div className="bg-sky-500/10 border border-sky-400/35 text-sky-400 rounded px-2 tracking-wide py-0.5 text-[9.5px] font-mono font-black">
                     OVR {teamOvr}
                   </div>
                 </div>
 
+                {/* Money & General Popularity Stats */}
                 <div className="grid grid-cols-2 gap-2 border-t pt-3 border-slate-200/10 dark:border-[#1e2d44]/30 text-[10px] w-full">
                   <div>
                     <span className={`block text-[8px] font-extrabold uppercase tracking-wide ${s.textMuted}`}>Orçamento</span>
-                    <span className={`font-mono font-black ${s.textWhiteOrSlate}`}>$ {(t.budget / 1000000).toFixed(1)}M</span>
+                    <span className={`font-mono font-black text-rose-450 ${s.textWhiteOrSlate}`}>$ {(t.budget / 1000000).toFixed(1)}M</span>
                   </div>
                   <div className="text-right">
                     <span className={`block text-[8px] font-extrabold uppercase tracking-wide ${s.textMuted}`}>Fãs Ativos</span>
@@ -1684,7 +1779,26 @@ export function TimesTab({ gameState, theme, onSelectPlayer }: TimesTabProps) {
                   </div>
                 </div>
 
-                <div className="w-full text-right pt-1.5 flex justify-end items-center text-sky-400 font-extrabold tracking-wider text-[8px] uppercase group-hover:text-sky-350 transition-colors">
+                {/* Base Infrastructure Information */}
+                <div className="space-y-1.5 border-t border-slate-200/10 dark:border-[#1e2d44]/30 pt-3 text-[10px] w-full">
+                  <span className="text-[8.5px] font-extrabold uppercase tracking-widest text-[#00cbd6] block">INFRAESTRUTURA BASE:</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="p-1 px-1.5 rounded bg-slate-100/50 dark:bg-slate-900/40 border border-slate-200/10 text-center">
+                      <span className="block text-[7px] text-slate-400 uppercase font-bold">House (GH)</span>
+                      <span className="font-mono font-black text-[10.5px] text-sky-400">Lvl {t.infrastructure?.gamingHouseLevel || 1}/5</span>
+                    </div>
+                    <div className="p-1 px-1.5 rounded bg-slate-100/50 dark:bg-slate-900/40 border border-slate-200/10 text-center">
+                      <span className="block text-[7px] text-slate-400 uppercase font-bold">Treino (CT)</span>
+                      <span className="font-mono font-black text-[10.5px] text-sky-400">Lvl {t.infrastructure?.trainingCenterLevel || 1}/5</span>
+                    </div>
+                    <div className="p-1 px-1.5 rounded bg-slate-100/50 dark:bg-slate-900/40 border border-slate-200/10 text-center">
+                      <span className="block text-[7px] text-slate-400 uppercase font-bold">Mídia (PR)</span>
+                      <span className="font-mono font-black text-[10.5px] text-sky-400">Lvl {t.infrastructure?.mediaTeamLevel || 1}/5</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="w-full text-right pt-1.5 flex justify-end items-center text-sky-400 font-extrabold tracking-wider text-[8px] uppercase group-hover:text-cyan-350 transition-colors">
                   Visualizar Perfil Completo <ChevronRight className="w-3 h-3 ml-0.5 group-hover:translate-x-0.5 duration-150" />
                 </div>
               </button>
@@ -2361,7 +2475,7 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
   // Visa application initiator
   const applyImportVisa = (player: Player, type: 'P-1' | 'EB-1') => {
     const cost = type === 'P-1' ? 5000 : 35000;
-    const weeks = type === 'P-1' ? 3 : 1;
+    const weeks = type === 'P-1' ? 2 : 1; // P-1 takes 2 weeks, EB-1 takes 1 week.
 
     if (playerTeam.budget < cost) {
       triggerNotification("✈️ Caixa Baixo", "Orçamento insuficiente para pagar as taxas governamentais do visto.");
@@ -2373,6 +2487,9 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
       return;
     }
 
+    // Calcular inconsistência cadastral com probabilidade de 15%
+    const hasDocumentationRequest = Math.random() < 0.15;
+
     // Deduct cost & push waiting list
     playerTeam.budget -= cost;
     playerTeam.vistasAwaiting = [
@@ -2383,12 +2500,35 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
         name: player.name,
         type,
         weeksRemaining: weeks,
-        hasDocumentationRequest: false
+        hasDocumentationRequest
       }
     ];
 
     saveState(playerTeam);
-    triggerNotification("✈️ Processo Submetido", `A petição do visto ${type} para o atleta ${player.name} foi protocolada no consulado.`);
+    if (hasDocumentationRequest) {
+      triggerNotification("⚠️ Processo com Pendência de Documentação", `A petição do visto ${type} para o atleta ${player.name} foi protocolada, mas possui pendência documental cadastral!`);
+    } else {
+      triggerNotification("✈️ Processo Submetido", `A petição do visto ${type} para o atleta ${player.name} foi protocolada com sucesso no consulado.`);
+    }
+  };
+
+  // Resolve cadastral data inconsistency and resume visa progression
+  const resolveDocumentationInconsistency = (appId: string) => {
+    if (playerTeam.budget < 2500) {
+      triggerNotification("⚠️ Caixa Insuficiente", "Seu clube não possui $ 2.500 em caixa para regularizar a pendência documental.");
+      return;
+    }
+    
+    playerTeam.budget -= 2500;
+    playerTeam.vistasAwaiting = (playerTeam.vistasAwaiting || []).map(app => {
+      if (app.id === appId) {
+        return { ...app, hasDocumentationRequest: false };
+      }
+      return app;
+    });
+    
+    saveState(playerTeam);
+    triggerNotification("📋 Cadastro Regularizado", "Os dados cadastrais inconsistentes foram regularizados com sucesso e o visto voltou a progredir!");
   };
 
   // Poaching process penalty simulator
@@ -3297,11 +3437,25 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
                         <div className={`w-full h-1.5 rounded overflow-hidden ${isDark ? 'bg-slate-850' : 'bg-slate-200'}`}>
                           <div 
                             className="bg-sky-400 h-full" 
-                            style={{ width: `${Math.round(((app.type === 'P-1' ? 3 : 1) - app.weeksRemaining) / (app.type === 'P-1' ? 3 : 1) * 100)}%` }}
+                            style={{ width: `${Math.round(((app.type === 'P-1' ? 2 : 1) - app.weeksRemaining) / (app.type === 'P-1' ? 2 : 1) * 100)}%` }}
                           />
                         </div>
-                        {app.hasDocumentationRequest && (
-                          <span className="text-[8.5px] text-red-500 font-sans font-bold block pt-1 animate-pulse">⚠️ Exigência Consular Acionada (Atrasado +1 Sem)</span>
+                        {app.hasDocumentationRequest ? (
+                          <div className="mt-1.5 flex flex-wrap justify-between items-center bg-red-500/10 border border-red-500/20 rounded p-1.5">
+                            <span className="text-[8.5px] text-red-500 font-sans font-black uppercase animate-pulse">
+                              📋 [DOCUMENTAÇÃO REQUERIDA - CLUBE NOTIFICADO]
+                            </span>
+                            <button
+                              onClick={() => resolveDocumentationInconsistency(app.id)}
+                              className="bg-red-650 hover:bg-red-620 border border-red-500/30 text-white font-sans font-bold text-[8px] uppercase tracking-wider py-0.5 px-1.5 rounded transition-all select-none"
+                            >
+                              Regularizar Cadastro ($ 2.500)
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[8.5px] text-emerald-500 font-sans font-bold block pt-1">
+                            ✓ Documentação em Conformidade
+                          </span>
                         )}
                       </div>
                     ))}
@@ -3712,67 +3866,248 @@ interface EstatisticasTabProps {
 
 export function EstatisticasTab({ gameState, onSelectPlayer }: EstatisticasTabProps) {
   const { teams } = gameState;
+  const [selectedRegion, setSelectedRegion] = useState<string>('GLOBAL');
+  const [selectedPosition, setSelectedPosition] = useState<string>('TODAS');
+  const [selectedMetric, setSelectedMetric] = useState<'RATING' | 'KDA' | 'FARM' | 'MVPS'>('RATING');
 
-  // Gathering all players
-  const allPlayers: Player[] = [];
+  // Gathering all players with enriched team data
+  const allPlayers: (Player & { teamName: string; region: string; teamAcronym: string })[] = [];
   teams.forEach(t => {
-    t.roster.forEach(p => allPlayers.push({ ...p, customPlayer: t.name as any })); // save team name in customPlayer temporary
+    t.roster.forEach(p => {
+      allPlayers.push({
+        ...p,
+        teamName: t.name,
+        region: t.region,
+        teamAcronym: t.acronym
+      });
+    });
   });
 
-  // Top overall
-  const topRating = [...allPlayers].sort((a,b) => b.overallRating - a.overallRating).slice(0, 10);
+  // Calculate or estimate stats helper
+  const getPlayerStats = (p: Player) => {
+    if (p.stats && p.stats.gamesPlayed > 0) {
+      return p.stats;
+    }
+    // Realistic fallback/seed stats based on position and rating so start of game is not blank
+    let baseKills = 3, baseDeaths = 3, baseAssists = 6, baseCs = 240;
+    switch (p.position) {
+      case 'TOP': baseKills = 3.2; baseDeaths = 3.1; baseAssists = 5.2; baseCs = 242; break;
+      case 'JNG': baseKills = 3.8; baseDeaths = 3.4; baseAssists = 7.1; baseCs = 182; break;
+      case 'MID': baseKills = 4.7; baseDeaths = 2.9; baseAssists = 6.3; baseCs = 265; break;
+      case 'ADC': baseKills = 5.9; baseDeaths = 2.3; baseAssists = 5.1; baseCs = 288; break;
+      case 'SUP': baseKills = 0.9; baseDeaths = 4.1; baseAssists = 10.4; baseCs = 42; break;
+    }
+    const mult = p.overallRating / 80;
+    const kills = Math.round(baseKills * mult * 10) / 10;
+    const deaths = Math.round((baseDeaths / mult) * 10) / 10;
+    const assists = Math.round(baseAssists * mult * 10) / 10;
+    const cs = Math.round(baseCs * mult);
+    return {
+      kills: kills * 2,
+      deaths: deaths * 2,
+      assists: assists * 2,
+      cs: cs * 2,
+      gamesPlayed: 2,
+      mvps: p.overallRating > 84 ? 1 : 0
+    };
+  };
+
+  const computeKDA = (p: Player) => {
+    const stats = getPlayerStats(p);
+    return (stats.kills + stats.assists) / Math.max(1, stats.deaths);
+  };
+
+  const computeCS = (p: Player) => {
+    const stats = getPlayerStats(p);
+    return stats.cs / Math.max(1, stats.gamesPlayed);
+  };
+
+  const computeMVPs = (p: Player) => {
+    const stats = getPlayerStats(p);
+    return stats.mvps;
+  };
+
+  // Filter regional & positional
+  let filtered = [...allPlayers];
+  if (selectedRegion !== 'GLOBAL') {
+    filtered = filtered.filter(p => p.region.toUpperCase() === selectedRegion.toUpperCase());
+  }
+  if (selectedPosition !== 'TODAS') {
+    filtered = filtered.filter(p => p.position.toUpperCase() === selectedPosition.toUpperCase());
+  }
+
+  // Sort by selected metric
+  if (selectedMetric === 'RATING') {
+    filtered.sort((a, b) => b.overallRating - a.overallRating);
+  } else if (selectedMetric === 'KDA') {
+    filtered.sort((a, b) => computeKDA(b) - computeKDA(a));
+  } else if (selectedMetric === 'FARM') {
+    filtered.sort((a, b) => computeCS(b) - computeCS(a));
+  } else if (selectedMetric === 'MVPS') {
+    filtered.sort((a, b) => computeMVPs(b) - computeMVPs(a));
+  }
+
+  // Slice top 15
+  const displayedPlayers = filtered.slice(0, 15);
 
   return (
     <div className="space-y-6 select-none font-sans text-xs">
+      {/* Banner de Cabeçalho */}
       <div className="panel-header border p-5 rounded-xl transition-all duration-200" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-element)' }}>
-        <h3 className="font-display text-sm font-black uppercase tracking-wider" style={{ color: 'var(--text-main)' }}>Estatísticas do Splits & CBLOL Superstars</h3>
+        <h3 className="font-display text-sm font-black uppercase tracking-wider text-sky-400">Estatísticas do Splits & CBLOL Superstars</h3>
         <p className="text-[10.5px] mt-1 max-w-xl transition-all duration-200" style={{ color: 'var(--text-muted)' }}>
-          Quadro métrico de acompanhamento geral de ratings e desempenhos individuais. Atletas no topo valem milhões no mercado scout.
+          Quadro métrico de acompanhamento geral de ratings, KDAs, farmes médios e MVPs individuais de todas as ligas mundiais simuladas em tempo real pelas organizações controladoras.
         </p>
       </div>
 
+      {/* Controles e Filtros */}
+      <div className="flex flex-col gap-4 p-4 border rounded-xl" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-element)' }}>
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mr-2">LIGA REGIONAL:</span>
+          {['GLOBAL', 'CBLOL', 'LCK', 'LPL', 'LEC', 'LCS', 'LCP'].map(reg => (
+            <button
+              key={reg}
+              onClick={() => setSelectedRegion(reg)}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold uppercase transition-all duration-150 border`}
+              style={{
+                backgroundColor: selectedRegion === reg ? 'var(--button-bg-hover)' : 'transparent',
+                color: selectedRegion === reg ? '#00cbd6' : 'var(--text-muted)',
+                borderColor: selectedRegion === reg ? '#00cbd6' : 'var(--border-element)'
+              }}
+            >
+              {reg}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mr-2">ROTA / POSIÇÃO:</span>
+          {['TODAS', 'TOP', 'JNG', 'MID', 'ADC', 'SUP'].map(pos => (
+            <button
+              key={pos}
+              onClick={() => setSelectedPosition(pos)}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold uppercase transition-all duration-150 border`}
+              style={{
+                backgroundColor: selectedPosition === pos ? 'var(--button-bg-hover)' : 'transparent',
+                color: selectedPosition === pos ? '#00cbd6' : 'var(--text-muted)',
+                borderColor: selectedPosition === pos ? '#00cbd6' : 'var(--border-element)'
+              }}
+            >
+              {pos}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mr-2">MÉTRICA DE CLASSIFICAÇÃO:</span>
+          {(['RATING', 'KDA', 'FARM', 'MVPS'] as const).map(met => {
+            const label = met === 'RATING' ? 'Rating Geral (OVR)' : met === 'KDA' ? 'KDA Médio' : met === 'FARM' ? 'Farm por Jogo (CS)' : 'Prêmios de MVP';
+            return (
+              <button
+                key={met}
+                onClick={() => setSelectedMetric(met)}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold transition-all duration-150 border`}
+                style={{
+                  backgroundColor: selectedMetric === met ? 'var(--bg-row-hover)' : 'transparent',
+                  color: selectedMetric === met ? '#00cbd6' : 'var(--text-muted)',
+                  borderColor: selectedMetric === met ? '#00cbd6' : 'var(--border-element)'
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Tabela de Ranking */}
       <div className="border rounded-xl overflow-hidden shadow-lg transition-all duration-200" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-element)' }}>
-        <div className="px-5 py-3 border-b text-xs font-extrabold uppercase tracking-wider transition-all duration-200" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-element)', color: 'var(--text-main)' }}>
-          Top 10 Melhores Jogadores (Ratings)
+        <div className="px-5 py-3 border-b text-xs font-extrabold uppercase tracking-wider flex justify-between items-center transition-all duration-200" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-element)', color: 'var(--text-main)' }}>
+          <span>Líderes Gerais ({selectedMetric} em {selectedRegion})</span>
+          <span className="text-[9px] text-[#00cbd6] font-mono uppercase">Top 15 Jogadores</span>
         </div>
 
         <div className="grid grid-cols-12 px-5 py-3 border-b text-[9px] font-extrabold uppercase tracking-widest transition-all duration-200" style={{ borderColor: 'var(--border-element)', color: 'var(--text-muted)', backgroundColor: 'var(--bg-row-even)' }}>
           <div className="col-span-1">#</div>
-          <div className="col-span-4">ATLETA</div>
-          <div className="col-span-2 text-center">ROTA</div>
+          <div className="col-span-3">ATLETA</div>
+          <div className="col-span-1 text-center">LIGA</div>
+          <div className="col-span-1 text-center">ROTA</div>
           <div className="col-span-3">TIME ATUAL</div>
-          <div className="col-span-2 text-right">RATING</div>
+          <div className="col-span-2 text-center font-mono">ESTATÍSTICAS</div>
+          <div className="col-span-1 text-right">VALOR</div>
         </div>
 
         <div className="divide-y text-[11px] font-semibold transition-all duration-200" style={{ borderColor: 'var(--border-element)' }}>
-          {topRating.map((p, idx) => {
-            const RowComponent = onSelectPlayer ? 'button' : 'div';
-            const isEven = idx % 2 === 1;
-            return (
-              <RowComponent 
-                key={p.id} 
-                onClick={onSelectPlayer ? () => onSelectPlayer(p.id) : undefined}
-                className={`table-row grid grid-cols-12 px-5 py-3.5 items-center w-full text-left border-none focus:outline-none focus:ring-1 focus:ring-[#00cbd6]/30 ${onSelectPlayer ? 'cursor-pointer group' : ''}`}
-                style={{
-                  backgroundColor: isEven ? 'var(--bg-row-even)' : 'var(--bg-card)',
-                  color: 'var(--text-muted)',
-                  borderColor: 'var(--border-element)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--bg-row-hover)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = isEven ? 'var(--bg-row-even)' : 'var(--bg-card)';
-                }}
-              >
-                <div className="col-span-1 font-mono font-bold" style={{ color: 'var(--text-muted)' }}>{idx + 1}</div>
-                <div className={`col-span-4 flex items-center gap-1.5 font-bold`} style={{ color: 'var(--text-main)' }}>{p.name}</div>
-                <div className="col-span-2 text-center font-mono font-bold text-sky-500">{p.position}</div>
-                <div className="col-span-3 uppercase font-bold" style={{ color: 'var(--text-muted)' }}>{p.customPlayer as any}</div>
-                <div className="col-span-2 text-right font-mono font-black text-[#00cbd6]">OVR {p.overallRating}</div>
-              </RowComponent>
-            );
-          })}
+          {displayedPlayers.length === 0 ? (
+            <div className="p-8 text-center text-slate-500 font-bold">Nenhum atleta encontrado para os filtros selecionados.</div>
+          ) : (
+            displayedPlayers.map((p, idx) => {
+              const RowComponent = onSelectPlayer ? 'button' : 'div';
+              const isEven = idx % 2 === 1;
+              const stats = getPlayerStats(p);
+              const kdaValue = computeKDA(p).toFixed(2);
+              const csValue = computeCS(p).toFixed(0);
+
+              return (
+                <RowComponent
+                  key={p.id}
+                  onClick={onSelectPlayer ? () => onSelectPlayer(p.id) : undefined}
+                  className={`table-row grid grid-cols-12 px-5 py-3.5 items-center w-full text-left border-none focus:outline-none focus:ring-1 focus:ring-[#00cbd6]/30 ${onSelectPlayer ? 'cursor-pointer group' : ''}`}
+                  style={{
+                    backgroundColor: isEven ? 'var(--bg-row-even)' : 'var(--bg-card)',
+                    color: 'var(--text-muted)',
+                    borderColor: 'var(--border-element)',
+                    display: 'grid',
+                    alignItems: 'center'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--bg-row-hover)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = isEven ? 'var(--bg-row-even)' : 'var(--bg-card)';
+                  }}
+                >
+                  <div className="col-span-1 font-mono font-bold" style={{ color: 'var(--text-muted)' }}>{idx + 1}</div>
+                  
+                  <div className="col-span-3 flex flex-col justify-center">
+                    <span className="font-bold flex items-center gap-1.5" style={{ color: 'var(--text-main)' }}>{p.name}</span>
+                    <span className="text-[9px] text-slate-500 font-medium">{p.realName}</span>
+                  </div>
+
+                  <div className="col-span-1 text-center font-mono font-black animate-pulse" style={{ color: '#00cbd6' }}>{p.region}</div>
+                  
+                  <div className="col-span-1 text-center font-mono font-bold text-sky-500">{p.position}</div>
+                  
+                  <div className="col-span-3 uppercase font-bold text-ellipsis overflow-hidden whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{p.teamName}</div>
+                  
+                  <div className="col-span-2 text-center flex flex-col font-mono justify-center items-center">
+                    {selectedMetric === 'RATING' && (
+                      <span className="text-emerald-400 font-bold text-xs">OVR {p.overallRating}</span>
+                    )}
+                    {selectedMetric === 'KDA' && (
+                      <>
+                        <span className="text-[#00cbd6] font-bold">{kdaValue} KDA</span>
+                        <span className="text-[9px] text-slate-500">{(stats.kills / Math.max(1, stats.gamesPlayed)).toFixed(1)}/{(stats.deaths / Math.max(1, stats.gamesPlayed)).toFixed(1)}/{(stats.assists / Math.max(1, stats.gamesPlayed)).toFixed(1)}</span>
+                      </>
+                    )}
+                    {selectedMetric === 'FARM' && (
+                      <>
+                        <span className="text-[#00cbd6] font-bold">{csValue} CS</span>
+                        <span className="text-[9px] text-slate-500">({(stats.cs / Math.max(1, stats.gamesPlayed) / 30).toFixed(1)} CS/M)</span>
+                      </>
+                    )}
+                    {selectedMetric === 'MVPS' && (
+                      <span className="text-amber-400 font-bold">{stats.mvps} Prêmios</span>
+                    )}
+                  </div>
+
+                  <div className="col-span-1 text-right font-mono font-bold text-slate-400">
+                    ${(p.marketValue / 1000).toFixed(0)}k
+                  </div>
+                </RowComponent>
+              );
+            })
+          )}
         </div>
       </div>
     </div>
@@ -5302,55 +5637,246 @@ export function UltimasPartidasTab({ gameState }: UltimasPartidasTabProps) {
 // ==========================================
 interface MetaTabProps {
   gameState: GameState;
+  theme?: 'light' | 'dark';
 }
 
-export function MetaTab({ gameState }: MetaTabProps) {
+export function MetaTab({ gameState, theme }: MetaTabProps) {
   const { champions } = gameState;
+  const isDark = theme !== 'light';
+
+  const [selectedRole, setSelectedRole] = useState<'ALL ROLES' | 'BARON' | 'JUNGLE' | 'MID' | 'DUO' | 'SUPPORT'>('ALL ROLES');
+
+  const getChampAvatar = (champId: string, seed: number) => {
+    const champ = champions.find(c => c.id === champId);
+    if (champ) {
+      if (champ.imageUrl) return champ.imageUrl;
+      // Also try portraitUrl or idealPlaystyle if they contain url/image string
+      const ideal = champ.idealPlaystyle;
+      const anyIdeal = ideal && (ideal.startsWith('http') || ideal.startsWith('data:image') || ideal.includes('.'));
+      if (anyIdeal) return ideal;
+    }
+    const images = [
+      "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=120", // blue gaming
+      "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&q=80&w=120", // red/black neon
+      "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&q=80&w=120", // purple setup
+      "https://images.unsplash.com/photo-1538481199705-c710c4e965fc?auto=format&fit=crop&q=80&w=120", // yellow lighting
+      "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80&w=120", // cyber workspace
+      "https://images.unsplash.com/photo-1560253023-3ec5d502959f?auto=format&fit=crop&q=80&w=120", // professional game
+      "https://images.unsplash.com/photo-1552820728-8b83bb6b773f?auto=format&fit=crop&q=80&w=120", // game pad
+      "https://images.unsplash.com/photo-1548685913-fe6574ab8d14?auto=format&fit=crop&q=80&w=120", // gamer
+    ];
+    return images[(seed || 0) % images.length];
+  };
+
+  const getSimplifiedRoleBadge = (role: string) => {
+    const upper = (role || '').toUpperCase();
+    if (upper === 'TOP') return 'BAR';
+    if (upper === 'JUNGLE') return 'JG';
+    if (upper === 'MID') return 'MID';
+    if (upper === 'ADC') return 'DUO';
+    if (upper === 'SUPPORT') return 'SUP';
+    return upper;
+  };
+
+  const getRuneBadge = (champ: Champion) => {
+    const name = (champ.name || '').toLowerCase();
+    const role = (champ.roles[0] || 'MID').toUpperCase();
+    
+    if (name.includes('aatrox') || name.includes('jax') || name.includes('renekton') || name.includes('yasuo') || name.includes('yone') || name.includes('irelia')) return 'CONQ';
+    if (name.includes('ahri') || name.includes('akali') || name.includes('leblanc') || name.includes('zed') || name.includes('talon')) return 'ELEC';
+    if (name.includes('azir') || name.includes('ryze') || name.includes('vladimir')) return 'PR';
+    if (name.includes('lulu') || name.includes('janna') || name.includes('yuumi') || name.includes('nami') || name.includes('soraka')) return 'AERY';
+    if (name.includes('jinx') || name.includes('vayne') || name.includes('ashe') || name.includes('kog')) return 'LT';
+    if (name.includes('ezreal')) return 'FLEET';
+    if (name.includes('thresh') || name.includes('leona') || name.includes('nautilus') || name.includes('alistar') || name.includes('malphite')) return 'AFT';
+    
+    if (role === 'TOP') return 'CONQ';
+    if (role === 'JUNGLE') return 'PRED';
+    if (role === 'MID') return 'ELEC';
+    if (role === 'ADC') return 'LT';
+    if (role === 'SUPPORT') return 'AERY';
+    return 'CONQ';
+  };
+
+  const hasTrend = (champ: Champion) => {
+    return champ.buffStatus === 'BUFFED' || champ.buffStatus === 'NERFED';
+  };
+
+  const getTrendType = (champ: Champion) => {
+    if (champ.buffStatus === 'BUFFED') return 'UP';
+    if (champ.buffStatus === 'NERFED') return 'DOWN';
+    return null;
+  };
+
+  const matchFilter = (roles: string[]) => {
+    if (selectedRole === 'ALL ROLES') return true;
+    const uppercaseRoles = roles.map(r => r.toUpperCase());
+    if (selectedRole === 'BARON') {
+      return uppercaseRoles.includes('TOP') || uppercaseRoles.includes('BARON');
+    }
+    if (selectedRole === 'DUO') {
+      return uppercaseRoles.includes('ADC') || uppercaseRoles.includes('DUO');
+    }
+    return uppercaseRoles.includes(selectedRole);
+  };
+
+  const tiersInfo = [
+    { name: 'S+', color: '#ff4a5a', label: 'Currently the best champions in the game!' },
+    { name: 'S', color: '#ff7a68', label: 'Top-tier picks, highly competitive and dominant.' },
+    { name: 'A', color: '#ffb057', label: 'Strong choices with high tactical utility and reliable performance.' },
+    { name: 'B', color: '#ffd154', label: 'Balanced picks, good in secondary strategies or counter-drafts.' },
+    { name: 'C', color: '#7ee39d', label: 'Niche or highly specialized picks, require good team comps.' },
+    { name: 'D', color: '#94a3b8', label: 'Currently out of the meta, struggles to impact matches consistently.' },
+  ];
+
+  const roleFilters: ('ALL ROLES' | 'BARON' | 'JUNGLE' | 'MID' | 'DUO' | 'SUPPORT')[] = [
+    'ALL ROLES', 'BARON', 'JUNGLE', 'MID', 'DUO', 'SUPPORT'
+  ];
+
+  const blockBgClass = isDark ? 'bg-[#161a23]' : 'bg-[#f1f5f9]';
 
   return (
-    <div className="space-y-6 select-none font-sans text-xs">
-      <div className="panel-header border p-5 rounded-xl flex items-center justify-between transition-all duration-200" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-element)' }}>
+    <div className={`p-6 rounded-2xl transition-all duration-300 min-h-screen select-none font-sans text-xs ${isDark ? 'bg-[#0b0e14] text-white' : 'bg-[#ffffff] text-slate-850 shadow-sm'}`}>
+      {/* Header Panel */}
+      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-dashed border-[#1e2d44]/30">
         <div>
-          <h3 className="font-display text-sm font-black uppercase tracking-wider" style={{ color: 'var(--text-main)' }}>Patch Tático da Operação (Summoner's Rift Meta)</h3>
-          <p className="text-[10.5px] mt-1 max-w-xl transition-all duration-200" style={{ color: 'var(--text-muted)' }}>
+          <h2 className="text-xl font-display font-black uppercase tracking-wider">Patch Táctico do Meta</h2>
+          <p className="text-[11.5px] text-slate-400 mt-1 max-w-xl">
             Acompanhe o balanceamento do patch de Summoner's Rift corrente. Escolher campeões com maior tactical power amplifica as chances de draft.
           </p>
         </div>
-        <span className="px-2.5 py-1.5 bg-[#00cbd6]/10 text-[#00cbd6] border border-[#00cbd6]/25 rounded text-[10.5px] font-mono uppercase font-black tracking-widest leading-none">
+        <span className="mt-2 md:mt-0 font-mono text-xs px-3 py-1.5 rounded-lg bg-indigo-600/10 text-[#00cbd6] border border-indigo-500/25 uppercase font-black tracking-widest text-center self-start">
           PATCH OPERACIONAL {gameState.currentPatch?.version || '15.1'}
         </span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3.5">
-        {(champions || []).slice(0, 15).map(c => (
-          <div key={c.id} className="champion-card p-4 rounded-xl flex flex-col justify-between shadow-md space-y-3 transition-all duration-200" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-element)' }}>
-            <div className="space-y-2.5">
-              <div className="flex justify-between items-center pb-2 border-b transition-all duration-200" style={{ borderColor: 'var(--border-element)' }}>
-                <span className="text-xs uppercase font-black" style={{ color: 'var(--text-main)' }}>{c.name}</span>
-                <span className="w-5.5 h-5.5 rounded bg-amber-500 text-slate-950 font-black text-[9px] flex items-center justify-center">
-                  {c.tier}
+      {/* 1. SISTEMA DE FILTROS SUPERIORES (ROLES) */}
+      <div className="flex flex-wrap gap-2.5 mb-8 select-none">
+        {roleFilters.map(role => {
+          const isActive = selectedRole === role;
+          const activeBtnClass = isDark 
+            ? 'bg-[#7c3aed] text-white shadow-lg shadow-violet-900/30 font-extrabold border-transparent' 
+            : 'bg-[#1e293b] text-white shadow-md font-extrabold border-transparent';
+          const inactiveBtnClass = isDark 
+            ? 'bg-[#0f172a]/60 hover:bg-[#1e2d44]/60 text-slate-400 border border-[#1e2d44]/55' 
+            : 'bg-slate-100 hover:bg-slate-205 text-slate-600 border border-slate-200';
+
+          return (
+            <button
+              key={role}
+              onClick={() => setSelectedRole(role)}
+              className={`px-4.5 py-2.5 text-[11px] uppercase tracking-wider rounded-xl font-mono transition-all duration-200 cursor-pointer ${
+                isActive ? activeBtnClass : inactiveBtnClass
+              }`}
+            >
+              [ {role} ]
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 2. ARQUITETURA DE BLOCOS POR TIER (GRID LAYOUT) */}
+      <div className="space-y-8">
+        {tiersInfo.map(tier => {
+          // Filter champions that match the selected tier and selected role filter
+          const chList = (champions || []).filter(c => {
+            const isMatchTier = (c.tier || '').toUpperCase() === tier.name;
+            return isMatchTier && matchFilter(c.roles);
+          });
+
+          // Sort alphabetically by name
+          chList.sort((a,b) => a.name.localeCompare(b.name));
+
+          return (
+            <div key={tier.name} className="flex flex-col">
+              {/* B. Descrição Informativa do Cabeçalho */}
+              <div className="flex items-center gap-2 mb-2 select-none">
+                <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: tier.color }} />
+                <span className="font-extrabold text-[12px] uppercase tracking-wide" style={{ color: isDark ? '#ffffff' : '#1e293b' }}>
+                  {tier.name} Tier
+                </span>
+                <span className="text-[10.5px] transition-all hidden sm:inline text-slate-400">
+                  • {tier.label}
+                </span>
+                <span className="text-[10.5px] transition-all inline sm:hidden text-slate-400 font-medium">
+                  — {tier.label}
                 </span>
               </div>
-              <div className="text-[9px] font-mono leading-none transition-all duration-200" style={{ color: 'var(--text-muted)' }}>
-                ROTAS HABILITADAS: <span className="font-extrabold uppercase text-sky-500" style={{ color: 'var(--text-main)' }}>{c.roles.join(', ')}</span>
-              </div>
-              <p className="text-[10px] leading-relaxed italic truncate transition-all duration-200" style={{ color: 'var(--text-muted)' }}>"{c.idealPlaystyle}"</p>
-            </div>
 
-            <div className="flex justify-between items-center pt-2.5 border-t text-[9.5px] transition-all duration-200" style={{ borderColor: 'var(--border-element)' }}>
-              <span className="font-mono font-bold transition-all duration-200" style={{ color: 'var(--text-muted)' }}>POWER CAP: {c.power}</span>
-              <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-bold ${
-                c.buffStatus === 'BUFFED' 
-                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                  : c.buffStatus === 'NERFED' 
-                  ? 'bg-red-500/10 text-red-500 border border-red-500/20' 
-                  : 'bg-gray-800 text-gray-500'
+              {/* Contêiner Horizontal */}
+              <div className={`flex border rounded-2xl overflow-hidden shadow-sm transition-all duration-200 ${
+                isDark ? 'border-[#1e2d44]/50' : 'border-slate-200'
               }`}>
-                {c.buffStatus || 'NORMAL'}
-              </span>
+                {/* A. Faixa Lateral do Bloco (Identificadores de Linha) */}
+                <div 
+                  className="w-16 md:w-20 shrink-0 flex items-center justify-center font-display font-black text-2xl text-white select-none relative" 
+                  style={{ backgroundColor: tier.color }}
+                >
+                  <span className="transform tracking-tight">{tier.name}</span>
+                </div>
+
+                {/* Grid principal de campeões */}
+                <div className={`flex-1 p-5 ${blockBgClass}`}>
+                  {chList.length > 0 ? (
+                    <div className="flex flex-wrap gap-4">
+                      {chList.map(champ => (
+                        <div key={champ.id} className="flex flex-col items-center justify-center w-24 sm:w-28 text-center select-none group relative">
+                          
+                          {/* 3. ANATOMIA DOS RETRATOS DE CAMPEÕES (MÁSCARAS CIRCULARES) */}
+                          <div className="relative w-16 h-16 sm:w-18 sm:h-18">
+                            
+                            {/* Borda do Retrato */}
+                            <div className="w-full h-full rounded-full border-2 border-slate-300 dark:border-[#38bdf8]/15 overflow-hidden relative shadow-md">
+                              <img 
+                                src={getChampAvatar(champ.id, champ.imageSeed)} 
+                                alt={champ.name} 
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
+                                referrerPolicy="no-referrer"
+                              />
+                            </div>
+                            
+                            {/* Badge de Rota (Superior Direito): mini-ícone roxo redondo */}
+                            <div className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-[#5c4fff] text-white flex items-center justify-center border-2 border-white dark:border-[#161a23] text-[8px] font-black font-mono shadow-md z-10 select-none">
+                              {getSimplifiedRoleBadge(champ.roles[0])}
+                            </div>
+
+                            {/* Badge de Runa/Estilo (Superior Esquerdo): fita de runa com cor verde/azul */}
+                            <div className="absolute -top-1.5 -left-1.5 w-6 h-6 rounded-full bg-[#10b981] text-white flex items-center justify-center border-2 border-white dark:border-[#161a23] text-[8px] font-black font-mono shadow-md z-10 select-none">
+                              {getRuneBadge(champ)}
+                            </div>
+
+                            {/* Micro-Indicador de Tendência (Inferior Central - Opcional por Rodada) */}
+                            {hasTrend(champ) && (
+                              <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full flex items-center justify-center border-2 border-white dark:border-[#161a23] text-[8px] font-bold shadow-md z-10 select-none ${
+                                getTrendType(champ) === 'UP' ? 'bg-emerald-500 text-white animate-pulse' : 'bg-rose-500 text-white'
+                              }`}>
+                                {getTrendType(champ) === 'UP' ? '▲' : '▼'}
+                              </div>
+                            )}
+
+                          </div>
+                          
+                          {/* Texto de Identificação */}
+                          <span 
+                            className="mt-2 text-[11.2px] font-medium leading-tight truncate w-full transition-all duration-200" 
+                            style={{ color: isDark ? '#ffffff' : '#334155' }}
+                          >
+                            {champ.name}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-8 flex items-center justify-center text-[10.5px] font-mono uppercase tracking-widest text-slate-400/50 w-full">
+                      Nenhum heroi do meta listado nesta Rota
+                    </div>
+                  )}
+                </div>
+
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -5605,12 +6131,178 @@ interface CentralDeEmpregosTabProps {
   triggerNotification: (title: string, desc: string) => void;
 }
 
+const JOB_MARKET_POOL_DEFAULT: CorporationStaff[] = [
+  {
+    id: 'job-1',
+    nome: 'Felipe "YoDa" Noronha',
+    cargo: 'Coach',
+    departamento: 'COMISSÃO TÉCNICA',
+    salario_semanal: 3200,
+    semanas_contrato: 32,
+    nivel_eficiencia: 90,
+    patrocinio_bonus: 0.1,
+    fotoUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=200',
+    nacionalidade: 'Brasil',
+    bandeira: '🇧🇷',
+    idade: 28,
+    especialidade: 'Trabalho de Motivação Externa e Comunicação'
+  },
+  {
+    id: 'job-2',
+    nome: 'Sulamita Vieira',
+    cargo: 'Fisioterapeuta Postural',
+    departamento: 'SAÚDE',
+    salario_semanal: 2200,
+    semanas_contrato: 32,
+    nivel_eficiencia: 85,
+    fotoUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200',
+    nacionalidade: 'Brasil',
+    bandeira: '🇧🇷',
+    idade: 32,
+    especialidade: 'Prevenção de Lesões RPG e Ergonomia'
+  },
+  {
+    id: 'job-3',
+    nome: 'Gabriel "Kami" Bohm',
+    cargo: 'Analista Macro',
+    departamento: 'COMISSÃO TÉCNICA',
+    salario_semanal: 4000,
+    semanas_contrato: 64,
+    nivel_eficiencia: 95,
+    patrocinio_bonus: 0.2,
+    fotoUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=200',
+    nacionalidade: 'Brasil',
+    bandeira: '🇧🇷',
+    idade: 29,
+    especialidade: 'Controle de Macrogame Geral e Lutas Controladas'
+  },
+  {
+    id: 'job-4',
+    nome: 'Juliana Paes',
+    cargo: 'Relações Públicas / PR',
+    departamento: 'RH',
+    salario_semanal: 2605,
+    semanas_contrato: 32,
+    nivel_eficiencia: 80,
+    patrocinio_bonus: 0.08,
+    fotoUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=200',
+    nacionalidade: 'Brasil',
+    bandeira: '🇧🇷',
+    idade: 31,
+    especialidade: 'Media Training e Gestão de Crise de Torcida'
+  },
+  {
+    id: 'job-5',
+    nome: 'Arthur Pendragon',
+    cargo: 'Analista de TI',
+    departamento: 'TI',
+    salario_semanal: 1900,
+    semanas_contrato: 32,
+    nivel_eficiencia: 75,
+    fotoUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=200',
+    nacionalidade: 'Reino Unido',
+    bandeira: '🇬🇧',
+    idade: 25,
+    especialidade: 'Redes Isoladas e Mitigação de Ping'
+  },
+  {
+    id: 'job-6',
+    nome: 'Guilherme Salles',
+    cargo: 'Olheiro',
+    departamento: 'OLHEIROS',
+    salario_semanal: 2400,
+    semanas_contrato: 32,
+    nivel_eficiencia: 88,
+    fotoUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=200',
+    nacionalidade: 'Brasil',
+    bandeira: '🇧🇷',
+    idade: 33,
+    especialidade: 'Deteção de Rota Inferior (CBLOL/Amador)'
+  },
+  {
+    id: 'job-7',
+    nome: 'Aiko Sato',
+    cargo: 'Olheiro',
+    departamento: 'OLHEIROS',
+    salario_semanal: 3500,
+    semanas_contrato: 64,
+    nivel_eficiencia: 96,
+    fotoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
+    nacionalidade: 'Japão',
+    bandeira: '🇯🇵',
+    idade: 36,
+    especialidade: 'Análise de Solo-lanes de Alta Classificação (LCK/LPL)'
+  },
+  {
+    id: 'job-8',
+    nome: 'Dr. Lucas Montenegro',
+    cargo: 'Advogado',
+    departamento: 'JURÍDICO',
+    salario_semanal: 3100,
+    semanas_contrato: 32,
+    nivel_eficiencia: 82,
+    fotoUrl: 'https://images.unsplash.com/photo-1507591064344-4c6b5614d601?auto=format&fit=crop&q=80&w=200',
+    nacionalidade: 'Brasil',
+    bandeira: '🇧🇷',
+    idade: 39,
+    especialidade: 'Contratos de Atletas e Multas Trabalhistas'
+  },
+  {
+    id: 'job-9',
+    nome: 'Dra. Sofia Alencar',
+    cargo: 'Advogado',
+    departamento: 'JURÍDICO',
+    salario_semanal: 3600,
+    semanas_contrato: 48,
+    nivel_eficiencia: 91,
+    fotoUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=200',
+    nacionalidade: 'Brasil',
+    bandeira: '🇧🇷',
+    idade: 30,
+    especialidade: 'Tratativa de Direitos Desportivos de Atletas'
+  },
+  {
+    id: 'job-10',
+    nome: 'Clara Mendes',
+    cargo: 'Gerente de Conteúdo',
+    departamento: 'MARKETING',
+    salario_semanal: 2400,
+    semanas_contrato: 32,
+    nivel_eficiencia: 81,
+    fotoUrl: 'https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?auto=format&fit=crop&q=80&w=200',
+    nacionalidade: 'Portugal',
+    bandeira: '🇵🇹',
+    idade: 27,
+    especialidade: 'Engajamento & Audiência TikTok e Kwai'
+  }
+];
+
 export function CentralDeEmpregosTab({ gameState, onUpdateGameState, triggerNotification }: CentralDeEmpregosTabProps) {
   const { teams, playerTeamId } = gameState;
   const playerTeam = teams.find(t => t.id === playerTeamId);
 
+  const [activeTab, setActiveTab] = useState<'VAGAS' | 'COMISSÃO TÉCNICA' | 'TI' | 'MARKETING' | 'SAÚDE' | 'JURÍDICO' | 'OLHEIROS' | 'RH'>('VAGAS');
+
+  // Load candidates of open job pool from gameState or fallback
+  const jobPool = gameState.corporationStaffJobPool && gameState.corporationStaffJobPool.length > 0
+    ? gameState.corporationStaffJobPool
+    : JOB_MARKET_POOL_DEFAULT;
+
+  // Auto initialize arrays on the gameState to ensure perfect sync
+  useEffect(() => {
+    if (!gameState.corporationStaffJobPool || gameState.corporationStaffJobPool.length === 0) {
+      onUpdateGameState({
+        ...gameState,
+        corporationStaffJobPool: JOB_MARKET_POOL_DEFAULT,
+        corporationStaffEmployees: gameState.corporationStaffEmployees || []
+      });
+    }
+  }, []);
+
+  const candidatesFiltered = jobPool.filter(c => c.departamento === activeTab);
+
   const applyForJob = (targetTeam: Team) => {
-    // Logic to sign with local team
+    // If player leaves current club
     const updatedTeams = teams.map(t => {
       if (t.id === playerTeamId) {
         return { ...t, isPlayerControlled: false };
@@ -5624,106 +6316,359 @@ export function CentralDeEmpregosTab({ gameState, onUpdateGameState, triggerNoti
     onUpdateGameState({
       ...gameState,
       playerTeamId: targetTeam.id,
-      teams: updatedTeams
+      teams: updatedTeams,
+      roundsPlayedThisWeek: true // Set rounds played as true to facilitate direct transition step
     });
 
-    triggerNotification("✍️ Novo Vínculo Contratual!", `Parabéns! Contrato firmado com êxito! Você assumiu o cargo de Manager Oficial da organização "${targetTeam.name}" com metas revisadas.`);
+    triggerNotification("✍️ Novo Vínculo Contratual!", `Parabéns! Você assinou com a ${targetTeam.name} sob acordo comercial padrão e assumiu a liderança na liga.`);
   };
 
+  const handleHireStaffCandidate = (candidate: CorporationStaff) => {
+    if (!playerTeamId || !playerTeam) {
+      alert("Operação Bloqueada: Apenas managers vinculados administrativamente a uma organização ativa podem recrutar staff na agência comercial.");
+      return;
+    }
+
+    if (playerTeam.budget < candidate.salario_semanal * 2) {
+      alert(`Recursos Insuficientes: A ${playerTeam.name} não possui saldo suficiente ($ ${(candidate.salario_semanal * 2).toLocaleString()} necessários) em caixa para as obrigações imediatas deste profissional.`);
+      return;
+    }
+
+    // Deduct hiring signing bonus (1 week salary as signing bonus)
+    const updatedTeams = teams.map(t => {
+      if (t.id === playerTeamId) {
+        return {
+          ...t,
+          budget: t.budget - candidate.salario_semanal
+        };
+      }
+      return t;
+    });
+
+    const currentEmployees = gameState.corporationStaffEmployees || [];
+    const newEmployee = {
+      ...candidate,
+      id: `emp-hired-${Date.now()}`,
+      semanas_contrato: 32 // Proposed 32 weeks standard duration
+    };
+
+    const updatedEmployees = [...currentEmployees, newEmployee];
+    const updatedJobPool = jobPool.filter(j => j.id !== candidate.id);
+
+    onUpdateGameState({
+      ...gameState,
+      teams: updatedTeams,
+      corporationStaffEmployees: updatedEmployees,
+      corporationStaffJobPool: updatedJobPool
+    });
+
+    triggerNotification("🤝 Staff Especialista Recrutado!", `${candidate.nome} concluiu a negociação e foi transferido para a Gaming House como seu ${candidate.cargo}!`);
+  };
+
+  // Resolve underperforming status by checking standings rank > 4 (playoffs cutoff)
+  const regionalTeams = teams.filter(t => t.region === (gameState.selectedRegion || 'CBLOL'));
+  const sortedRegTeams = sortTeamsByLeagueRules(regionalTeams, gameState.calendarSchedule);
+  
+  const getTeamStandingRank = (teamId: string) => {
+    const idx = sortedRegTeams.findIndex(t => t.id === teamId);
+    return idx >= 0 ? idx + 1 : 99;
+  };
+
+  // Underperforming teams are those currently rank > 4 or with budget capacity for contract bids
+  const underperformingTeams = teams.filter(t => {
+    const rank = getTeamStandingRank(t.id);
+    return rank > 4 && t.id !== playerTeamId;
+  });
+
+  // Safe fallback to bottom teams to ensure there's always bids on the market
+  const availableBids = (underperformingTeams.length > 0 ? underperformingTeams : teams.slice(5)).filter(t => t.id !== playerTeamId);
+
+  const categories = [
+    { id: 'VAGAS', label: 'Times Disponíveis', icon: Briefcase },
+    { id: 'COMISSÃO TÉCNICA', label: 'Comissão Técnica', icon: Users },
+    { id: 'TI', label: 'TI & Data Science', icon: Sliders },
+    { id: 'MARKETING', label: 'Marketing & PR', icon: Megaphone },
+    { id: 'SAÚDE', label: 'Saúde & Foco', icon: Heart },
+    { id: 'JURÍDICO', label: 'Jurídico', icon: Scale },
+    { id: 'OLHEIROS', label: 'Olheiros / Scouts', icon: Globe },
+    { id: 'RH', label: 'RH', icon: User }
+  ];
+
   return (
-    <div className="space-y-6 select-none font-sans text-xs">
-      <div className="bg-[#0a1424] border border-[#1e2d44] p-5 rounded-xl flex items-center justify-between">
+    <div className="space-y-6 select-none font-sans text-xs bg-white text-slate-800 p-6 rounded-2xl border border-slate-200">
+      {/* Visual Welcome Banner */}
+      <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl flex items-center justify-between shadow-sm">
         <div>
-          <h3 className="font-display text-white text-sm font-black uppercase tracking-wider">Central Profissional de Oportunidades & Empregos</h3>
-          <p className="text-[10.5px] text-slate-400 mt-1 max-w-xl">
-            Encontre propostas corporativas de outras equipes na liga de eSports ou peça demissão de forma imediata do seu cargo atual.
+          <h3 className="font-display text-slate-900 text-sm font-black uppercase tracking-wider flex items-center gap-2">
+            <Briefcase className="w-5 h-5 text-cyan-600 shrink-0" />
+            Central Profissional de Oportunidades & Empregos
+          </h3>
+          <p className="text-[10.5px] text-slate-650 mt-1.5 max-w-xl leading-relaxed">
+            Monitore o mercado corporativo da Superliga e staff de especialistas. Transite livremente entre clubes sob status de <strong className="text-amber-600 font-bold">Free Agent (Desempregado)</strong> ou comande o RH de sua organização!
           </p>
         </div>
-        <Briefcase className="w-12 h-12 text-[#00cbd6] opacity-20 shrink-0" />
+        <Users className="w-12 h-12 text-cyan-500 opacity-20 shrink-0 hidden md:block" />
       </div>
 
+      {/* Immediate Status Control Alert bar */}
       {playerTeam ? (
-        <div className="bg-red-500/5 border border-red-500/25 p-4 rounded-xl flex items-center justify-between">
+        <div className="bg-rose-50 border border-rose-100 p-4 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
-            <h4 className="font-extrabold uppercase text-white mb-0.5 tracking-wide text-xs">Você está Ativo na Organização: <span className="text-red-400 font-bold">{playerTeam.name}</span></h4>
-            <p className="text-[10px] text-slate-400">Se você desejar abandonar seu time e buscar novos desafios pelo cenário livre, peça demissão no botão ao lado.</p>
+            <h4 className="font-extrabold uppercase text-slate-900 tracking-wide text-xs flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 bg-emerald-600 rounded-full inline-block animate-ping shrink-0" />
+              Diretoria Operativa: <span className="text-cyan-600 font-black">{playerTeam.name}</span>
+            </h4>
+            <p className="text-[10px] text-slate-600 mt-0.5">Se você desejar abandonar suas obrigações táticas e finanças atuais para voltar ao mercado como profissional livre (Free Agent), solicite a rescisão contratual imediata.</p>
           </div>
           <button 
             onClick={() => {
-              if (confirm("🚨 ATENÇÃO: Tem certeza de que deseja pedir demissão de forma imediata de seu clube? Você perderá todo seu crédito e prestígio de liderança local!")) {
+              if (confirm(`🚨 ADVERTÊNCIA: Deseja realmente encaminhar sua rescisão oficial com a ${playerTeam.name}? Isso o desvinculará de forma imediata de sua atual Gaming House e retornará sua carteira profissional para o status de Free Agent.`)) {
                 const nextTeams = teams.map(t => t.id === playerTeamId ? { ...t, isPlayerControlled: false } : t);
                 onUpdateGameState({
                   ...gameState,
                   playerTeamId: '',
                   teams: nextTeams
                 });
-                triggerNotification("⚠️ Demissão Declarada!", `Você rescindiu unilateralmente o contrato com a ${playerTeam.name}. Agora você é um Free Agent!`);
+                triggerNotification("⚠️ Rescisão de Vínculo!", `Você pediu demissão e rescindiu unilateralmente com a organização ${playerTeam.name}. Agora você está desempregado.`);
               }
             }}
-            className="px-4 py-2 bg-red-650 hover:bg-red-500 text-white font-extrabold text-[10px] uppercase rounded-lg tracking-wider transition-colors cursor-pointer shrink-0"
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-extrabold text-[10px] uppercase rounded-lg tracking-wider transition-all cursor-pointer shrink-0"
           >
             Pedir Demissão Imediata
           </button>
         </div>
       ) : (
-        <div className="bg-amber-600/10 border border-amber-500/30 p-4 rounded-xl flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 animate-bounce" />
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-center gap-3">
+          <AlertCircle className="w-6 h-6 text-amber-600 shrink-0" />
           <div>
-            <h4 className="font-extrabold uppercase text-amber-500 tracking-wide text-xs">Você é Atualmente um Free Agent (Desempregado)</h4>
-            <p className="text-[10.5px] text-slate-300">Escolha uma das organizações operacionais abaixo para aceitar sua proposta contratual e liderar o clube a glórias na Superliga!</p>
+            <h4 className="font-extrabold uppercase text-amber-800 tracking-wide text-xs">Você está Atualmente Operando como Free Agent (Desempregado)</h4>
+            <p className="text-[10.5px] text-slate-700 mt-0.5">As rodadas da Superliga CBLOL continuam simuladas dinamicamente a cada clique de avançar semana. Escolha uma das vagas disponíveis abaixo na Central de Times para assinar contrato e iniciar seu novo legado!</p>
           </div>
         </div>
       )}
 
-      <div className="space-y-4">
-        <h4 className="text-xs font-black uppercase tracking-wider text-white">Vagas Disponíveis na Liga</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {teams.map((t) => {
-            const isCurrent = t.id === playerTeamId;
-            return (
-              <div key={t.id} className={`p-4 rounded-xl border flex flex-col justify-between space-y-4 shadow transition-all ${
-                isCurrent 
-                  ? 'bg-blue-500/5 border-blue-500/40' 
-                  : 'bg-[#0a1424] border-[#1e2d44] hover:border-slate-700'
-              }`}>
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-3">
-                    <div 
-                      className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-white uppercase text-xs shadow" 
-                      style={{ backgroundColor: t.primaryColor || '#1e293b' }}
-                    >
-                      {t.acronym || t.name.slice(0, 3)}
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-white text-[11px] uppercase tracking-wide">{t.name}</h4>
-                      <p className="text-[9px] text-slate-400 mt-0.5 font-mono">Orçamento: $ {t.budget.toLocaleString('pt-BR')} | Pop: {t.popularity}%</p>
-                    </div>
-                  </div>
-                  {isCurrent && (
-                    <span className="text-[8px] bg-blue-500/15 border border-blue-500/35 text-blue-400 px-2 py-0.5 rounded-full font-black uppercase font-mono animate-pulse">
-                      SEU CLUBE ATUAL
-                    </span>
-                  )}
-                </div>
+      {/* Departments Horizontal Custom Tabs bar */}
+      <div className="border-b border-slate-200 flex items-center gap-1 overflow-x-auto pb-1 scrolled-mini">
+        {categories.map((cat) => {
+          const CatIcon = cat.icon;
+          const isActive = activeTab === cat.id;
+          const isVagas = cat.id === 'VAGAS';
+          
+          // Compute count
+          const count = isVagas 
+            ? availableBids.length 
+            : jobPool.filter(j => j.departamento === cat.id).length;
 
-                <div className="flex items-center justify-between border-t border-[#1e2d44] pt-3">
-                  <div className="space-y-0.5">
-                    <span className="text-[8px] text-slate-450 uppercase font-bold block">Status da Vaga</span>
-                    <span className="text-[10px] text-emerald-450 font-bold uppercase font-mono">Disponível</span>
+          return (
+            <button
+              key={cat.id}
+              onClick={() => setActiveTab(cat.id as any)}
+              className={`px-3 py-2 text-[9px] font-black uppercase tracking-widest rounded-lg flex items-center gap-2 transition whitespace-nowrap border cursor-pointer shrink-0 ${
+                isActive
+                  ? 'bg-cyan-50 border-cyan-200 text-cyan-600 font-extrabold shadow-sm'
+                  : 'bg-transparent border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+              }`}
+            >
+              <CatIcon className={`w-3.5 h-3.5 ${isActive ? 'text-cyan-600' : 'text-slate-500'}`} />
+              {cat.label}
+              <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-mono ${
+                isActive ? 'bg-cyan-100 text-cyan-700' : 'bg-slate-100 text-slate-500'
+              }`}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Render Main Segment Workspace */}
+      <div className="space-y-4">
+        {activeTab === 'VAGAS' ? (
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-700">Assinatura de Times Disponíveis na Liga (Zonas Críticas)</h4>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {availableBids.map((t) => {
+                const isCurrent = t.id === playerTeamId;
+                const rank = getTeamStandingRank(t.id);
+                
+                return (
+                  <div key={t.id} className={`p-4 rounded-xl border flex flex-col justify-between space-y-4 shadow-sm transition ${
+                    isCurrent 
+                      ? 'bg-cyan-50/50 border-cyan-200 text-slate-800' 
+                      : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-md text-slate-800'
+                  }`}>
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-start gap-3">
+                        <div 
+                          className="w-10 h-10 rounded-lg flex items-center justify-center font-black text-white uppercase text-sm border border-white/10 shrink-0 overflow-hidden relative" 
+                          style={{ backgroundColor: t.logoUrl ? 'transparent' : (t.primaryColor || '#1e293b') }}
+                        >
+                          {t.logoUrl ? (
+                            <img 
+                              src={t.logoUrl} 
+                              alt={t.name} 
+                              className="w-full h-full object-contain p-1 rounded"
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                const sibling = e.currentTarget.nextElementSibling as HTMLElement;
+                                if (sibling) sibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div className="absolute inset-0 flex items-center justify-center font-mono font-black text-xs text-white uppercase"
+                               style={{ display: t.logoUrl ? 'none' : 'flex' }}>
+                            {t.acronym || t.name.slice(0, 3)}
+                          </div>
+                        </div>
+                        <div>
+                          <h4 className="font-extrabold text-slate-900 text-[11.5px] uppercase tracking-wide flex items-center gap-2">
+                            {t.name}
+                            <span className="text-[8px] px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-650 font-mono">
+                              {t.region || 'CBLOL'}
+                            </span>
+                          </h4>
+                          <div className="text-[9px] text-slate-500 mt-1 font-mono flex flex-wrap gap-2.5">
+                            <span>Caixa: <strong className="text-emerald-600 font-bold">$ {t.budget.toLocaleString()}</strong></span>
+                            <span>•</span>
+                            <span>Líder Popularidade: <strong className="text-cyan-600 font-bold">{t.popularity}%</strong></span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full font-mono shrink-0 border ${
+                        rank <= 4 
+                          ? 'bg-blue-50 border-blue-105 text-blue-700' 
+                          : 'bg-amber-50 border-amber-105 text-amber-700'
+                      }`}>
+                        {rank}º Colocado ({t.wins}V - {t.losses}D)
+                      </span>
+                    </div>
+
+                    <p className="text-[10px] text-slate-600 leading-normal border-t border-slate-100 pt-3">
+                      A comissão e diretoria da organização buscam um manager focado em reestruturação administrativa. O clube apresenta oscilações na liga e disponibiliza condições imediatas de orçamento e folha corporativa sob contrato profissional inicial.
+                    </p>
+
+                    <div className="flex items-center justify-between border-t border-slate-150 pt-3.5">
+                      <div className="space-y-0.5">
+                        <span className="text-[7.5px] text-slate-400 uppercase font-bold block leading-none">Vínculo Inicial</span>
+                        <span className="text-[10px] text-emerald-600 font-extrabold uppercase font-mono">Garantido: 1 Split (32 sem)</span>
+                      </div>
+                      
+                      {isCurrent ? (
+                        <span className="px-3.5 py-1.5 bg-cyan-50 border border-cyan-200 text-cyan-600 text-[9px] font-black uppercase tracking-widest rounded-lg">
+                          CLUBE ATUAL
+                        </span>
+                      ) : (
+                        <button 
+                          onClick={() => applyForJob(t)}
+                          className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-extrabold text-[9px] uppercase tracking-widest rounded-lg transition"
+                        >
+                          Assinar Contrato de Manager
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  {!isCurrent && (
-                    <button 
-                      onClick={() => applyForJob(t)}
-                      className="px-4.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-[9px] uppercase tracking-wider rounded cursor-pointer transition-colors"
-                    >
-                      Assinar Contrato
-                    </button>
-                  )}
-                </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-700">Alinhamento de Candidatos para o Setor do Gaming Office</h4>
+            </div>
+
+            {candidatesFiltered.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {candidatesFiltered.map((candidate) => {
+                  const defaultFoto = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200';
+                  const foto = candidate.fotoUrl || defaultFoto;
+                  const starsCount = Math.round((candidate.nivel_eficiencia || 70) / 10) / 2; // out of 5
+                  const fullStars = Math.floor(starsCount);
+                  const halfStar = starsCount % 1 !== 0;
+
+                  return (
+                    <div key={candidate.id} className="bg-white border border-slate-200 p-4 rounded-xl flex flex-col justify-between gap-4 shadow-sm hover:border-slate-300 hover:shadow transition text-slate-800">
+                      <div className="flex items-start gap-3.5">
+                        <img 
+                          src={foto} 
+                          alt={candidate.nome} 
+                          className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-extrabold text-slate-900 text-[11.5px] uppercase truncate tracking-wide">
+                            {candidate.nome}
+                            <span className="text-[9px] text-slate-500 font-normal ml-2">
+                              ({candidate.idade || 26} anos • {candidate.bandeira || '🇧🇷'} {candidate.nacionalidade || 'BR'})
+                            </span>
+                          </h4>
+                          <span className="text-[8.5px] font-mono tracking-widest px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-700 inline-block mt-0.5 font-bold uppercase">
+                            {candidate.cargo}
+                          </span>
+
+                          <p className="text-[10px] text-slate-650 italic mt-1.5 leading-tight">
+                            Especialidade: <strong>{candidate.especialidade || 'Trabalho de foco tático e prevenção'}</strong>
+                          </p>
+
+                          <div className="flex items-center gap-1.5 mt-2">
+                            <span className="text-[9.5px] text-slate-550 font-bold">Classificação:</span>
+                            <div className="flex items-center text-amber-500 shrink-0">
+                              {Array.from({ length: 5 }).map((_, idx) => {
+                                if (idx < fullStars) {
+                                  return <Star key={idx} className="w-3 h-3 fill-amber-500 text-amber-500" />;
+                                } else if (idx === fullStars && halfStar) {
+                                  return <StarHalf key={idx} className="w-3 h-3 fill-amber-500 text-amber-500 animate-pulse" />;
+                                } else {
+                                  return <Star key={idx} className="w-3 h-3 text-slate-200" />;
+                                }
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-slate-100 pt-3 flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <span className="text-[7.5px] text-slate-400 uppercase block font-bold leading-none">Salário Exigido</span>
+                          <span className="text-xs font-mono font-black text-rose-600 block leading-none">$ {candidate.salario_semanal.toLocaleString('pt-BR')}/sem</span>
+                        </div>
+
+                        {playerTeamId === '' ? (
+                          <div className="bg-slate-50 border border-slate-200 text-slate-550 text-[8px] font-bold px-2 py-1 rounded flex items-center gap-1.5 cursor-not-allowed">
+                            <Lock className="w-3 h-3 text-slate-400 shrink-0" />
+                            Apenas Managers ativos podem recrutar
+                          </div>
+                        ) : playerTeam && playerTeam.budget < candidate.salario_semanal * 2 ? (
+                          <div className="bg-rose-50 border border-rose-100 text-rose-600 text-[8px] font-bold px-2 py-1 rounded cursor-not-allowed">
+                            Veto Financeiro (-$ Cadeia de caixa)
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleHireStaffCandidate(candidate)}
+                            className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white text-[9.5px] font-black uppercase tracking-wider rounded-lg transition animate-none"
+                          >
+                            Contratar Staff
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
+            ) : (
+              <div className="text-center py-10 border border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-2 bg-slate-50/50">
+                <Users className="w-8 h-8 text-slate-400 shrink-0 animate-pulse" />
+                <h5 className="text-[10px] uppercase font-black tracking-widest text-slate-450">Nenhum Candidato Qualificado Disponível</h5>
+                <p className="text-[9px] text-slate-500 max-w-sm mt-0.5">Nenhum especialista está solicitando entrevistas para este setor na semana atual da Superliga. Aguarde a rodagem das rodadas.</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

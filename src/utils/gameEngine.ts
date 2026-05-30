@@ -3,11 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { GameState, Team, MatchSeries, Player, Sponsor, Staff, GamePatch, Position } from '../types';
+import { GameState, Team, MatchSeries, Player, Sponsor, Staff, GamePatch, Position, CorporationStaff } from '../types';
 import { CHAMPIONS_LIST, SPONSOR_PRESETS, STAFF_PRESETS, INITIAL_TEAMS_DATA, REGIONAL_TEAMS_DATABASE, INITIAL_PLAYER_ROSTER, INITIAL_PLAYER_SUBS } from '../data/initialDatabase';
 import { generateProceduralPlayer, generateDynamicPatch, generateSocialFeed, generateId } from './generators';
 import { simulateBotMatch } from './matchSimulator';
 import { getPlayersForTeam } from '../data/realPlayers';
+import { loadEditorDatabase, hasCustomEditorData, getEditorTimestamp } from './editorSync';
 
 export function initializeNewGame(
   managerName: string,
@@ -15,52 +16,15 @@ export function initializeNewGame(
   selectedRegion: 'CBLOL' | 'LCK' | 'LPL' | 'LEC' | 'LCS' | 'LCP' = 'CBLOL',
   selectedYear: number = 2026
 ): GameState {
-  // Load ALL 60 teams from default database or custom local storage override
-  let activeDb = REGIONAL_TEAMS_DATABASE;
   const isBrowser = typeof window !== 'undefined';
-  if (isBrowser) {
-    const rawCustomDb = localStorage.getItem('legendshub_custom_db');
-    if (rawCustomDb) {
-      try {
-        activeDb = JSON.parse(rawCustomDb);
-      } catch (e) {
-        console.error("Failed to parse custom teams database", e);
-      }
-    }
-  }
+  const payload = loadEditorDatabase();
+  
+  // Load database structures prioritising the editor values if custom modifications are found
+  let activeDb = payload?.teams || REGIONAL_TEAMS_DATABASE;
+  let activeChamps = payload?.champions || CHAMPIONS_LIST;
+  let activeSponsors = payload?.sponsors || [...SPONSOR_PRESETS];
+  let customPlayersDict = payload?.playersDict || {};
 
-  // Load custom champions if modified in the independent db editor
-  let activeChamps = CHAMPIONS_LIST;
-  if (isBrowser) {
-    const rawChamps = localStorage.getItem('legendshub_custom_champions');
-    if (rawChamps) {
-      try {
-        activeChamps = JSON.parse(rawChamps);
-      } catch (e) {}
-    }
-  }
-
-  // Load custom sponsors if modified in the independent db editor
-  let activeSponsors = [...SPONSOR_PRESETS];
-  if (isBrowser) {
-    const rawSponsors = localStorage.getItem('legendshub_custom_sponsors');
-    if (rawSponsors) {
-      try {
-        activeSponsors = JSON.parse(rawSponsors);
-      } catch (e) {}
-    }
-  }
-
-  // Load custom players dictionary overrides
-  let customPlayersDict: { [id: string]: any } = {};
-  if (isBrowser) {
-    const rawPlayers = localStorage.getItem('legendshub_custom_players_dict');
-    if (rawPlayers) {
-      try {
-        customPlayersDict = JSON.parse(rawPlayers);
-      } catch (e) {}
-    }
-  }
 
   const regions: ('CBLOL' | 'LCK' | 'LPL' | 'LEC' | 'LCS' | 'LCP')[] = ['CBLOL', 'LCK', 'LPL', 'LEC', 'LCS', 'LCP'];
   const allTeams: Team[] = [];
@@ -154,6 +118,8 @@ export function initializeNewGame(
     });
   });
 
+  allTeams.forEach(setupTeamPlayersVisas);
+
   // Filter out teams in the active selected region for scheduling league matches
   const activeLeagueTeams = allTeams.filter(t => t.region === selectedRegion);
   const calendarSchedule = scheduleDoubleRoundRobin(activeLeagueTeams);
@@ -190,6 +156,16 @@ export function initializeNewGame(
     ? `$ ${initialBudget.toLocaleString('pt-BR')}`
     : `$ ${(initialBudget / 1000000).toFixed(2)}M`;
 
+  const initialJobPool: CorporationStaff[] = [];
+  const categoriesList: CorporationStaff['departamento'][] = [
+    'COMISSÃO TÉCNICA', 'TI', 'MARKETING', 'SAÚDE', 'JURÍDICO', 'OLHEIROS', 'RH'
+  ];
+  categoriesList.forEach(cat => {
+    for (let i = 0; i < 5; i++) {
+      initialJobPool.push(generateProceduralStaff(cat));
+    }
+  });
+
   return {
     managerName,
     season: selectedYear,
@@ -204,6 +180,7 @@ export function initializeNewGame(
     socialFeed: startingSocial,
     sponsorsMarket: [...activeSponsors],
     availableStaff,
+    corporationStaffJobPool: initialJobPool,
     careerHistory: [],
     selectedRegion,
     selectedYear,
@@ -212,7 +189,9 @@ export function initializeNewGame(
       balance: initialBudget,
       caixa_bruto: initialBudget,
       caixa_formatado_hud: formattedHud
-    }
+    },
+    lastEditorSyncTimestamp: payload?.lastModified || 0,
+    editorSyncStatusMessage: payload ? `[STATUS: ONLINE] [ENGINE: ACTIVE] Editor Payload Synced Successfully.` : `[STATUS: ONLINE] [ENGINE: ACTIVE] Init completed.`
   };
 }
 
@@ -269,7 +248,32 @@ export function scheduleDoubleRoundRobin(teams: Team[]): { [weekNumber: number]:
 export function advanceGameWeek(gameState: GameState): GameState {
   let updatedState = { ...gameState };
   const currentWeek = updatedState.week;
-  const playerTeam = updatedState.teams.find(t => t.id === updatedState.playerTeamId)!;
+  const playerTeam = updatedState.teams.find(t => t.id === updatedState.playerTeamId);
+
+  // Replenish the Job Pool procedural to keep it alive
+  if (!updatedState.corporationStaffJobPool) {
+    updatedState.corporationStaffJobPool = [];
+  }
+  const categoriesList: CorporationStaff['departamento'][] = [
+    'COMISSÃO TÉCNICA', 'TI', 'MARKETING', 'SAÚDE', 'JURÍDICO', 'OLHEIROS', 'RH'
+  ];
+  categoriesList.forEach(cat => {
+    const currentCount = updatedState.corporationStaffJobPool!.filter(j => j.departamento === cat).length;
+    if (currentCount < 5) {
+      const needed = 5 - currentCount;
+      for (let i = 0; i < needed; i++) {
+        updatedState.corporationStaffJobPool!.push(generateProceduralStaff(cat));
+      }
+    }
+  });
+
+  // Reset any active temporary travel visas when advancing past Week 1 (offseason window ends)
+  if (currentWeek === 1) {
+    updatedState.teams.forEach(t => {
+      t.vistoEspecialTorneioAtivo = false;
+      t.vistoEspecialTorneioNome = undefined;
+    });
+  }
 
   // 1. Simulate matches of other teams if the player has finished their current matches
   const currentWeekMatches = updatedState.calendarSchedule[currentWeek];
@@ -277,7 +281,7 @@ export function advanceGameWeek(gameState: GameState): GameState {
     currentWeekMatches.forEach(match => {
       // If player match, it should already be simulated or finished before stepping week.
       // If it is bot vs bot match, simulate it!
-      const isPlayerParticipant = match.teamBlueId === playerTeam.id || match.teamRedId === playerTeam.id;
+      const isPlayerParticipant = playerTeam ? (match.teamBlueId === playerTeam.id || match.teamRedId === playerTeam.id) : false;
       if (!match.isFinished && !isPlayerParticipant) {
         const teamBlue = updatedState.teams.find(t => t.id === match.teamBlueId)!;
         const teamRed = updatedState.teams.find(t => t.id === match.teamRedId)!;
@@ -312,29 +316,385 @@ export function advanceGameWeek(gameState: GameState): GameState {
     });
   }
 
-  // 2. Financial weekly accounting & Game Engine Ticking Module
-  if (playerTeam.creditScore === undefined) playerTeam.creditScore = 720;
-  if (!playerTeam.loans) playerTeam.loans = [];
-  if (!playerTeam.investments) {
-    playerTeam.investments = { fixedIncome: 0, sportsFund: 0, sharesRivals: 0, advancedSponsorWeeks: 0, advancedSponsorBudget: 0 };
+  // ==========================================================================
+  // PARALLEL SIMULATION OF OTHER REGIONS & DETAILED PLAYER STATS
+  // ==========================================================================
+  const regionsList: ('CBLOL' | 'LCK' | 'LPL' | 'LEC' | 'LCS' | 'LCP')[] = ['CBLOL', 'LCK', 'LPL', 'LEC', 'LCS', 'LCP'];
+  regionsList.forEach(reg => {
+    if (reg === updatedState.selectedRegion) {
+      return;
+    }
+    const regTeams = updatedState.teams.filter(t => t.region === reg);
+    if (regTeams.length === 0) return;
+
+    const regSchedule = scheduleDoubleRoundRobin(regTeams);
+    const weekMatches = regSchedule[currentWeek];
+    if (!weekMatches) return;
+
+    weekMatches.forEach(match => {
+      const teamBlue = updatedState.teams.find(t => t.id === match.teamBlueId)!;
+      const teamRed = updatedState.teams.find(t => t.id === match.teamRedId)!;
+      if (!teamBlue || !teamRed) return;
+
+      const OVR_Blue = teamBlue.roster.reduce((acc, p) => acc + p.overallRating, 0) / 5;
+      const OVR_Red = teamRed.roster.reduce((acc, p) => acc + p.overallRating, 0) / 5;
+
+      const powerBlue = teamBlue.popularity * 0.4 + OVR_Blue * 0.6;
+      const powerRed = teamRed.popularity * 0.4 + OVR_Red * 0.6;
+
+      const rngBlue = 1 + (Math.random() - 0.5) * 0.15;
+      const rngRed = 1 + (Math.random() - 0.5) * 0.15;
+
+      const finalBlue = (powerBlue + 5) * rngBlue;
+      const finalRed = powerRed * rngRed;
+
+      const isBlueWinner = finalBlue > finalRed;
+      const isBo3 = reg === 'LCK' || reg === 'LPL';
+      let scoreBlue = 0;
+      let scoreRed = 0;
+
+      if (isBo3) {
+        if (isBlueWinner) {
+          scoreBlue = 2;
+          scoreRed = Math.random() > 0.5 ? 1 : 0;
+        } else {
+          scoreRed = 2;
+          scoreBlue = Math.random() > 0.5 ? 1 : 0;
+        }
+      } else {
+        if (isBlueWinner) {
+          scoreBlue = 1;
+          scoreRed = 0;
+        } else {
+          scoreRed = 1;
+          scoreBlue = 0;
+        }
+      }
+
+      match.scoreBlue = scoreBlue;
+      match.scoreRed = scoreRed;
+      match.isFinished = true;
+
+      if (scoreBlue > scoreRed) {
+        teamBlue.wins++;
+        teamRed.losses++;
+        teamBlue.points += 3;
+        teamBlue.streak = 'W' + (parseInt(teamBlue.streak.replace(/\D/g, '')) + 1 || 1);
+        teamRed.streak = 'L' + (parseInt(teamRed.streak.replace(/\D/g, '')) + 1 || 1);
+      } else {
+        teamRed.wins++;
+        teamBlue.losses++;
+        teamRed.points += 3;
+        teamRed.streak = 'W' + (parseInt(teamRed.streak.replace(/\D/g, '')) + 1 || 1);
+        teamBlue.streak = 'L' + (parseInt(teamBlue.streak.replace(/\D/g, '')) + 1 || 1);
+      }
+      teamBlue.gameWins += scoreBlue;
+      teamBlue.gameLosses += scoreRed;
+      teamRed.gameWins += scoreRed;
+      teamRed.gameLosses += scoreBlue;
+
+      const numGames = scoreBlue + scoreRed;
+      const teamBlueWinner = scoreBlue > scoreRed;
+
+      const simulateRosterStats = (t: Team, isWinner: boolean) => {
+        const mvpIndex = Math.floor(Math.random() * t.roster.length);
+        t.roster.forEach((p, idx) => {
+          if (!p.stats) {
+            p.stats = { kills: 0, deaths: 0, assists: 0, cs: 0, gamesPlayed: 0, mvps: 0 };
+          }
+          let baseKills = 3, baseDeaths = 3, baseAssists = 6, baseCs = 240;
+          switch (p.position) {
+            case 'TOP': baseKills = 3; baseDeaths = 3; baseAssists = 5; baseCs = 245; break;
+            case 'JNG': baseKills = 4; baseDeaths = 3; baseAssists = 7; baseCs = 185; break;
+            case 'MID': baseKills = 5; baseDeaths = 3; baseAssists = 6; baseCs = 265; break;
+            case 'ADC': baseKills = 6; baseDeaths = 2; baseAssists = 5; baseCs = 290; break;
+            case 'SUP': baseKills = 1; baseDeaths = 4; baseAssists = 10; baseCs = 45; break;
+          }
+          const mult = p.overallRating / 80;
+          const gKills = Math.round(baseKills * mult * (0.6 + Math.random() * 0.8)) * numGames;
+          const gDeaths = Math.round(baseDeaths / mult * (0.6 + Math.random() * 0.8)) * numGames;
+          const gAssists = Math.round(baseAssists * mult * (0.6 + Math.random() * 0.8)) * numGames;
+          const gCs = Math.round(baseCs * mult * (0.8 + Math.random() * 0.4)) * numGames;
+
+          p.stats.kills += gKills;
+          p.stats.deaths += gDeaths;
+          p.stats.assists += gAssists;
+          p.stats.cs += gCs;
+          p.stats.gamesPlayed += numGames;
+
+          if (isWinner && idx === mvpIndex) {
+            p.stats.mvps++;
+          }
+        });
+      };
+
+      simulateRosterStats(teamBlue, teamBlueWinner);
+      simulateRosterStats(teamRed, !teamBlueWinner);
+    });
+  });
+
+  // Accumulate play-by-play metrics for the active region teams too
+  if (currentWeekMatches) {
+    currentWeekMatches.forEach(match => {
+      if (match.isFinished) {
+        const teamBlue = updatedState.teams.find(t => t.id === match.teamBlueId)!;
+        const teamRed = updatedState.teams.find(t => t.id === match.teamRedId)!;
+        if (!teamBlue || !teamRed) return;
+
+        const scoreBlue = match.scoreBlue || 0;
+        const scoreRed = match.scoreRed || 0;
+        const numGames = Math.max(1, scoreBlue + scoreRed);
+        const teamBlueWinner = scoreBlue > scoreRed;
+
+        const simulateActiveRegionPlayerStats = (t: Team, isWinner: boolean) => {
+          const mvpIndex = Math.floor(Math.random() * t.roster.length);
+          t.roster.forEach((p, idx) => {
+            if (!p.stats) {
+              p.stats = { kills: 0, deaths: 0, assists: 0, cs: 0, gamesPlayed: 0, mvps: 0 };
+            }
+            if (p.stats.gamesPlayed >= currentWeek) {
+              return;
+            }
+            let baseKills = 3, baseDeaths = 3, baseAssists = 6, baseCs = 240;
+            switch (p.position) {
+              case 'TOP': baseKills = 3; baseDeaths = 3; baseAssists = 5; baseCs = 245; break;
+              case 'JNG': baseKills = 4; baseDeaths = 3; baseAssists = 7; baseCs = 185; break;
+              case 'MID': baseKills = 5; baseDeaths = 3; baseAssists = 6; baseCs = 265; break;
+              case 'ADC': baseKills = 6; baseDeaths = 2; baseAssists = 5; baseCs = 290; break;
+              case 'SUP': baseKills = 1; baseDeaths = 4; baseAssists = 10; baseCs = 45; break;
+            }
+            const mult = p.overallRating / 80;
+            const gKills = Math.round(baseKills * mult * (0.6 + Math.random() * 0.8)) * numGames;
+            const gDeaths = Math.round(baseDeaths / mult * (0.6 + Math.random() * 0.8)) * numGames;
+            const gAssists = Math.round(baseAssists * mult * (0.6 + Math.random() * 0.8)) * numGames;
+            const gCs = Math.round(baseCs * mult * (0.8 + Math.random() * 0.4)) * numGames;
+
+            p.stats.kills += gKills;
+            p.stats.deaths += gDeaths;
+            p.stats.assists += gAssists;
+            p.stats.cs += gCs;
+            p.stats.gamesPlayed += numGames;
+
+            if (isWinner && idx === mvpIndex) {
+              p.stats.mvps++;
+            }
+          });
+        };
+
+        simulateActiveRegionPlayerStats(teamBlue, teamBlueWinner);
+        simulateActiveRegionPlayerStats(teamRed, !teamBlueWinner);
+      }
+    });
   }
-  if (!playerTeam.installmentPlans) playerTeam.installmentPlans = [];
-  if (!playerTeam.vistasAwaiting) playerTeam.vistasAwaiting = [];
-  if (playerTeam.poachingPenaltiesWeeks === undefined) playerTeam.poachingPenaltiesWeeks = 0;
 
-  // Safeguard custom contract structure on every roster/substitute player
-  const initContractProps = (p: Player) => {
-    if (p.signOnFee === undefined) p.signOnFee = Math.round(p.marketValue * 0.25);
-    if (p.isImported === undefined) p.isImported = p.nationality !== 'Brasil';
-    if (p.visaApproved === undefined) p.visaApproved = p.nationality === 'Brasil';
-    if (p.consecutiveBenchCount === undefined) p.consecutiveBenchCount = 0;
-    if (p.isMvpBonusExigido === undefined) p.isMvpBonusExigido = Math.random() < 0.2;
-    if (p.isTitularidadeExigida === undefined) p.isTitularidadeExigida = Math.random() < 0.15;
-  };
-  playerTeam.roster.forEach(initContractProps);
-  playerTeam.substitutes.forEach(initContractProps);
+  // ==========================================================================
+  // B. AUTONOMOUS PROMOTION OF JUVENILE TALENTS (PRODUCE PROMISES)
+  // ==========================================================================
+  updatedState.teams.forEach(team => {
+    if (team.isPlayerControlled) return;
+    if (!team.academy || team.academy.length === 0) return;
 
-  const sponsorsInflow = playerTeam.sponsors.reduce((acc, s) => acc + s.incomePerWeek, 0);
+    team.academy.forEach((academyPlayer, academyIdx) => {
+      const starterPos = academyPlayer.position;
+      const starterIdx = team.roster.findIndex(p => p.position === starterPos);
+      if (starterIdx === -1) return;
+
+      const starterPlayer = team.roster[starterIdx];
+      const hasPerformanceDrop = Math.random() < 0.04 || (academyPlayer.overallRating > starterPlayer.overallRating - 5 && Math.random() < 0.08);
+
+      if (hasPerformanceDrop) {
+        team.roster[starterIdx] = {
+          ...academyPlayer,
+          isAcademyStarter: true
+        };
+        team.academy[academyIdx] = {
+          ...starterPlayer,
+          isAcademyStarter: false
+        };
+
+        updatedState.socialFeed.unshift({
+          id: `promo-${Date.now()}-${team.id}-${academyPlayer.id}`,
+          username: `${team.name} News`,
+          handle: `@${team.acronym.toLowerCase()}_news`,
+          avatarUrl: ``,
+          content: `🚨 [PROMESSA DA BASE] Visando reestruturar a equipe titular após oscilações de rendimento de ${starterPlayer.name}, a diretoria da ${team.name} promove ${academyPlayer.name} diretamente da Academy! O jovem de ${academyPlayer.age} anos fará sua estreia oficial na rota ${academyPlayer.position}! 🦾`,
+          likes: 120 + Math.floor(Math.random() * 400),
+          retweets: 20 + Math.floor(Math.random() * 80),
+          timeAgo: 'Agora',
+          sentiment: 'positive',
+          verified: true
+        });
+      }
+    });
+  });
+
+  // ==========================================================================
+  // C. PROCEDURAL AI TRANSFERS & S-TIER ALERTS
+  // ==========================================================================
+  if (Math.random() < 0.18) {
+    const aiTeams = updatedState.teams.filter(t => !t.isPlayerControlled);
+    if (aiTeams.length >= 2) {
+      const buyerIndex = Math.floor(Math.random() * aiTeams.length);
+      let sellerIndex = Math.floor(Math.random() * aiTeams.length);
+      while (sellerIndex === buyerIndex) {
+        sellerIndex = Math.floor(Math.random() * aiTeams.length);
+      }
+
+      const buyerTeam = aiTeams[buyerIndex];
+      const sellerTeam = aiTeams[sellerIndex];
+
+      const rosterSource = sellerTeam.roster;
+      if (rosterSource.length > 0) {
+        const playerIdx = Math.floor(Math.random() * rosterSource.length);
+        const playerToTransfer = rosterSource[playerIdx];
+
+        if (buyerTeam.budget >= playerToTransfer.marketValue * 0.4) {
+          const buyerPosIdx = buyerTeam.roster.findIndex(p => p.position === playerToTransfer.position);
+          if (buyerPosIdx !== -1) {
+            const outgoingPlayer = buyerTeam.roster[buyerPosIdx];
+
+            buyerTeam.roster[buyerPosIdx] = { ...playerToTransfer };
+            sellerTeam.roster[playerIdx] = { ...outgoingPlayer };
+
+            const transValue = Math.round(playerToTransfer.marketValue * (0.8 + Math.random() * 0.4));
+            buyerTeam.budget -= transValue;
+            sellerTeam.budget += transValue;
+
+            const isTierS = playerToTransfer.overallRating >= 85;
+
+            if (isTierS) {
+              updatedState.socialFeed.unshift({
+                id: `trans-s-${Date.now()}`,
+                username: 'Esports Global Portal',
+                handle: '@esports_portal',
+                avatarUrl: '',
+                content: `🔥 [BOMBA NO MERCADO] Histórico! A organização ${buyerTeam.name} (${buyerTeam.region}) contrata em definitivo o astro super/S-Tier ${playerToTransfer.name} vindo da equipe ${sellerTeam.name}! O acerto financeiro totalizou a incrível quantia de $ ${transValue.toLocaleString('pt-BR')}! Segundo as fontes, o atleta assinou contrato de elite imediato. 👑`,
+                likes: 1540 + Math.floor(Math.random() * 5000),
+                retweets: 450 + Math.floor(Math.random() * 1500),
+                timeAgo: 'Agora',
+                sentiment: 'positive',
+                verified: true
+              });
+
+              if (typeof window !== 'undefined') {
+                const raw = localStorage.getItem('legendshub_custom_events_emails');
+                let current: any[] = [];
+                if (raw) {
+                  try { current = JSON.parse(raw); } catch (e) {}
+                }
+                const newEmail = {
+                  id: `email-trans-${Date.now()}`,
+                  sender: 'Jornalístico Daily Esports',
+                  senderRole: 'Editor de Mercado Global',
+                  subject: `🚨 [TRANSFERÊNCIA HISTÓRICA] ${playerToTransfer.name} assina com ${buyerTeam.name}!`,
+                  body: `Caro Manager,\n\nO mercado internacional de Esports foi abalado hoje por uma transação gigantesca na liga ${buyerTeam.region}.\n\nA equipe ${buyerTeam.name} concluiu a contratação de ${playerToTransfer.name} (${playerToTransfer.realName}), um dos principais jogadores na posição ${playerToTransfer.position} do mundo.\n\nO valor do acordo atingiu cerca de $ ${transValue.toLocaleString('pt-BR')} em custos imediatos de passe. Com esse investimento colossal, a ${buyerTeam.name} desponta como favorita aos playoffs globais e desafia o equilíbrio das demais potências mundiais!\n\nEstaremos acompanhando de perto o desenrolar das novas escalações! Ao trabalho!\n\nAtenciosamente,\nRedação Daily Esports`,
+                  date: 'Semana Atual',
+                  category: 'Propostas',
+                  read: false
+                };
+                localStorage.setItem('legendshub_custom_events_emails', JSON.stringify([newEmail, ...current]));
+              }
+            } else {
+              updatedState.socialFeed.unshift({
+                id: `trans-normal-${Date.now()}`,
+                username: 'Radar de Transferências',
+                handle: '@radar_transfers',
+                avatarUrl: '',
+                content: `📢 [MERCADO] Acordo fechado entre ${sellerTeam.name} e ${buyerTeam.name}! O jogador ${playerToTransfer.name} (${playerToTransfer.position}) foi negociado e passa a integrar a gaming house da ${buyerTeam.name}. Transação avaliada em $ ${transValue.toLocaleString('pt-BR')}.`,
+                likes: 240 + Math.floor(Math.random() * 500),
+                retweets: 40 + Math.floor(Math.random() * 90),
+                timeAgo: 'Agora',
+                sentiment: 'neutral'
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // ==========================================================================
+  // D. PROCEDURAL CASH FLOWS (FINANCES BOOST & PENALTIES)
+  // ==========================================================================
+  updatedState.teams.forEach(team => {
+    if (team.budget === undefined) team.budget = 1000000;
+
+    const baseGain = 45000 + (team.popularity * 1500);
+    team.budget += baseGain;
+
+    const hasWonThisWeek = team.streak.startsWith('W');
+    const streakCount = parseInt(team.streak.replace(/\D/g, '')) || 0;
+
+    if (hasWonThisWeek) {
+      const bonus = 15000 + (streakCount * 12050);
+      team.budget += bonus;
+      team.popularity = Math.min(100, team.popularity + 1);
+    } else {
+      const penalty = 12000 + (streakCount * 8000);
+      team.budget = Math.max(100000, team.budget - penalty);
+      team.popularity = Math.max(10, team.popularity - 1);
+
+      if (team.budget < 300000 && team.roster.length > 0 && !team.isPlayerControlled) {
+        const sortedRoster = [...team.roster].sort((a, b) => b.marketValue - a.marketValue);
+        const playerToSell = sortedRoster[0];
+
+        if (playerToSell && playerToSell.overallRating >= 80) {
+          const wealthyTeams = updatedState.teams.filter(t => !t.isPlayerControlled && t.id !== team.id && t.budget > playerToSell.marketValue);
+          if (wealthyTeams.length > 0) {
+            const buyer = wealthyTeams[Math.floor(Math.random() * wealthyTeams.length)];
+            const buyerPosIdx = buyer.roster.findIndex(p => p.position === playerToSell.position);
+
+            if (buyerPosIdx !== -1) {
+              const outgoing = buyer.roster[buyerPosIdx];
+
+              buyer.roster[buyerPosIdx] = { ...playerToSell };
+              team.roster[team.roster.indexOf(playerToSell)] = { ...outgoing };
+
+              const salePrice = Math.round(playerToSell.marketValue * 0.95);
+              team.budget += salePrice;
+              buyer.budget -= salePrice;
+
+              updatedState.socialFeed.unshift({
+                id: `forced-sale-${Date.now()}`,
+                username: 'Radar Financeiro',
+                handle: '@esports_economics',
+                avatarUrl: '',
+                content: `📉 [CRISE FINANCEIRA] Devido a pressões de caixa causadas por derrotas consecutivas, a equipe ${team.name} foi forçada a vender o astro ${playerToSell.name} para a potência ${buyer.name} por $ ${salePrice.toLocaleString('pt-BR')} para cumprir as obrigações imediatas de folha de pagamento!`,
+                likes: 910 + Math.floor(Math.random() * 2000),
+                retweets: 180 + Math.floor(Math.random() * 500),
+                timeAgo: 'Agora',
+                sentiment: 'negative'
+              });
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // 2. Financial weekly accounting & Game Engine Ticking Module
+  if (playerTeam) {
+    if (playerTeam.creditScore === undefined) playerTeam.creditScore = 720;
+    if (!playerTeam.loans) playerTeam.loans = [];
+    if (!playerTeam.investments) {
+      playerTeam.investments = { fixedIncome: 0, sportsFund: 0, sharesRivals: 0, advancedSponsorWeeks: 0, advancedSponsorBudget: 0 };
+    }
+    if (!playerTeam.installmentPlans) playerTeam.installmentPlans = [];
+    if (!playerTeam.vistasAwaiting) playerTeam.vistasAwaiting = [];
+    if (playerTeam.poachingPenaltiesWeeks === undefined) playerTeam.poachingPenaltiesWeeks = 0;
+
+    // Safeguard custom contract structure on every roster/substitute player
+    setupTeamPlayersVisas(playerTeam);
+    const initContractProps = (p: Player) => {
+      if (p.signOnFee === undefined) p.signOnFee = Math.round(p.marketValue * 0.25);
+      if (p.consecutiveBenchCount === undefined) p.consecutiveBenchCount = 0;
+      if (p.isMvpBonusExigido === undefined) p.isMvpBonusExigido = Math.random() < 0.2;
+      if (p.isTitularidadeExigida === undefined) p.isTitularidadeExigida = Math.random() < 0.15;
+    };
+    playerTeam.roster.forEach(initContractProps);
+    playerTeam.substitutes.forEach(initContractProps);
+
+    const sponsorsInflow = playerTeam.sponsors.reduce((acc, s) => acc + s.incomePerWeek, 0);
   
   // Custom user ticket and merchandising fan shop pricing calculations:
   const usrJerseyPrice = playerTeam.jerseyPrice || 69;
@@ -471,45 +831,52 @@ export function advanceGameWeek(gameState: GameState): GameState {
   const activeAwaitingVisas = [];
   for (const app of playerTeam.vistasAwaiting) {
     if (app.weeksRemaining > 0) {
-      app.weeksRemaining--;
-      // Standard P-1 Visa has 15% random delay chance
-      if (app.type === 'P-1' && Math.random() < 0.15 && !app.hasDocumentationRequest) {
-        app.weeksRemaining += 1;
-        app.hasDocumentationRequest = true;
-        updatedState.socialFeed.unshift({
-          id: 'visa_doc_needed_' + generateId(),
-          username: 'Consulado_Rivals',
-          handle: '@ImigracaoGlobal',
-          avatarUrl: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&q=80&w=100',
-          content: `⚠️ [DOCUMENTO ADICIONAL] Imigração emitiu restrição temporária para liberação do Visto P-1 de ${app.name}. Tempo estimado de processamento acrescido em +1 semana.`,
-          likes: 1200,
-          retweets: 480,
-          timeAgo: 'Agora',
-          sentiment: 'negative',
-          verified: true
-        });
-      }
+      if (app.hasDocumentationRequest) {
+        // Congela temporariamente se houver inconsistência pendente de correção!
+        activeAwaitingVisas.push(app);
+      } else {
+        // Sem pendências: progride uma semana!
+        app.weeksRemaining--;
 
-      if (app.weeksRemaining <= 0) {
-        // Find player and approve visa
-        const matchPlayer = [...playerTeam.roster, ...playerTeam.substitutes, ...playerTeam.academy].find(p => p.id === app.playerId);
-        if (matchPlayer) {
-          matchPlayer.visaApproved = true;
+        // Standard P-1 Visa has 15% random delay chance
+        if (app.type === 'P-1' && Math.random() < 0.15) {
+          app.weeksRemaining += 1;
+          app.hasDocumentationRequest = true;
           updatedState.socialFeed.unshift({
-            id: 'visa_approved_' + generateId(),
-            username: 'Rival_Press_News',
-            handle: '@RiftNoticias',
-            avatarUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=100',
-            content: `✈️ [LIBERADO] Aprovado o visto governamental para o coreano/estrangeiro ${matchPlayer.name}! Atleta oficialmente inscrito na liga e pronto para jogar.`,
-            likes: 5400,
-            retweets: 990,
+            id: 'visa_doc_needed_' + generateId(),
+            username: 'Consulado_Rivals',
+            handle: '@ImigracaoGlobal',
+            avatarUrl: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&q=80&w=100',
+            content: `⚠️ [DOCUMENTO ADICIONAL] Imigração emitiu restrição temporária para liberação do Visto P-1 de ${app.name}. Tempo estimado de processamento acrescido em +1 semana. [DOCUMENTAÇÃO REQUERIDA]`,
+            likes: 1200,
+            retweets: 480,
             timeAgo: 'Agora',
-            sentiment: 'positive',
+            sentiment: 'negative',
             verified: true
           });
         }
-      } else {
-        activeAwaitingVisas.push(app);
+
+        if (app.weeksRemaining <= 0) {
+          // Find player and approve visa
+          const matchPlayer = [...playerTeam.roster, ...playerTeam.substitutes, ...playerTeam.academy].find(p => p.id === app.playerId);
+          if (matchPlayer) {
+            matchPlayer.visaApproved = true;
+            updatedState.socialFeed.unshift({
+              id: 'visa_approved_' + generateId(),
+              username: 'Rival_Press_News',
+              handle: '@RiftNoticias',
+              avatarUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=100',
+              content: `✈️ [LIBERADO] Aprovado o visto governamental para o coreano/estrangeiro ${matchPlayer.name}! Atleta oficialmente inscrito na liga e pronto para jogar.`,
+              likes: 5400,
+              retweets: 990,
+              timeAgo: 'Agora',
+              sentiment: 'positive',
+              verified: true
+            });
+          }
+        } else {
+          activeAwaitingVisas.push(app);
+        }
       }
     }
   }
@@ -614,29 +981,32 @@ export function advanceGameWeek(gameState: GameState): GameState {
       }
     }
   }
+  }
 
   // 3. Player stamina recovery & minor training boosts
-  playerTeam.roster.forEach(p => {
-    // recover stamina
-    p.stamina = Math.min(100, p.stamina + 15);
-    // chance of slight skill increase from active gaming center training
-    const centerTLevel = playerTeam.infrastructure.trainingCenterLevel;
-    if (Math.random() < 0.1 * centerTLevel) {
-      const keys = Object.keys(p.attributes) as (keyof typeof p.attributes)[];
-      const randomAttr = keys[Math.floor(Math.random() * keys.length)];
-      if (p.attributes[randomAttr] < p.potential) {
-        p.attributes[randomAttr]++;
-        p.overallRating = Math.round(Object.values(p.attributes).reduce((a, b) => a + b, 0) / 9);
+  if (playerTeam) {
+    playerTeam.roster.forEach(p => {
+      // recover stamina
+      p.stamina = Math.min(100, p.stamina + 15);
+      // chance of slight skill increase from active gaming center training
+      const centerTLevel = playerTeam.infrastructure.trainingCenterLevel;
+      if (Math.random() < 0.1 * centerTLevel) {
+        const keys = Object.keys(p.attributes) as (keyof typeof p.attributes)[];
+        const randomAttr = keys[Math.floor(Math.random() * keys.length)];
+        if (p.attributes[randomAttr] < p.potential) {
+          p.attributes[randomAttr]++;
+          p.overallRating = Math.round(Object.values(p.attributes).reduce((a, b) => a + b, 0) / 9);
+        }
       }
-    }
-  });
+    });
 
-  // 4. Contract months check, decrement and alert
-  playerTeam.roster.forEach(p => {
-    if (p.contractMonths > 0) {
-      p.contractMonths--;
-    }
-  });
+    // 4. Contract months check, decrement and alert
+    playerTeam.roster.forEach(p => {
+      if (p.contractMonths > 0) {
+        p.contractMonths--;
+      }
+    });
+  }
 
   // 5. Dynamic match patches changes (every 4 weeks)
   if (currentWeek % 4 === 0) {
@@ -658,7 +1028,7 @@ export function advanceGameWeek(gameState: GameState): GameState {
   }
 
   // 6. Generate academy scout updates or random talent
-  if (Math.random() < 0.3) {
+  if (playerTeam && Math.random() < 0.3) {
     const freshKid = generateProceduralPlayer('TOP', 60, true);
     playerTeam.academy.push(freshKid);
     updatedState.socialFeed.unshift({
@@ -698,14 +1068,14 @@ export function advanceGameWeek(gameState: GameState): GameState {
   }
 
   // 8. Progress target weeks & handle tournament stage flow
-  let playerMatchThisRound = currentWeekMatches?.find(m => m.teamBlueId === playerTeam.id || m.teamRedId === playerTeam.id);
+  let playerMatchThisRound = currentWeekMatches?.find(m => m.teamBlueId === playerTeam?.id || m.teamRedId === playerTeam?.id);
   
   if (currentWeek >= 15) {
     if (updatedState.stage === 'SPLIT_REGULAR') {
       updatedState.stage = 'SPLIT_PLAYOFFS';
       // filter teams of active region for top 4
       const activeRegionTeams = updatedState.teams.filter(t => t.region === updatedState.selectedRegion);
-      const topTeams = [...activeRegionTeams].sort((a, b) => b.wins - a.wins || b.points - a.points);
+      const topTeams = sortTeamsByLeagueRules(activeRegionTeams, updatedState.calendarSchedule);
       const team1 = topTeams[0] || updatedState.teams[0];
       const team2 = topTeams[1] || updatedState.teams[1];
       const team3 = topTeams[2] || updatedState.teams[2];
@@ -783,6 +1153,29 @@ export function advanceGameWeek(gameState: GameState): GameState {
           sentiment: 'positive',
           verified: true
         });
+
+        // Trigger International Tournament Special Visa Mechanism on qualification
+        const qualTourneys = getInternationalTourneysQualified(updatedState);
+        if (qualTourneys.length > 0 && playerTeam) {
+          const mainTourney = qualTourneys[0];
+          const taxCost = 15000;
+          playerTeam.budget = Math.max(0, playerTeam.budget - taxCost);
+          playerTeam.vistoEspecialTorneioAtivo = true;
+          playerTeam.vistoEspecialTorneioNome = mainTourney;
+
+          updatedState.socialFeed.unshift({
+            id: 'intl_visa_tax_' + generateId(),
+            username: 'Riot_Consul_Esports',
+            handle: '@RiotJuris',
+            avatarUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=100',
+            content: `✈️ [CONEXÃO INTERNACIONAL] O clube ${playerTeam.name} qualificou-se com sucesso para o ${mainTourney}! Para a viagem internacional de toda a delegação de atletas e comissão técnica, foi debitada a taxa compulsória de $15.000 para "Emissão de Vistos Especiais de Torneio". O visto está ativo temporariamente!`,
+            likes: 6200,
+            retweets: 1540,
+            timeAgo: 'Agora',
+            sentiment: 'positive',
+            verified: true
+          });
+        }
 
         // Run full offseason transitions!
         updatedState = executeOffseasonTransition(updatedState);
@@ -1108,4 +1501,309 @@ export function hireStaffMember(gameState: GameState, staffId: string): GameStat
   }
 
   return updated;
+}
+
+export function getPlayerRegion(nationality: string): string {
+  const nat = (nationality || '').trim().toLowerCase();
+  if (nat === 'brasil' || nat === 'brazil' || nat === 'br') return 'CBLOL';
+  if (nat === 'coreia do sul' || nat === 'south korea' || nat === 'kr' || nat === 'korean' || nat === 'coreia') return 'LCK';
+  if (nat === 'china' || nat === 'chinese' || nat === 'cn') return 'LPL';
+  if (nat === 'eua' || nat === 'usa' || nat === 'united states' || nat === 'canadá' || nat === 'canada' || nat === 'norte-americano') return 'LCS';
+  
+  const europeans = [
+    'alemanha', 'germany', 'de',
+    'reino unido', 'united kingdom', 'gb', 'uk',
+    'suécia', 'sweden', 'se',
+    'frança', 'france', 'fr',
+    'espanha', 'spain', 'es',
+    'polônia', 'poland', 'pl',
+    'portugal', 'pt',
+    'itália', 'italy',
+    'grécia', 'greece',
+    'dinamarca', 'denmark'
+  ];
+  if (europeans.includes(nat)) return 'LEC';
+  
+  return '';
+}
+
+export function getIsForeign(nationality: string, teamRegion?: string): boolean {
+  if (!teamRegion) teamRegion = 'CBLOL';
+  const pRegion = getPlayerRegion(nationality);
+  return pRegion !== teamRegion;
+}
+
+export function setupTeamPlayersVisas(team: Team) {
+  const processPlayer = (p: Player) => {
+    const isForeign = getIsForeign(p.nationality, team.region);
+    p.isImported = isForeign;
+    if (!isForeign) {
+      p.visaApproved = true;
+    } else {
+      if (p.visaApproved === undefined) {
+        p.visaApproved = false;
+      }
+    }
+  };
+  if (team.roster) team.roster.forEach(processPlayer);
+  if (team.substitutes) team.substitutes.forEach(processPlayer);
+  if (team.academy) team.academy.forEach(processPlayer);
+}
+
+export function sortTeamsByLeagueRules(
+  teams: Team[],
+  calendarSchedule?: { [weekNumber: number]: MatchSeries[] }
+): Team[] {
+  return [...teams].sort((a, b) => {
+    // Primary: Series wins
+    if (b.wins !== a.wins) {
+      return b.wins - a.wins;
+    }
+    
+    // Fewer losses is better
+    if (a.losses !== b.losses) {
+      return a.losses - b.losses;
+    }
+
+    // 1. MW - Map Wins (gameWins)
+    if (b.gameWins !== a.gameWins) {
+      return b.gameWins - a.gameWins;
+    }
+
+    // 2. SD - Score Delta (gameWins - gameLosses)
+    const aDelta = a.gameWins - a.gameLosses;
+    const bDelta = b.gameWins - b.gameLosses;
+    if (bDelta !== aDelta) {
+      return bDelta - aDelta;
+    }
+
+    // 3. Head-to-Head (Confronto Direto)
+    if (calendarSchedule) {
+      let aWinsAgainstB = 0;
+      let bWinsAgainstA = 0;
+
+      Object.values(calendarSchedule).forEach((weekMatches) => {
+        if (!Array.isArray(weekMatches)) return;
+        weekMatches.forEach((m) => {
+          if (!m.isFinished) return;
+          
+          if (m.teamBlueId === a.id && m.teamRedId === b.id) {
+            if (m.scoreBlue > m.scoreRed) aWinsAgainstB++;
+            else if (m.scoreRed > m.scoreBlue) bWinsAgainstA++;
+          } else if (m.teamBlueId === b.id && m.teamRedId === a.id) {
+            if (m.scoreBlue > m.scoreRed) bWinsAgainstA++;
+            else if (m.scoreRed > m.scoreBlue) aWinsAgainstB++;
+          }
+        });
+      });
+
+      if (bWinsAgainstA !== aWinsAgainstB) {
+        return bWinsAgainstA - aWinsAgainstB;
+      }
+    }
+
+    // Fallback: Points
+    const bPoints = b.points || 0;
+    const aPoints = a.points || 0;
+    if (bPoints !== aPoints) {
+      return bPoints - aPoints;
+    }
+
+    // Fallback: Popularity
+    const bPopularity = b.popularity || 0;
+    const aPopularity = a.popularity || 0;
+    if (bPopularity !== aPopularity) {
+      return bPopularity - aPopularity;
+    }
+
+    return a.name.localeCompare(b.name);
+  });
+}
+
+export function getInternationalTourneysQualified(gameState: GameState): string[] {
+  const playerTeam = gameState.teams.find(t => t.id === gameState.playerTeamId);
+  if (!playerTeam) return [];
+  
+  const qualified: string[] = [];
+  const region = playerTeam.region || 'CBLOL';
+  const regionalTeams = gameState.teams.filter(t => (t.region || 'CBLOL') === region);
+  const sorted = sortTeamsByLeagueRules(regionalTeams, gameState.calendarSchedule);
+  
+  const rank = sorted.findIndex(t => t.id === playerTeam.id) + 1; // 1-indexed rank
+  
+  if (rank <= 2) {
+    qualified.push('MSI');
+  }
+  if (rank <= 3) {
+    qualified.push('Worlds (Mundial)');
+  }
+  if (rank <= 3) {
+    qualified.push('CBOLÃO');
+  }
+  
+  return qualified;
+}
+
+export function generateProceduralStaff(departamento: CorporationStaff['departamento']): CorporationStaff {
+  const maleFirst = ['Rodrigo', 'Bruno', 'Marcelo', 'Gustavo', 'Caio', 'Thiago', 'Felipe', 'Rafael', 'Matheus', 'Lucas', 'Gabriel', 'Daniel', 'Carlos', 'Guilherme', 'Leonardo', 'Roberto', 'Alexandre', 'Fábio'];
+  const femaleFirst = ['Camila', 'Beatriz', 'Juliana', 'Mariana', 'Letícia', 'Amanda', 'Carolina', 'Gabriela', 'Larissa', 'Luana', 'Fernanda', 'Aline', 'Isabela', 'Clara', 'Patrícia', 'Vanessa', 'Bruna'];
+  const lastNames = ['Silva', 'Santos', 'Oliveira', 'Souza', 'Rodrigues', 'Ferreira', 'Alves', 'Pereira', 'Lima', 'Gomes', 'Costa', 'Ribeiro', 'Martins', 'Carvalho', 'Rocha', 'Moraes', 'Mendes', 'Nascimento'];
+
+  const nationalities = [
+    { nome: 'Brasil', band: '🇧🇷' },
+    { nome: 'Coreia do Sul', band: '🇰🇷' },
+    { nome: 'China', band: '🇨🇳' },
+    { nome: 'Suécia', band: '🇸🇪' },
+    { nome: 'Alemanha', band: '🇩🇪' },
+    { nome: 'França', band: '🇫🇷' },
+    { nome: 'Estados Unidos', band: '🇺🇸' }
+  ];
+
+  const isFemale = Math.random() < 0.35;
+  const firstName = isFemale 
+    ? femaleFirst[Math.floor(Math.random() * femaleFirst.length)]
+    : maleFirst[Math.floor(Math.random() * maleFirst.length)];
+  const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+  const nome = `${firstName} ${lastName}`;
+
+  const nat = nationalities[Math.floor(Math.random() * nationalities.length)];
+  const idade = Math.floor(24 + Math.random() * 21); // 24 to 44
+  const nivel_eficiencia = Math.floor(65 + Math.random() * 31); // 65 to 95
+  const salario_semanal = Math.round((1200 + (nivel_eficiencia - 65) * 100) * (0.9 + Math.random() * 0.2));
+
+  let cargo = '';
+  let especialidade = '';
+  let fotoUrl = '';
+
+  if (departamento === 'COMISSÃO TÉCNICA') {
+    const cargos = ['Head Coach', 'Assistant Coach', 'Analista Sniper', 'Analista Macro', 'Positional Coach'];
+    const specs = [
+      'Controle de Wave e Prioridade de Rota',
+      'Drafting sob Pressão e Combinações de Counters',
+      'Desenvolvimento de Jovens Talentos da Academy',
+      'Análise Estatística de Win-rate por Composição',
+      'Gestão de Crise e Comunicação Interna'
+    ];
+    const pics = [
+      'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=200',
+      'https://images.unsplash.com/photo-1531427186611-ecfd6d936c79?auto=format&fit=crop&q=80&w=200',
+      'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200'
+    ];
+    cargo = cargos[Math.floor(Math.random() * cargos.length)];
+    especialidade = specs[Math.floor(Math.random() * specs.length)];
+    fotoUrl = pics[Math.floor(Math.random() * pics.length)];
+  } else if (departamento === 'TI') {
+    const cargos = ['Engenheiro de Redes', 'Analista de Big Data desportivo', 'Desenvolvedor da Ferramenta de Tracking', 'Arquiteto de Banco de Dados de Scrims', 'Administrador de Hardware e Ping'];
+    const specs = [
+      'Mitigação de Latência em Ambiente de Competição',
+      'Análise Preditiva de Padrões de Ward de Bots',
+      'Plataforma Integrada de Análise de Vídeos de Partida',
+      'Análise de Heatmaps de Movimentação no Rift',
+      'Customização de Conectores de API do Servidor'
+    ];
+    const pics = [
+      'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=200',
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
+      'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200'
+    ];
+    cargo = cargos[Math.floor(Math.random() * cargos.length)];
+    especialidade = specs[Math.floor(Math.random() * specs.length)];
+    fotoUrl = pics[Math.floor(Math.random() * pics.length)];
+  } else if (departamento === 'MARKETING') {
+    const cargos = ['Brand Manager', 'Social Media Lead', 'Videomaker Executivo', 'Designer de Uniformes & Merch', 'Gerente de Patrocínios / PR'];
+    const specs = [
+      'Campanhas de Lançamento de Jerseys Premium',
+      'Conteúdo Audiovisual e Reels para Redes',
+      'Gestão de Direitos de Imagem de Criadores',
+      'Ativação de Patrocinadores em Streamings',
+      'Engajamento Orgânico de Comunidade Ativa'
+    ];
+    const pics = [
+      'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=200',
+      'https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?auto=format&fit=crop&q=80&w=200',
+      'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200'
+    ];
+    cargo = cargos[Math.floor(Math.random() * cargos.length)];
+    especialidade = specs[Math.floor(Math.random() * specs.length)];
+    fotoUrl = pics[Math.floor(Math.random() * pics.length)];
+  } else if (departamento === 'SAÚDE') {
+    const cargos = ['Psicólogo de Performance', 'Fisioterapeuta Postural', 'Nutricionista de E-sports', 'Mental Coach', 'Personal Trainer de Delegação'];
+    const specs = [
+      'Controle de Ansiedade em Palco e Respiração',
+      'Prevenção de Síndrome do Túnel do Carpo e LER',
+      'Suplementação Focada em Concentração Prolongada',
+      'Gestão do Sono de Atletas Profissionais',
+      'Prevenção de Burnout e Equilíbrio de Rotina'
+    ];
+    const pics = [
+      'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=200',
+      'https://images.unsplash.com/photo-1594824813573-246434e33963?auto=format&fit=crop&q=80&w=200',
+      'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=200'
+    ];
+    cargo = cargos[Math.floor(Math.random() * cargos.length)];
+    especialidade = specs[Math.floor(Math.random() * specs.length)];
+    fotoUrl = pics[Math.floor(Math.random() * pics.length)];
+  } else if (departamento === 'JURÍDICO') {
+    const cargos = ['Diretor Jurídico', 'Advogado Desportivo', 'Especialista em Contratos Internacionais', 'Consultor Jurídico de Marcas', 'Compliance Officer de E-sports'];
+    const specs = [
+      'Bylaws Desportivos da Liga e Transferências',
+      'Minutas de Contratos de Atletas e Direitos Civis',
+      'Garantias Contratuais e Prevenção de Multas',
+      'Compliance de Parcerias e Patrocínios',
+      'Resolução de Conflitos e Mediação de Disputas'
+    ];
+    const pics = [
+      'https://images.unsplash.com/photo-1507591064344-4c6b5614d601?auto=format&fit=crop&q=80&w=200',
+      'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=200'
+    ];
+    cargo = cargos[Math.floor(Math.random() * cargos.length)];
+    especialidade = specs[Math.floor(Math.random() * specs.length)];
+    fotoUrl = pics[Math.floor(Math.random() * pics.length)];
+  } else if (departamento === 'OLHEIROS') {
+    const cargos = ['Scout Internacional', 'Analista de Jogadores Amadores', 'Head of Scouting', 'Talent Finder'];
+    const specs = [
+      'Mapeamento de SoloQ de Alta Classificação (KR/CN)',
+      'Avaliação de Potencial Mecânico de Atletas Academy',
+      'Busca de Talentos Amadores em Campeonatos de Base',
+      'Relatórios Estatísticos de Pool de Campeões de Atletas'
+    ];
+    const pics = [
+      'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=200',
+      'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=200'
+    ];
+    cargo = cargos[Math.floor(Math.random() * cargos.length)];
+    especialidade = specs[Math.floor(Math.random() * specs.length)];
+    fotoUrl = pics[Math.floor(Math.random() * pics.length)];
+  } else { // 'RH'
+    const cargos = ['Gerente Geral do Gaming House', 'People & Culture Lead', 'Coordenador de Bem-Estar', 'Recrutador Executivo de Staff'];
+    const specs = [
+      'Onboarding de Staff e Clima de Trabalho',
+      'Integração Cultural de Atletas Estrangeiros',
+      'Organização de Retiros de Team Building',
+      'Otimização de Produtividade em Ambientes Compartilhados'
+    ];
+    const pics = [
+      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=200',
+      'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=200'
+    ];
+    cargo = cargos[Math.floor(Math.random() * cargos.length)];
+    especialidade = specs[Math.floor(Math.random() * specs.length)];
+    fotoUrl = pics[Math.floor(Math.random() * pics.length)];
+  }
+
+  return {
+    id: 'job-procedural-' + generateId(),
+    nome,
+    cargo,
+    departamento,
+    salario_semanal,
+    semanas_contrato: 32,
+    nivel_eficiencia,
+    patrocinio_bonus: Math.random() < 0.4 ? Number((0.05 + Math.random() * 0.15).toFixed(2)) : undefined,
+    fotoUrl,
+    nacionalidade: nat.nome,
+    bandeira: nat.band,
+    idade,
+    especialidade
+  };
 }

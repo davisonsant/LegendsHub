@@ -7,7 +7,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Play, FolderOpen, Edit, Settings, Trash2, Shield, Circle, User, 
   ChevronRight, Calendar, Globe, Upload, HelpCircle, Save, Download, 
-  Moon, Sun, RefreshCw, X, Check, Award, Server, Layers, Terminal, Cpu
+  Moon, Sun, RefreshCw, X, Check, Award, Server, Layers, Terminal, Cpu,
+  Music, Gamepad2, Keyboard, Database, Volume2
 } from 'lucide-react';
 import { REGIONAL_TEAMS_DATABASE, CHAMPIONS_LIST, SPONSOR_PRESETS } from '../data/initialDatabase';
 import { getPlayersForTeam, REAL_ROSTERS_DB } from '../data/realPlayers';
@@ -184,8 +185,37 @@ export default function HomeLauncher({
 }: HomeLauncherProps) {
   // Navigation / Flow states
   const [activeState, setActiveState] = useState<LauncherState>('MENU');
-  const [settingsSubTab, setSettingsSubTab] = useState<'db' | 'profile' | 'appearance'>('db');
+  const [settingsSubTab, setSettingsSubTab] = useState<'profile' | 'appearance' | 'db' | 'saves' | 'music' | 'gameplay' | 'shortcuts'>('profile');
   const [isSpinning, setIsSpinning] = useState(false);
+
+  // Additional settings states with persistence
+  const [uiScale, setUiScale] = useState<string>(() => {
+    return localStorage.getItem('legendshub_ui_scale') || 'Regular';
+  });
+  const [musicVolume, setMusicVolume] = useState<number>(() => {
+    return Number(localStorage.getItem('legendshub_music_volume') || '85');
+  });
+  const [sfxVolume, setSfxVolume] = useState<number>(() => {
+    return Number(localStorage.getItem('legendshub_sfx_volume') || '75');
+  });
+  const [activePlaylist, setActivePlaylist] = useState<string>(() => {
+    return localStorage.getItem('legendshub_playlist_track') || 'Legends Theme Song v2.4 (Default)';
+  });
+  const [playbackMode, setPlaybackMode] = useState<'LOOP' | 'RANDOM'>(() => {
+    return (localStorage.getItem('legendshub_playback_mode') as 'LOOP' | 'RANDOM') || 'LOOP';
+  });
+  const [simSpeed, setSimSpeed] = useState<'STANDARD' | 'FAST' | 'ULTRA'>(() => {
+    return (localStorage.getItem('legendshub_sim_speed') as 'STANDARD' | 'FAST' | 'ULTRA') || 'FAST';
+  });
+  const [aiDifficulty, setAiDifficulty] = useState<'REGULAR' | 'PROFESSIONAL' | 'HARDCORE'>(() => {
+    return (localStorage.getItem('legendshub_ai_difficulty') as 'REGULAR' | 'PROFESSIONAL' | 'HARDCORE') || 'PROFESSIONAL';
+  });
+  const [alertsEnabled, setAlertsEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('legendshub_alerts_enabled') !== 'false';
+  });
+  const [boardEvalEnabled, setBoardEvalEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('legendshub_board_eval_enabled') !== 'false';
+  });
 
   // Interactive user preferences loaded reactively on the fly
   const [lang, setLang] = useState<'PT-BR' | 'EN-US' | 'ES-ES'>(() => {
@@ -336,7 +366,7 @@ export default function HomeLauncher({
 
   // Champions
   const [formChampName, setFormChampName] = useState('');
-  const [formChampTier, setFormChampTier] = useState('God Tier');
+  const [formChampTier, setFormChampTier] = useState('S+');
   const [formChampPower, setFormChampPower] = useState(90);
   const [formChampRoles, setFormChampRoles] = useState<string[]>([]);
   const [formChampLogo, setFormChampLogo] = useState('');
@@ -471,7 +501,7 @@ export default function HomeLauncher({
   const handleSelectChamp = (c: any) => {
     setEditorSelectedChampId(c.id);
     setFormChampName(c.name);
-    setFormChampTier(c.tier || 'God Tier');
+    setFormChampTier(c.tier || 'S+');
     setFormChampPower(c.power || 80);
     setFormChampRoles(c.roles || []);
     setFormChampLogo(c.idealPlaystyle || '');
@@ -1787,21 +1817,29 @@ export default function HomeLauncher({
 
         {/* State: configuracoes_db (DB_SETTINGS) */}
         {activeState === 'DB_SETTINGS' && (
-          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto animate-fade-in">
-            <div className={`w-full max-w-2xl ${themeClasses.card} p-0 rounded-2xl text-left overflow-hidden flex flex-col md:flex-row h-auto md:h-[500px] shadow-2xl relative`}>
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto animate-fade-in font-sans">
+            <div 
+              className="w-full max-w-4xl rounded-2xl text-left overflow-hidden flex flex-col md:flex-row h-auto md:h-[560px] shadow-2xl relative border transition-all duration-300"
+              style={{
+                backgroundColor: activeTheme === 'dark' ? 'rgba(15, 23, 42, 0.88)' : 'rgba(255, 255, 255, 0.90)',
+                backdropFilter: 'blur(16px)',
+                borderColor: activeTheme === 'dark' ? 'rgba(6, 182, 212, 0.25)' : 'rgba(226, 232, 240, 0.8)',
+                boxShadow: activeTheme === 'dark' ? '0 20px 40px rgba(0, 0, 0, 0.4), 0 0 30px rgba(6, 182, 212, 0.08)' : '0 20px 40px rgba(0, 0, 0, 0.05), 0 0 15px rgba(59, 130, 246, 0.03)'
+              }}
+            >
               
               {/* Close Button Top-Right */}
               <button
                 onClick={() => setActiveState('MENU')}
-                className="absolute top-4 right-4 p-1.5 rounded-lg border border-slate-700/40 text-slate-400 hover:text-white transition-colors cursor-pointer z-10"
+                className="absolute top-4 right-4 p-1.5 rounded-lg border border-slate-755/20 text-slate-400 hover:text-cyan-400 transition-colors cursor-pointer z-10 bg-slate-900/10 hover:bg-slate-900/30 dark:hover:bg-cyan-500/10"
               >
                 <X className="w-4 h-4" />
               </button>
 
               {/* Sidebar Tabs */}
-              <aside className="w-full md:w-[200px] bg-slate-500/5 border-b md:border-b-0 md:border-r border-slate-800/25 p-5 pt-7 shrink-0 flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-x-visible">
+              <aside className="w-full md:w-[220px] bg-slate-500/5 border-b md:border-b-0 md:border-r border-slate-200/10 dark:border-slate-800/40 p-5 pt-7 shrink-0 flex flex-row md:flex-col gap-1.5 overflow-x-auto md:overflow-x-visible relative">
                 <div className="max-md:hidden mb-6">
-                  <h4 className={`text-[10px] uppercase tracking-widest font-extrabold ${themeClasses.textSecondary}`}>
+                  <h4 className={`text-[10px] uppercase tracking-widest font-extrabold ${activeTheme === 'dark' ? 'text-slate-405' : 'text-slate-505'}`}>
                     Configurações
                   </h4>
                   <p className="font-mono text-[8.5px] text-cyan-400 font-bold uppercase tracking-wider mt-0.5">
@@ -1809,149 +1847,168 @@ export default function HomeLauncher({
                   </p>
                 </div>
 
-                <button
-                  onClick={() => setSettingsSubTab('db')}
-                  className={`w-full py-2 px-3.5 rounded-xl text-left font-bold text-[10px] uppercase tracking-wider flex items-center gap-2.5 transition-all shrink-0 cursor-pointer ${
-                    settingsSubTab === 'db'
-                      ? 'bg-cyan-500/15 text-cyan-400 border-l-2 border-cyan-400'
-                      : 'text-slate-405 hover:text-slate-200'
-                  }`}
-                >
-                  <FolderOpen className="w-3.5 h-3.5 shrink-0" />
-                  <span>Banco de Dados</span>
-                </button>
-
+                {/* 1. Conta & Manager */}
                 <button
                   onClick={() => setSettingsSubTab('profile')}
-                  className={`w-full py-2 px-3.5 rounded-xl text-left font-bold text-[10px] uppercase tracking-wider flex items-center gap-2.5 transition-all shrink-0 cursor-pointer ${
+                  className={`relative w-full py-2.5 px-3.5 rounded-xl text-left font-black text-[10px] uppercase tracking-wider flex items-center gap-2.5 transition-all shrink-0 cursor-pointer overflow-hidden ${
                     settingsSubTab === 'profile'
-                      ? 'bg-cyan-500/15 text-cyan-400 border-l-2 border-cyan-400'
-                      : 'text-slate-405 hover:text-slate-200'
+                      ? (activeTheme === 'dark' ? 'bg-cyan-500/10 text-[#00cbd6]' : 'bg-blue-600/10 text-blue-600')
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-500/5'
                   }`}
                 >
-                  <User className="w-3.5 h-3.5 shrink-0" />
+                  {settingsSubTab === 'profile' && (
+                    <div className={`absolute left-0 top-1/4 bottom-1/4 w-[3px] rounded-r ${activeTheme === 'dark' ? 'bg-cyan-400' : 'bg-blue-600'}`} />
+                  )}
+                  <User className={`w-4 h-4 shrink-0 transition-colors ${
+                    settingsSubTab === 'profile' 
+                      ? (activeTheme === 'dark' ? 'text-cyan-400 fill-cyan-400/10' : 'text-blue-600 fill-blue-600/10') 
+                      : 'text-slate-400'
+                  }`} />
                   <span>Conta & Manager</span>
                 </button>
 
+                {/* 2. Aparência & Idioma */}
                 <button
                   onClick={() => setSettingsSubTab('appearance')}
-                  className={`w-full py-2 px-3.5 rounded-xl text-left font-bold text-[10px] uppercase tracking-wider flex items-center gap-2.5 transition-all shrink-0 cursor-pointer ${
+                  className={`relative w-full py-2.5 px-3.5 rounded-xl text-left font-black text-[10px] uppercase tracking-wider flex items-center gap-2.5 transition-all shrink-0 cursor-pointer overflow-hidden ${
                     settingsSubTab === 'appearance'
-                      ? 'bg-cyan-500/15 text-cyan-400 border-l-2 border-cyan-400'
-                      : 'text-slate-405 hover:text-slate-200'
+                      ? (activeTheme === 'dark' ? 'bg-cyan-500/10 text-[#00cbd6]' : 'bg-blue-600/10 text-blue-600')
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-500/5'
                   }`}
                 >
-                  <Globe className="w-3.5 h-3.5 shrink-0" />
+                  {settingsSubTab === 'appearance' && (
+                    <div className={`absolute left-0 top-1/4 bottom-1/4 w-[3px] rounded-r ${activeTheme === 'dark' ? 'bg-cyan-400' : 'bg-blue-600'}`} />
+                  )}
+                  <Globe className={`w-4 h-4 shrink-0 transition-colors ${
+                    settingsSubTab === 'appearance' 
+                      ? (activeTheme === 'dark' ? 'text-cyan-400 fill-cyan-400/10' : 'text-blue-600 fill-blue-600/10') 
+                      : 'text-slate-400'
+                  }`} />
                   <span>Aparência & Idioma</span>
+                </button>
+
+                {/* 3. Banco dados */}
+                <button
+                  onClick={() => setSettingsSubTab('db')}
+                  className={`relative w-full py-2.5 px-3.5 rounded-xl text-left font-black text-[10px] uppercase tracking-wider flex items-center gap-2.5 transition-all shrink-0 cursor-pointer overflow-hidden ${
+                    settingsSubTab === 'db'
+                      ? (activeTheme === 'dark' ? 'bg-cyan-500/10 text-[#00cbd6]' : 'bg-blue-600/10 text-blue-600')
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-500/5'
+                  }`}
+                >
+                  {settingsSubTab === 'db' && (
+                    <div className={`absolute left-0 top-1/4 bottom-1/4 w-[3px] rounded-r ${activeTheme === 'dark' ? 'bg-cyan-400' : 'bg-blue-600'}`} />
+                  )}
+                  <Database className={`w-4 h-4 shrink-0 transition-colors ${
+                    settingsSubTab === 'db' 
+                      ? (activeTheme === 'dark' ? 'text-cyan-400 fill-cyan-400/10' : 'text-blue-600 fill-blue-600/10') 
+                      : 'text-slate-405'
+                  }`} />
+                  <span>Banco dados</span>
+                </button>
+
+                {/* 4. Saves */}
+                <button
+                  onClick={() => setSettingsSubTab('saves')}
+                  className={`relative w-full py-2.5 px-3.5 rounded-xl text-left font-black text-[10px] uppercase tracking-wider flex items-center gap-2.5 transition-all shrink-0 cursor-pointer overflow-hidden ${
+                    settingsSubTab === 'saves'
+                      ? (activeTheme === 'dark' ? 'bg-cyan-500/10 text-[#00cbd6]' : 'bg-blue-600/10 text-blue-600')
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-500/5'
+                  }`}
+                >
+                  {settingsSubTab === 'saves' && (
+                    <div className={`absolute left-0 top-1/4 bottom-1/4 w-[3px] rounded-r ${activeTheme === 'dark' ? 'bg-cyan-400' : 'bg-blue-600'}`} />
+                  )}
+                  <Save className={`w-4 h-4 shrink-0 transition-colors ${
+                    settingsSubTab === 'saves' 
+                      ? (activeTheme === 'dark' ? 'text-cyan-400 fill-cyan-400/10' : 'text-blue-600 fill-blue-600/10') 
+                      : 'text-slate-400'
+                  }`} />
+                  <span>Saves</span>
+                </button>
+
+                {/* 5. Música */}
+                <button
+                  onClick={() => setSettingsSubTab('music')}
+                  className={`relative w-full py-2.5 px-3.5 rounded-xl text-left font-black text-[10px] uppercase tracking-wider flex items-center gap-2.5 transition-all shrink-0 cursor-pointer overflow-hidden ${
+                    settingsSubTab === 'music'
+                      ? (activeTheme === 'dark' ? 'bg-cyan-500/10 text-[#00cbd6]' : 'bg-blue-600/10 text-blue-600')
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-500/5'
+                  }`}
+                >
+                  {settingsSubTab === 'music' && (
+                    <div className={`absolute left-0 top-1/4 bottom-1/4 w-[3px] rounded-r ${activeTheme === 'dark' ? 'bg-cyan-400' : 'bg-blue-600'}`} />
+                  )}
+                  <Music className={`w-4 h-4 shrink-0 transition-colors ${
+                    settingsSubTab === 'music' 
+                      ? (activeTheme === 'dark' ? 'text-cyan-400 fill-cyan-400/10' : 'text-blue-600 fill-blue-600/10') 
+                      : 'text-slate-400'
+                  }`} />
+                  <span>Música</span>
+                </button>
+
+                {/* 6. Gameplay */}
+                <button
+                  onClick={() => setSettingsSubTab('gameplay')}
+                  className={`relative w-full py-2.5 px-3.5 rounded-xl text-left font-black text-[10px] uppercase tracking-wider flex items-center gap-2.5 transition-all shrink-0 cursor-pointer overflow-hidden ${
+                    settingsSubTab === 'gameplay'
+                      ? (activeTheme === 'dark' ? 'bg-cyan-500/10 text-[#00cbd6]' : 'bg-blue-600/10 text-blue-600')
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-500/5'
+                  }`}
+                >
+                  {settingsSubTab === 'gameplay' && (
+                    <div className={`absolute left-0 top-1/4 bottom-1/4 w-[3px] rounded-r ${activeTheme === 'dark' ? 'bg-cyan-400' : 'bg-blue-600'}`} />
+                  )}
+                  <Gamepad2 className={`w-4 h-4 shrink-0 transition-colors ${
+                    settingsSubTab === 'gameplay' 
+                      ? (activeTheme === 'dark' ? 'text-cyan-400 fill-cyan-400/10' : 'text-blue-600 fill-blue-600/10') 
+                      : 'text-slate-400'
+                  }`} />
+                  <span>Gameplay</span>
+                </button>
+
+                {/* 7. Atalhos */}
+                <button
+                  onClick={() => setSettingsSubTab('shortcuts')}
+                  className={`relative w-full py-2.5 px-3.5 rounded-xl text-left font-black text-[10px] uppercase tracking-wider flex items-center gap-2.5 transition-all shrink-0 cursor-pointer overflow-hidden ${
+                    settingsSubTab === 'shortcuts'
+                      ? (activeTheme === 'dark' ? 'bg-cyan-500/10 text-[#00cbd6]' : 'bg-blue-600/10 text-blue-600')
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-500/5'
+                  }`}
+                >
+                  {settingsSubTab === 'shortcuts' && (
+                    <div className={`absolute left-0 top-1/4 bottom-1/4 w-[3px] rounded-r ${activeTheme === 'dark' ? 'bg-cyan-400' : 'bg-blue-600'}`} />
+                  )}
+                  <Keyboard className={`w-4 h-4 shrink-0 transition-colors ${
+                    settingsSubTab === 'shortcuts' 
+                      ? (activeTheme === 'dark' ? 'text-cyan-400 fill-cyan-400/10' : 'text-blue-600 fill-blue-600/10') 
+                      : 'text-slate-400'
+                  }`} />
+                  <span>Atalhos</span>
                 </button>
               </aside>
 
               {/* Dynamic Sub-Tab Panel */}
               <main className="flex-1 p-6 md:p-8 flex flex-col justify-between overflow-y-auto h-full">
                 
-                {/* 1) DATABASES TAB */}
-                {settingsSubTab === 'db' && (
-                  <div className="space-y-5 flex-1">
-                    <div>
-                      <h3 className={`font-display text-sm font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
-                        Gerenciar Banco de Dados (.DB)
-                      </h3>
-                      <p className={`text-[10px] ${themeClasses.textSecondary} leading-relaxed mt-1`}>
-                        Opções e cargas offline de dados táticos de elenco e ligas de Legend Hub.
-                      </p>
-                    </div>
-
-                    {/* Database Active Status Display */}
-                    <div className={`p-4 rounded-xl ${themeClasses.innerBox} flex justify-between items-center`}>
-                      <div>
-                        <span className="block text-[8px] uppercase tracking-widest text-slate-400 font-bold mb-1">
-                          STATUS DO BANCO DE DADOS ATIVO
-                        </span>
-                        <span className="font-mono text-xs font-black text-cyan-400 uppercase tracking-wide">
-                          {dbType === 'CUSTOM' ? 'IMPORTADO REGISTRADO (.db)' : 'OFICIAL INTERNA (PADRÃO)'}
-                        </span>
-                      </div>
-                      
-                      <button
-                        onClick={() => {
-                          setIsSpinning(true);
-                          setTimeout(() => {
-                            setIsSpinning(false);
-                            alert(lang === 'EN-US' ? 'Database structures refreshed!' : lang === 'ES-ES' ? '¡Estructuras de datos actualizadas!' : 'Tabelas e dicionários do banco de dados sincronizados com sucesso!');
-                          }, 1000);
-                        }}
-                        className={`p-2 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 transition-all cursor-pointer`}
-                        title="Atualizar Banco de Dados"
-                      >
-                        <RefreshCw className={`w-4 h-4 ${isSpinning ? 'animate-spin text-emerald-400' : ''}`} />
-                      </button>
-                    </div>
-
-                    {/* Action buttons Grid */}
-                    <div className="space-y-3 pt-1">
-                      <span className="block text-[8px] uppercase tracking-widest text-slate-400 font-bold">
-                        AÇÕES DA BASE DE DADOS
-                      </span>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <button
-                          onClick={triggerDbExport}
-                          className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-sky-400/25 bg-sky-500/5 hover:bg-sky-500/10 text-sky-400 text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                          <span>Exportar Database (.db)</span>
-                        </button>
-
-                        <div className="relative">
-                          <button
-                            onClick={() => document.getElementById('db-file-input-modal')?.click()}
-                            className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-emerald-400/25 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer"
-                          >
-                            <Upload className="w-3.5 h-3.5" />
-                            <span>Importar Database (.db)</span>
-                          </button>
-                          <input
-                            type="file"
-                            id="db-file-input-modal"
-                            accept=".db,.json"
-                            onChange={triggerDbImport}
-                            className="hidden"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Reset Button */}
-                    {dbType === 'CUSTOM' && (
-                      <div className="pt-2">
-                        <button
-                          onClick={triggerDbReset}
-                          className="w-full py-2.5 bg-rose-600/15 hover:bg-rose-600/25 text-rose-500 border border-rose-500/20 text-[9px] font-mono font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer text-center"
-                        >
-                          {lang === 'EN-US' ? 'RESTORE DEFAULTS' : lang === 'ES-ES' ? 'RESTAURAR VALORES DE FÁBRICA' : 'RESTAURAR PADRÕES'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* 2) CONTA & MANAGER TAB */}
+                {/* 1) CONTA & MANAGER TAB */}
                 {settingsSubTab === 'profile' && (
                   <div className="space-y-6 flex-1">
                     <div>
                       <h3 className={`font-display text-sm font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
                         Conta & Manager
                       </h3>
-                      <p className={`text-[10px] ${themeClasses.textSecondary} leading-relaxed mt-1`}>
-                        Ajuste sua identidade visual e nome do treinador que representam sua bio e contratos históricos.
+                      <p className={`text-[10.5px] ${themeClasses.textSecondary} leading-relaxed mt-1`}>
+                        Ajuste sua identidade visual e nome do treinador que representam sua bio de manager e contratos históricos.
                       </p>
                     </div>
 
                     <div className="space-y-4">
                       {/* Active profile avatar customized */}
-                      <div className="flex items-center gap-4 bg-slate-500/5 p-3 rounded-xl border border-slate-800/25">
+                      <div className="flex items-center gap-4 bg-slate-500/5 p-3 rounded-xl border border-slate-200/5 dark:border-slate-800/25">
                         
                         <div className="relative shrink-0">
-                          <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-cyan-450 bg-slate-905 flex items-center justify-center shadow-lg">
+                          <div className={`w-14 h-14 rounded-full overflow-hidden border-2 flex items-center justify-center shadow-lg ${activeTheme === 'dark' ? 'border-[#00cbd6] bg-slate-900' : 'border-blue-600 bg-slate-100'}`}>
                             {customPhotoFile ? (
                               <img src={customPhotoFile} alt="Manager Avatar" className="w-full h-full object-cover" />
                             ) : (
@@ -1967,7 +2024,7 @@ export default function HomeLauncher({
                                 setProfilePhoto(AVATAR_TEMPLATES[0]);
                                 localStorage.removeItem('legendshub_manager_avatar');
                               }}
-                              className="absolute -bottom-1 -right-1 bg-rose-550 text-white rounded-full p-1 cursor-pointer hover:bg-rose-650 shadow"
+                              className="absolute -bottom-1 -right-1 bg-red-500 text-white rounded-full p-1 cursor-pointer hover:bg-red-650 shadow"
                               title="Remover Foto Customizada"
                             >
                               <Trash2 className="w-3 h-3" />
@@ -1976,12 +2033,16 @@ export default function HomeLauncher({
                         </div>
 
                         <div className="space-y-1 flex-1">
-                          <span className="block text-[8px] uppercase tracking-widest text-slate-400 font-bold">Foto de Perfil</span>
-                          <p className="text-[9px] text-slate-400 leading-normal">Presets rápidos de manager ou faça upload de um arquivo local (.jpg/.png).</p>
-                          <div className="flex gap-2">
+                          <span className="block text-[8px] uppercase tracking-widest text-[#00cbd6] font-extrabold">Foto de Perfil</span>
+                          <p className="text-[9.5px] text-slate-400 leading-normal">Escolha um preset rápido ou envie um arquivo em formato de imagem (.jpg/.png).</p>
+                          <div className="flex gap-2 mt-1.5">
                             <button
                               onClick={() => document.getElementById('avatar-file-input-modal')?.click()}
-                              className="py-1 px-2.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 font-bold text-[9px] uppercase tracking-wider rounded-lg border border-cyan-500/20 cursor-pointer"
+                              className={`py-1 px-3 text-[9px] uppercase tracking-wider rounded border cursor-pointer font-bold transition-all ${
+                                activeTheme === 'dark'
+                                  ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20'
+                                  : 'bg-blue-600/10 border-blue-600/20 text-blue-600 hover:bg-blue-600/20'
+                              }`}
                             >
                               Upload Local
                             </button>
@@ -2009,7 +2070,7 @@ export default function HomeLauncher({
                                   setProfilePhoto(AVATAR_TEMPLATES[0]);
                                   localStorage.removeItem('legendshub_manager_avatar');
                                 }}
-                                className="py-1 px-2.5 bg-slate-500/10 hover:bg-slate-500/25 text-slate-400 font-bold text-[9px] uppercase tracking-wider rounded-lg cursor-pointer"
+                                className="py-1 px-3 bg-slate-500/10 hover:bg-slate-500/20 text-slate-400 font-bold text-[9px] uppercase tracking-wider rounded cursor-pointer"
                               >
                                 Limpar
                               </button>
@@ -2020,7 +2081,7 @@ export default function HomeLauncher({
 
                       {/* Presets Grid Selection */}
                       <div className="space-y-2">
-                        <span className="block text-[8px] uppercase tracking-widest text-slate-400 font-black">Selecione Presets Rústicos</span>
+                        <span className="block text-[8px] uppercase tracking-widest text-slate-400 font-black">Pre-sets Disponíveis</span>
                         <div className="grid grid-cols-5 gap-2">
                           {[
                             { name: 'Mestre Tático', url: 'https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=150&auto=format&fit=crop&q=80' },
@@ -2038,14 +2099,14 @@ export default function HomeLauncher({
                                   setCustomPhotoFile(null);
                                   localStorage.setItem('legendshub_manager_avatar', item.url);
                                 }}
-                                className={`group p-1.5 rounded-xl border flex flex-col items-center gap-1 cursor-pointer transition-colors ${
+                                className={`group p-1.5 rounded-xl border flex flex-col items-center gap-1 cursor-pointer transition-all ${
                                   isSelected 
                                     ? 'bg-cyan-500/10 border-cyan-400 text-cyan-400' 
-                                    : 'bg-slate-500/5 hover:bg-slate-500/10 border-transparent text-slate-400'
+                                    : 'bg-slate-500/5 hover:bg-slate-500/10 border-slate-200/5 text-slate-400'
                                 }`}
                               >
                                 <img src={item.url} alt={item.name} className="w-8 h-8 rounded-full object-cover border border-slate-700/40 group-hover:scale-105 transition-transform" />
-                                <span className="text-[7.5px] font-bold tracking-tight uppercase truncate max-w-full text-center leading-none">{item.name}</span>
+                                <span className="text-[7.5px] font-bold tracking-tight uppercase truncate max-w-full text-center leading-none mt-0.5">{item.name}</span>
                               </button>
                             );
                           })}
@@ -2054,21 +2115,21 @@ export default function HomeLauncher({
 
                       {/* Nome do Manager */}
                       <div className="space-y-1.5 pt-1">
-                        <label className="block text-[8px] uppercase tracking-widest text-slate-400 font-black">NOME DO MANAGER (IN-GAME)</label>
+                        <label className="block text-[8px] uppercase tracking-widest text-slate-400 font-extrabold">NOME REGISTRADO (IN-GAME)</label>
                         <div className="flex gap-2">
                           <input
                             type="text"
                             value={managerName}
                             onChange={(e) => setManagerName(e.target.value)}
                             placeholder="Nome do Manager"
-                            className={`flex-1 text-xs py-2 px-3.5 rounded-xl border font-bold ${themeClasses.input} focus:outline-none focus:border-cyan-400 shadow-sm`}
+                            className={`flex-1 text-xs py-2.5 px-3.5 rounded-xl border font-bold ${themeClasses.input} focus:outline-none focus:border-cyan-450 shadow-sm`}
                           />
                           <button
                             onClick={() => {
                               if (managerName.trim()) {
                                 localStorage.setItem('legendshub_temp_manager_name', managerName.trim());
                                 localStorage.setItem('legendshub_manager_name', managerName.trim());
-                                alert('Identidade do Manager salva com sucesso!');
+                                alert('Identidade de Manager salva nos metadados globais!');
                               }
                             }}
                             className="bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-black text-[9px] uppercase tracking-wider py-2 px-4 rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
@@ -2082,7 +2143,7 @@ export default function HomeLauncher({
                   </div>
                 )}
 
-                {/* 3) APARÊNCIA & IDIOMA TAB */}
+                {/* 2) APARÊNCIA & IDIOMA TAB */}
                 {settingsSubTab === 'appearance' && (
                   <div className="space-y-6 flex-1">
                     <div>
@@ -2090,14 +2151,14 @@ export default function HomeLauncher({
                         Aparência & Idioma
                       </h3>
                       <p className={`text-[10px] ${themeClasses.textSecondary} leading-relaxed mt-1`}>
-                        Personalize os temas globais e o idioma de operação das estatísticas e relatórios esportivos.
+                        Personalize os temas globais, o idioma do sistema e a escala da interface de dados.
                       </p>
                     </div>
 
                     <div className="space-y-5">
                       {/* Tema global */}
                       <div className="space-y-2">
-                        <span className="block text-[8px] uppercase tracking-widest text-slate-400 font-black">Esquema de Cores do Painel</span>
+                        <span className="block text-[8px] uppercase tracking-widest text-[#00cbd6] font-black">Esquema de Cores do Painel</span>
                         <div className="grid grid-cols-2 gap-3 flex-wrap">
                           <button
                             onClick={() => {
@@ -2107,11 +2168,11 @@ export default function HomeLauncher({
                             className={`py-3 px-4 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
                               activeTheme === 'dark'
                                 ? 'bg-cyan-500/10 border-cyan-400 text-cyan-400 font-extrabold'
-                                : 'bg-slate-500/5 hover:bg-slate-500/10 border-slate-850 text-slate-400'
+                                : 'bg-slate-500/5 hover:bg-slate-500/10 border-transparent text-slate-400'
                             }`}
                           >
-                            <span className="text-[10px] uppercase font-bold tracking-wider">Dark Mode</span>
-                            <Moon className="w-4 h-4 text-sky-450" />
+                            <span className="text-[10px] uppercase font-bold tracking-wider">Dark Theme</span>
+                            <Moon className="w-4 h-4 text-[#00cbd6]" />
                           </button>
 
                           <button
@@ -2121,19 +2182,45 @@ export default function HomeLauncher({
                             }}
                             className={`py-3 px-4 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
                               activeTheme === 'light'
-                                ? 'bg-cyan-500/10 border-cyan-400 text-cyan-400 font-extrabold'
-                                : 'bg-slate-500/5 hover:bg-slate-500/10 border-slate-205 text-slate-405'
+                                ? 'bg-blue-600/10 border-blue-500 text-blue-600 font-extrabold'
+                                : 'bg-slate-500/5 hover:bg-slate-500/10 border-transparent text-slate-405'
                             }`}
                           >
-                            <span className="text-[10px] uppercase font-bold tracking-wider">Light Mode</span>
+                            <span className="text-[10px] uppercase font-bold tracking-wider">Light Theme</span>
                             <Sun className="w-4 h-4 text-amber-500" />
                           </button>
                         </div>
                       </div>
 
+                      {/* Escala da Interface */}
+                      <div className="space-y-2">
+                        <span className="block text-[8px] uppercase tracking-widest text-[#00cbd6] font-black">Escala da Interface (UI Scale)</span>
+                        <div className="grid grid-cols-3 gap-2">
+                          {['Compacta', 'Regular', 'Ampliada'].map(scale => {
+                            const isSelected = uiScale === scale;
+                            return (
+                              <button
+                                key={scale}
+                                onClick={() => {
+                                  setUiScale(scale);
+                                  localStorage.setItem('legendshub_ui_scale', scale);
+                                }}
+                                className={`py-2 px-3 rounded-xl border text-[10px] font-bold uppercase transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-cyan-500/15 border-cyan-400 text-cyan-400 font-black'
+                                    : 'bg-slate-500/5 hover:bg-slate-500/10 border-transparent text-slate-400'
+                                }`}
+                              >
+                                {scale}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
                       {/* Idioma Selecionado */}
                       <div className="space-y-2">
-                        <span className="block text-[8px] uppercase tracking-widest text-slate-400 font-black">Idioma do Ecossistema</span>
+                        <span className="block text-[8px] uppercase tracking-widest text-[#00cbd6] font-black">Idioma do Ecossistema</span>
                         <div className="flex flex-col gap-1.5">
                           {[
                             { code: 'PT-BR', label: 'Português (Brasil)', key: 'pt' },
@@ -2165,13 +2252,466 @@ export default function HomeLauncher({
                   </div>
                 )}
 
-                {/* Footer and exit */}
-                <div className="pt-4 border-t border-slate-800/15 flex justify-end gap-2.5 mt-6 shrink-0">
+                {/* 3) BANCO DE DADOS TAB */}
+                {settingsSubTab === 'db' && (
+                  <div className="space-y-5 flex-1">
+                    <div>
+                      <h3 className={`font-display text-sm font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                        Gerenciar Banco de Dados (.DB)
+                      </h3>
+                      <p className={`text-[10px] ${themeClasses.textSecondary} leading-relaxed mt-1`}>
+                        Gerenciamento de tabelas .db locais e dados estruturados das franquias Legend Hub.
+                      </p>
+                    </div>
+
+                    {/* Database Active Status Display */}
+                    <div className={`p-4 rounded-xl ${themeClasses.innerBox} flex justify-between items-center`}>
+                      <div>
+                        <span className="block text-[8px] uppercase tracking-widest text-slate-400 font-bold mb-1">
+                          STATUS DO BANCO DE DADOS ATIVO
+                        </span>
+                        <span className="font-mono text-xs font-black text-cyan-400 uppercase tracking-wide">
+                          {dbType === 'CUSTOM' ? 'IMPORTADO REGISTRADO (.db)' : 'OFICIAL INTERNA (PADRÃO)'}
+                        </span>
+                      </div>
+                      
+                      <button
+                        onClick={() => {
+                          setIsSpinning(true);
+                          setTimeout(() => {
+                            setIsSpinning(false);
+                            alert(lang === 'EN-US' ? 'Database structures refreshed!' : lang === 'ES-ES' ? '¡Estructuras de datos actualizadas!' : 'Tabelas e dicionários do banco de dados sincronizados com sucesso!');
+                          }, 1000);
+                        }}
+                        className={`p-2 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 transition-all cursor-pointer`}
+                        title="Sincronizar Banco de Dados"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${isSpinning ? 'animate-spin text-emerald-400' : ''}`} />
+                      </button>
+                    </div>
+
+                    {/* Action buttons Grid */}
+                    <div className="space-y-3 pt-1">
+                      <span className="block text-[8px] uppercase tracking-widest text-slate-400 font-bold">
+                        AÇÕES DA BASE DE DADOS
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button
+                          onClick={triggerDbExport}
+                          className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-sky-400/25 bg-sky-500/5 hover:bg-sky-500/10 text-[#00cbd6] text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5 text-cyan-400" />
+                          <span>Exportar Bases (.db)</span>
+                        </button>
+
+                        <div className="relative">
+                          <button
+                            onClick={() => document.getElementById('db-file-input-modal')?.click()}
+                            className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-emerald-400/25 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                          >
+                            <Upload className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>Importar Bases (.db)</span>
+                          </button>
+                          <input
+                            type="file"
+                            id="db-file-input-modal"
+                            accept=".db,.json"
+                            onChange={triggerDbImport}
+                            className="hidden"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Reset Button */}
+                    {dbType === 'CUSTOM' && (
+                      <div className="pt-2">
+                        <button
+                          onClick={triggerDbReset}
+                          className="w-full py-2.5 bg-rose-600/15 hover:bg-rose-600/25 text-[#f43f5e] border border-rose-500/20 text-[9px] font-mono font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer text-center"
+                        >
+                          {lang === 'EN-US' ? 'RESTORE DEFAULTS' : lang === 'ES-ES' ? 'RESTAURAR VALORES DE FÁBRICA' : 'RESTAURAR PADRÕES ADM'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 4) SAVES TAB */}
+                {settingsSubTab === 'saves' && (
+                  <div className="space-y-5 flex-1">
+                    <div>
+                      <h3 className={`font-display text-sm font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                        Salas de Salvamento (Saves)
+                      </h3>
+                      <p className={`text-[10px] ${themeClasses.textSecondary} leading-relaxed mt-1`}>
+                        Gerencie múltiplos slots ativos locais de sua carreira de manager de eSports.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {getSavesSlotsData().map(slot => {
+                        const isOccupied = slot.status === 'OCUPADO';
+                        const handleDeleteSave = (slotId: number) => {
+                          if (confirm(`Aviso de Segurança: Deseja realmente excluir permanentemente os dados da carreira contida no Slot 0${slotId}? Esta operação não pode ser desfeita.`)) {
+                            localStorage.removeItem(`legendshub_save_slot_${slotId}`);
+                            localStorage.removeItem(`legendshub_save_slot_${slotId}_date`);
+                            setIsSpinning(true);
+                            setTimeout(() => {
+                              setIsSpinning(false);
+                            }, 200);
+                          }
+                        };
+
+                        return (
+                          <div 
+                            key={slot.id}
+                            className={`rounded-xl border p-4 flex flex-col justify-between h-[210px] relative transition-all duration-300 ${
+                              isOccupied
+                                ? (activeTheme === 'dark' ? 'bg-[#0a1424]/60 border-slate-800 shadow-lg' : 'bg-[#f8fafc] border-slate-200 shadow-sm')
+                                : 'border-dashed border-slate-300 dark:border-slate-850 bg-[#000000]/10 text-slate-500 flex items-center justify-center p-3 text-center'
+                            }`}
+                          >
+                            {isOccupied ? (
+                              <>
+                                <div className="space-y-1 text-left w-full">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[7.5px] font-mono font-black bg-cyan-400 text-slate-950 px-1.5 py-0.5 rounded tracking-wide">
+                                      SLOT 0{slot.id}
+                                    </span>
+                                    <span className="text-[7.5px] font-mono text-slate-400 truncate max-w-[65px]" title={slot.ultima_modificacao_real}>
+                                      {slot.ultima_modificacao_real.split(' ')[0]}
+                                    </span>
+                                  </div>
+                                  <div className="pt-2">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: slot.logo_time }} />
+                                      <h5 className={`font-display text-[10.5px] font-black truncate uppercase tracking-tight ${themeClasses.textPrimary}`}>
+                                        {slot.nome_time}
+                                      </h5>
+                                    </div>
+                                    <p className="text-[9px] text-slate-400 mt-0.5 truncate">
+                                      Mgr: <strong className="text-slate-300">{slot.nome_manager}</strong>
+                                    </p>
+                                    <p className="text-[8.5px] text-cyan-450 font-mono font-bold mt-1 uppercase tracking-wider">{slot.data_in_game}</p>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-1.5 pt-2 border-t border-slate-800/20 dark:border-slate-800/40 w-full">
+                                  <button
+                                    onClick={() => onLoadGame(`slot_${slot.id}`)}
+                                    className="w-full py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-600 text-slate-950 text-[8.5px] font-black uppercase tracking-wider transition-all cursor-pointer text-center"
+                                  >
+                                    Carregar
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteSave(slot.id)}
+                                    className="w-full py-1 rounded-lg bg-rose-600/10 hover:bg-rose-650/20 text-[#f43f5e] border border-rose-500/10 text-[8px] font-bold uppercase cursor-pointer"
+                                  >
+                                    Apagar Slot
+                                  </button>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="flex flex-col items-center justify-center space-y-1">
+                                <span className="text-[8px] font-mono font-bold text-slate-400">SLOT 0{slot.id}</span>
+                                <p className="text-[9px] text-slate-500 font-extrabold mt-1">DISPONÍVEL</p>
+                                <p className="text-[7.5px] text-slate-500">Sem Carreira Ativa</p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* 5) MUSIC TAB */}
+                {settingsSubTab === 'music' && (
+                  <div className="space-y-6 flex-1 font-sans">
+                    <div>
+                      <h3 className={`font-display text-sm font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                        Música & Volumes
+                      </h3>
+                      <p className={`text-[10px] ${themeClasses.textSecondary} leading-relaxed mt-1`}>
+                        Configure o nível dos canais eletrônicos de ambientação esports.
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Range Sliders */}
+                      <div className="space-y-3.5 bg-slate-500/5 p-4 rounded-xl border border-slate-200/5 dark:border-slate-800/40">
+                        {/* Music Volume Slider */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between items-center text-[10px] font-mono">
+                            <span className="text-slate-350 uppercase font-bold tracking-wider flex items-center gap-1.5">
+                              <Volume2 className="w-4 h-4 text-[#00cbd6]" /> Trilha Sonora (Música)
+                            </span>
+                            <span className="text-cyan-400 font-extrabold">{musicVolume}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={musicVolume}
+                            onChange={(e) => {
+                              const v = Number(e.target.value);
+                              setMusicVolume(v);
+                              localStorage.setItem('legendshub_music_volume', String(v));
+                            }}
+                            className="w-full h-1 bg-slate-850 rounded-lg appearance-none cursor-pointer accent-[#00cbd6]"
+                          />
+                        </div>
+
+                        {/* Effects SFX Slider */}
+                        <div className="space-y-1 mt-2">
+                          <div className="flex justify-between items-center text-[10px] font-mono">
+                            <span className="text-slate-350 uppercase font-bold tracking-wider flex items-center gap-1.5">
+                              <RefreshCw className="w-3.5 h-3.5 text-emerald-400" /> Efeitos Internos (SFX)
+                            </span>
+                            <span className="text-emerald-400 font-extrabold">{sfxVolume}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={sfxVolume}
+                            onChange={(e) => {
+                              const v = Number(e.target.value);
+                              setSfxVolume(v);
+                              localStorage.setItem('legendshub_sfx_volume', String(v));
+                            }}
+                            className="w-full h-1 bg-slate-850 rounded-lg appearance-none cursor-pointer accent-emerald-400"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Soundtrack Song choices */}
+                      <div className="space-y-2">
+                        <span className="block text-[8px] uppercase tracking-widest text-[#00cbd6] font-black">Playlists Selecionadas</span>
+                        <div className="space-y-2">
+                          {[
+                            'Legends Theme Song v2.4 (Default)',
+                            'Midnight Gaming House Beats (Chill Lofi)',
+                            'Champions Anthem 2026 (Epic Orchestral)'
+                          ].map((tr) => {
+                            const isSel = activePlaylist === tr;
+                            return (
+                              <button
+                                key={tr}
+                                onClick={() => {
+                                  setActivePlaylist(tr);
+                                  localStorage.setItem('legendshub_playlist_track', tr);
+                                }}
+                                className={`w-full py-2.5 px-3.5 rounded-xl border text-left flex justify-between items-center transition-all cursor-pointer ${
+                                  isSel
+                                    ? 'bg-cyan-500/10 border-cyan-400 text-cyan-400 font-extrabold shadow-sm'
+                                    : 'bg-slate-500/5 hover:bg-slate-500/10 border-transparent text-slate-400'
+                                }`}
+                              >
+                                <span className="text-[10px] font-bold tracking-wide truncate">{tr}</span>
+                                {isSel && <Check className="w-3.5 h-3.5 text-cyan-400" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Loops Toggle */}
+                      <div className="grid grid-cols-2 gap-2 mt-1">
+                        <button
+                          onClick={() => {
+                            setPlaybackMode('LOOP');
+                            localStorage.setItem('legendshub_playback_mode', 'LOOP');
+                          }}
+                          className={`py-2 rounded-lg text-center text-[9px] font-bold uppercase border transition-all cursor-pointer ${
+                            playbackMode === 'LOOP' ? 'bg-cyan-500/10 border-cyan-500/35 text-cyan-400' : 'bg-slate-500/5 border-transparent text-slate-450'
+                          }`}
+                        >
+                          Repetição em Loop
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPlaybackMode('RANDOM');
+                            localStorage.setItem('legendshub_playback_mode', 'RANDOM');
+                          }}
+                          className={`py-2 rounded-lg text-center text-[9px] font-bold uppercase border transition-all cursor-pointer ${
+                            playbackMode === 'RANDOM' ? 'bg-cyan-500/10 border-cyan-500/35 text-cyan-400' : 'bg-slate-500/5 border-transparent text-slate-450'
+                          }`}
+                        >
+                          Aleatório
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 6) GAMEPLAY TAB */}
+                {settingsSubTab === 'gameplay' && (
+                  <div className="space-y-6 flex-1 text-left">
+                    <div>
+                      <h3 className={`font-display text-sm font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                        Gameplay & Dinâmicas
+                      </h3>
+                      <p className={`text-[10px] ${themeClasses.textSecondary} leading-relaxed mt-1`}>
+                        Ajuste o nível estratégico da liga e as velocidades das rodadas do simulador.
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Sim speed choice list */}
+                      <div className="space-y-2">
+                        <span className="block text-[8px] uppercase tracking-widest text-[#00cbd6] font-black">Velocidade de Processamento das Rodadas</span>
+                        <div className="grid grid-cols-3 gap-2">
+                          {(['STANDARD', 'FAST', 'ULTRA'] as const).map((spd) => {
+                            const isSel = simSpeed === spd;
+                            const mapLabel: Record<string, string> = {
+                              STANDARD: 'Padrão (Turno a Turno)',
+                              FAST: 'Rápido (Recomendado)',
+                              ULTRA: 'Instantâneo (Sem Pausa)'
+                            };
+                            return (
+                              <button
+                                key={spd}
+                                onClick={() => {
+                                  setSimSpeed(spd);
+                                  localStorage.setItem('legendshub_sim_speed', spd);
+                                }}
+                                className={`py-2.5 px-2 rounded-xl border text-center text-[8.5px] font-black uppercase tracking-tight transition-all cursor-pointer ${
+                                  isSel
+                                    ? 'bg-cyan-500/15 border-cyan-400 text-cyan-400'
+                                    : 'bg-slate-500/5 hover:bg-slate-500/10 border-transparent text-slate-400'
+                                }`}
+                              >
+                                {mapLabel[spd]}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Difficulty Selection */}
+                      <div className="space-y-2 pt-1">
+                        <span className="block text-[8px] uppercase tracking-widest text-[#00cbd6] font-black">Nível de Dificuldade de Negociações/IA</span>
+                        <div className="grid grid-cols-3 gap-2">
+                          {(['REGULAR', 'PROFESSIONAL', 'HARDCORE'] as const).map((df) => {
+                            const isSel = aiDifficulty === df;
+                            const mapDLabel: Record<string, string> = {
+                              REGULAR: 'Regular',
+                              PROFESSIONAL: 'Profissional Expert',
+                              HARDCORE: 'Ia Implacável (Hardcore)'
+                            };
+                            return (
+                              <button
+                                key={df}
+                                onClick={() => {
+                                  setAiDifficulty(df);
+                                  localStorage.setItem('legendshub_ai_difficulty', df);
+                                }}
+                                className={`py-2.5 px-1 rounded-xl border text-center text-[8.5px] font-black uppercase tracking-tight transition-all cursor-pointer ${
+                                  isSel
+                                    ? 'bg-cyan-500/15 border-cyan-400 text-cyan-400'
+                                    : 'bg-slate-500/5 hover:bg-slate-500/10 border-transparent text-slate-400'
+                                }`}
+                              >
+                                {mapDLabel[df]}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Alerts checkbox switches */}
+                      <div className="space-y-2 pt-2">
+                        <span className="block text-[8px] uppercase tracking-widest text-[#00cbd6] font-black">Filtros de Alerta Automáticos</span>
+                        <div className="space-y-2">
+                          <button
+                            onClick={() => {
+                              const n = !alertsEnabled;
+                              setAlertsEnabled(n);
+                              localStorage.setItem('legendshub_alerts_enabled', String(n));
+                            }}
+                            className={`w-full py-2.5 px-3.5 rounded-xl border text-left flex justify-between items-center transition-all cursor-pointer ${
+                              alertsEnabled ? 'bg-cyan-500/5 border-cyan-500/15 text-cyan-400' : 'bg-[#000000]/10 border-transparent text-slate-400'
+                            }`}
+                          >
+                            <span className="text-[9.5px] font-bold tracking-wide">Avisar antes da janela de transferências expirar</span>
+                            <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center font-bold text-[9px] ${
+                              alertsEnabled ? 'border-cyan-400 text-cyan-400' : 'border-slate-500 text-transparent'
+                            }`}>✓</div>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              const n = !boardEvalEnabled;
+                              setBoardEvalEnabled(n);
+                              localStorage.setItem('legendshub_board_eval_enabled', String(n));
+                            }}
+                            className={`w-full py-2.5 px-3.5 rounded-xl border text-left flex justify-between items-center transition-all cursor-pointer ${
+                              boardEvalEnabled ? 'bg-cyan-500/5 border-cyan-500/15 text-cyan-400' : 'bg-[#000000]/10 border-transparent text-slate-400'
+                            }`}
+                          >
+                            <span className="text-[9.5px] font-bold tracking-wide">Receber notificações de aprovação do conselho fiduciário</span>
+                            <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center font-bold text-[9px] ${
+                              boardEvalEnabled ? 'border-cyan-400 text-cyan-400' : 'border-slate-500 text-transparent'
+                            }`}>✓</div>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 7) SHORTCUTS ATALHOS TAB */}
+                {settingsSubTab === 'shortcuts' && (
+                  <div className="space-y-5 flex-1">
+                    <div>
+                      <h3 className={`font-display text-sm font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                        Teclas e Atalhos de Operação
+                      </h3>
+                      <p className={`text-[10px] ${themeClasses.textSecondary} leading-relaxed mt-1`}>
+                        Utilize os seguintes mapeamentos rápidos de navegação pelo painel do jogo.
+                      </p>
+                    </div>
+
+                    <div className="border border-slate-200/10 dark:border-slate-800/40 rounded-xl overflow-hidden text-[9.5px]">
+                      <table className="w-full text-left font-mono">
+                        <thead>
+                          <tr className="bg-slate-500/5 text-slate-400 uppercase tracking-wider font-extrabold text-[8.5px] border-b border-slate-200/10 dark:border-slate-800/40">
+                            <th className="py-2.5 px-3">Painel Destino</th>
+                            <th className="py-2.5 px-3 text-right">Mapeamento Rápido</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200/5 dark:divide-slate-800/20">
+                          {[
+                            { target: 'Central de Operações (Dashboard / Principal)', key: '[1] ou [F1]' },
+                            { target: 'Escalação e Status da Roster Ativa', key: '[2] ou [F2]' },
+                            { target: 'Mercado de Atletas e Agentes Livres', key: '[3] ou [F3]' },
+                            { target: 'Staff e Departamento Financeiro', key: '[4] ou [F4]' },
+                            { target: 'Circuito de Ligas Globais e Rivalidades', key: '[5] ou [F5]' },
+                            { target: 'Inbox de Mensagens e Negociações', key: '[6] ou [F6]' },
+                            { target: 'Salvar Progresso Rápido da Carreira', key: '[Ctrl + S]' },
+                            { target: 'Avançar Calendário Semanal', key: '[Espaço]' },
+                            { target: 'Fechar Menus e Modais Dinâmicos', key: '[Esc]' }
+                          ].map((it, idx) => (
+                            <tr key={idx} className="hover:bg-slate-500/5 text-slate-350">
+                              <td className="py-2 px-3 font-semibold">{it.target}</td>
+                              <td className="py-2 px-3 text-right font-black text-cyan-400">{it.key}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Footer and exit fully integrated */}
+                <div className="pt-4 border-t border-slate-200/10 dark:border-[#1e2d44]/30 flex justify-end gap-2.5 mt-6 shrink-0">
                   <button
                     onClick={() => setActiveState('MENU')}
-                    className="w-full py-3 bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-mono font-black text-[10px] uppercase tracking-wider rounded-xl cursor-pointer transition-colors shadow-lg"
+                    className="px-6 py-2.5 rounded text-[9.5px] uppercase font-black tracking-wider transition-all duration-200 cursor-pointer text-center bg-slate-100 dark:bg-slate-900 border border-slate-200/30 dark:border-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-cyan-400 font-mono rounded-[8px]"
                   >
-                    Voltar ao Menu
+                    [ Voltar ao Menu ]
                   </button>
                 </div>
 
@@ -2330,7 +2870,7 @@ export default function HomeLauncher({
                   { id: 'cat_times', label: 'Editar Times & Finanças' },
                   { id: 'cat_jogadores', label: 'Editar Jogadores' },
                   { id: 'cat_patrocinadores', label: 'Patrocinadores' },
-                  { id: 'cat_campeoes', label: 'Ficha e Balanceamento' }
+                  { id: 'cat_campeoes', label: 'CAMPEÕES E META' }
                 ].map(cat => (
                   <button
                     key={cat.id}
@@ -2683,7 +3223,7 @@ export default function HomeLauncher({
                             id: freshId,
                             name: 'Inovador',
                             roles: ['MID' as const],
-                            tier: 'Tier 1',
+                            tier: 'S',
                             power: 85,
                             buffStatus: 'NORMAL' as const,
                             idealPlaystyle: 'Lances acrobáticos e controle territorial.',
@@ -3277,10 +3817,11 @@ export default function HomeLauncher({
                               onChange={(e) => setFormChampTier(e.target.value)}
                               className={`w-full p-2.5 rounded-lg border focus:outline-none ${themeClasses.input} cursor-pointer`}
                             >
-                              <option value="God Tier">God Tier</option>
-                              <option value="Tier 1">Tier 1</option>
-                              <option value="Tier 2">Tier 2</option>
-                              <option value="Off-Meta">Off-Meta</option>
+                              <option value="S+">S+</option>
+                              <option value="S">S</option>
+                              <option value="A">A</option>
+                              <option value="B">B</option>
+                              <option value="C">C</option>
                             </select>
                           </div>
 
@@ -3402,9 +3943,22 @@ export default function HomeLauncher({
                     localStorage.setItem('legendshub_custom_champions', JSON.stringify(editorChamps));
                     localStorage.setItem('legendshub_custom_sponsors', JSON.stringify(editorSponsors));
                     localStorage.setItem('legendshub_custom_players_dict', JSON.stringify(editorPlayersDict));
-                    alert("Sucesso! Banco de Dados gravado e consolidado com sucesso no arquivo do sistema! Todas as novas carreiras herdarão esses rosters, atributos de atletas e balanços propatrocinadores.");
+                    
+                    // Consolidate editing components into unified editor_database.json structure
+                    const now = Date.now();
+                    const consolidated = {
+                      teams: editorDb,
+                      champions: editorChamps,
+                      sponsors: editorSponsors,
+                      playersDict: editorPlayersDict,
+                      lastModified: now
+                    };
+                    localStorage.setItem('editor_database.json', JSON.stringify(consolidated));
+                    localStorage.setItem('editor_last_modified_timestamp', String(now));
+                    
+                    alert("Sucesso! Banco de Dados gravado e consolidado com sucesso no arquivo do sistema (editor_database.json)! Todas as novas carreiras herdarão esses rosters, atributos de atletas e balanços propatrocinadores.");
                   }}
-                  className="flex-1 md:flex-none flex items-center justify-center gap-2 py-3 px-5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-slate-950 font-black text-[10.5px] uppercase tracking-widest rounded-xl cursor-pointer transition-all shadow-md"
+                  className="flex-1 md:flex-none flex items-center justify-center gap-2 py-3 px-5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-black text-[10.5px] uppercase tracking-widest rounded-xl cursor-pointer transition-all shadow-md"
                 >
                   <Save className="w-4 h-4" />
                   Salvar No Banco Ativo
