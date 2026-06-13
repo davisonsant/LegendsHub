@@ -11,7 +11,7 @@ import {
   Users, Building2, TrendingUp, BarChart3, Medal, Save, History, ArrowLeftRight,
   Sun, Moon, RefreshCw, Bug, Mail, Bell, Map as MapIcon, Landmark, Search
 } from 'lucide-react';
-import { formatMoney, getCurrencySymbol } from './utils/currency';
+import { formatMoney, getCurrencySymbol, getCurrencyType } from './utils/currency';
 
 // Core Types and Foundations
 import { GameState, Team, Player, Sponsor, InterviewQuestion } from './types';
@@ -101,7 +101,7 @@ export default function App() {
             ...prev,
             finance: {
               balance: budget,
-              currency: symbol,
+              currency: getCurrencyType(),
               caixa_bruto: budget,
               caixa_formatado_hud: formattedHud
             }
@@ -119,6 +119,12 @@ export default function App() {
   const [screen, setScreen] = useState<'LAUNCHER' | 'HUB' | 'DRAFT' | 'MATCH' | 'SETTINGS'>('LAUNCHER');
   const [activeTab, setActiveTab] = useState<string>('Central do Manager');
   const [rawGameState, rawSetGameState] = useState<GameState | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).__legendshub_gameState = rawGameState;
+    }
+  }, [rawGameState]);
 
   const [unreadEmailsCount, setUnreadEmailsCount] = useState<number>(0);
   const [unreadNewsCount, setUnreadNewsCount] = useState<number>(0);
@@ -225,7 +231,7 @@ export default function App() {
           
           resolved.finance = {
             balance: budget,
-            currency: symbol,
+            currency: getCurrencyType(),
             caixa_bruto: budget,
             caixa_formatado_hud: formattedHud
           };
@@ -2609,20 +2615,26 @@ export default function App() {
                     <div className="space-y-3.5 my-3">
                       {(() => {
                         const sponsorWeekly = pTeamObj.sponsors?.filter(s => s.isSigned).reduce((acc, s) => acc + s.incomePerWeek, 0) || 0;
-                        const athleteCostsWeekly = (pTeamObj.roster?.reduce((acc, p) => acc + p.salary, 0) || 0) + (pTeamObj.substitutes?.reduce((acc, p) => acc + p.salary, 0) || 0);
                         const staffCostsWeekly = gameState.availableStaff?.filter(s => s.hired).reduce((acc, s) => acc + s.salary, 0) || 0;
 
                         const estimatedRevenuesSponsor = sponsorWeekly * 4;
                         const estimatedMerchandising = 20000 + (pTeamObj.popularity || 50) * 120;
                         const estimatedPrizes = 15000;
 
-                        const playerSalariesMonthly = athleteCostsWeekly * 4;
+                        const basePlayerPayrollWeekly = ((pTeamObj.roster?.reduce((acc, p) => acc + p.salary, 0) || 0) + (pTeamObj.substitutes?.reduce((acc, p) => acc + p.salary, 0) || 0)) / 4;
+                        const isSalarCapExceeded = basePlayerPayrollWeekly > 120000;
+                        const ffpWeeklyFine = isSalarCapExceeded ? Math.round((basePlayerPayrollWeekly - 120000) * 1.50) : 0;
+                        const poachingWeeklyFine = (pTeamObj.poachingPenaltiesWeeks && pTeamObj.poachingPenaltiesWeeks > 0) ? 45000 : 0;
+
+                        const playerSalariesMonthly = basePlayerPayrollWeekly * 4;
                         const staffSalariesMonthly = staffCostsWeekly * 4;
                         const housingCosts = 12000;
                         const marketingCommissions = 3000;
+                        const ffpMonthlyFine = ffpWeeklyFine * 4;
+                        const poachingMonthlyFine = poachingWeeklyFine * 4;
 
                         const totalRevenues = estimatedRevenuesSponsor + estimatedMerchandising + estimatedPrizes;
-                        const totalExpenses = playerSalariesMonthly + staffSalariesMonthly + housingCosts + marketingCommissions;
+                        const totalExpenses = playerSalariesMonthly + staffSalariesMonthly + housingCosts + marketingCommissions + ffpMonthlyFine + poachingMonthlyFine;
                         const netBalance = totalRevenues - totalExpenses;
 
                         return (
@@ -2666,6 +2678,18 @@ export default function App() {
                                   <span className="dark:text-slate-300 text-slate-650">Gaming House & Custos:</span>
                                   <span className="font-mono font-bold text-rose-500">-{formatMoney(housingCosts + marketingCommissions)}</span>
                                 </div>
+                                {ffpMonthlyFine > 0 && (
+                                  <div className="flex justify-between items-center text-[11px] text-rose-500">
+                                    <span className="dark:text-slate-300 text-rose-400 pl-2">↳ Multa (Fair Play Financeiro):</span>
+                                    <span className="font-mono font-bold text-rose-500">-{formatMoney(ffpMonthlyFine)}</span>
+                                  </div>
+                                )}
+                                {poachingMonthlyFine > 0 && (
+                                  <div className="flex justify-between items-center text-[11px] text-rose-500">
+                                    <span className="dark:text-slate-300 text-rose-400 pl-2">↳ Multa (Poaching/Aliciamento):</span>
+                                    <span className="font-mono font-bold text-rose-500">-{formatMoney(poachingMonthlyFine)}</span>
+                                  </div>
+                                )}
                               </div>
                             </div>
 
@@ -2691,9 +2715,19 @@ export default function App() {
                     <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800/60 text-center">
                       <button
                         onClick={() => {
-                          setActiveTab('Finanças');
+                          setActiveTab('Escritório');
                           setIsBudgetDropdownOpen(false);
-                          triggerNotification?.("🪙 Finanças", "Carregando área financeira da organização.");
+                          triggerNotification?.("🪙 Escritório", "Balanço Financeiro Mensal carregado.");
+                          setTimeout(() => {
+                            const container = document.getElementById('balanco-financeiro-mensal');
+                            if (container) {
+                              container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              container.classList.add('ring-2', 'ring-cyan-500', 'ring-offset-2');
+                              setTimeout(() => {
+                                container.classList.remove('ring-2', 'ring-cyan-500', 'ring-offset-2');
+                              }, 2000);
+                            }
+                          }, 150);
                         }}
                         className="text-[10px] font-black uppercase tracking-wider text-sky-450 hover:text-sky-350 transition-colors cursor-pointer select-none inline-block duration-150"
                       >

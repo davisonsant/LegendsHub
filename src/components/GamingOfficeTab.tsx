@@ -548,11 +548,89 @@ export default function GamingOfficeTab({
 
   const unifiedFeed = getOrCreateWeekFeedState(gameState, lang);
 
-  // Hired staff list state
+  // Synchronized Scouts config and properties helpers
+  const DEFAULT_INITIAL_SCOUTS = [
+    { id: 'scout-1', name: 'Guilherme Salles', specialty: 'ROTA INFERIOR (CBLOL)', stars: 5, status: 'Disponível', salary: 3500, contractRemaining: 18, isHead: false },
+    { id: 'scout-2', name: 'Aiko Sato', specialty: 'ROTAS SOLO (LCK/LPL)', stars: 5, status: 'Disponível', salary: 4200, contractRemaining: 24, isHead: true },
+    { id: 'scout-3', name: 'Jack Marshall', specialty: 'MACRO & VISÃO (LCS)', stars: 4, status: 'Disponível', salary: 2800, contractRemaining: 12, isHead: false },
+    { id: 'scout-4', name: 'Helmi Virtanen', specialty: 'NOVAS PROMESSAS (LEC)', stars: 4, status: 'Disponível', salary: 3100, contractRemaining: 16, isHead: false },
+    { id: 'scout-5', name: 'Jean-Pierre Laurent', specialty: 'SUPORTES & UTILIDADE (LEC)', stars: 3, status: 'Disponível', salary: 1900, contractRemaining: 8, isHead: false }
+  ];
+
+  const scoutPhotoUrl = (id: string) => {
+    if (id === 'scout-1') return 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=200';
+    if (id === 'scout-2') return 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200';
+    if (id === 'scout-3') return 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=200';
+    if (id === 'scout-4') return 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200';
+    return 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=200';
+  };
+
+  const scoutNacionalidade = (id: string) => {
+    if (id === 'scout-1') return 'Brasil';
+    if (id === 'scout-2') return 'Japão';
+    if (id === 'scout-3') return 'EUA';
+    if (id === 'scout-4') return 'Finlândia';
+    return 'França';
+  };
+
+  const scoutBandeira = (id: string) => {
+    if (id === 'scout-1') return '🇧🇷';
+    if (id === 'scout-2') return '🇯🇵';
+    if (id === 'scout-3') return '🇺🇸';
+    if (id === 'scout-4') return '🇫🇮';
+    return '🇫🇷';
+  };
+
+  const scoutIdade = (id: string) => {
+    if (id === 'scout-1') return 33;
+    if (id === 'scout-2') return 36;
+    if (id === 'scout-3') return 31;
+    if (id === 'scout-4') return 28;
+    return 34;
+  };
+
+  const getMergedEmployees = (baseEmployees: CorporationStaff[]): CorporationStaff[] => {
+    let scoutsList: any[] = [];
+    const savedScouts = localStorage.getItem('legendshub_custom_scouts');
+    if (savedScouts) {
+      try {
+        scoutsList = JSON.parse(savedScouts);
+      } catch (e) {}
+    }
+    if (!scoutsList || scoutsList.length === 0) {
+      scoutsList = DEFAULT_INITIAL_SCOUTS;
+    }
+
+    const mappedScouts: CorporationStaff[] = scoutsList.map(sc => ({
+      id: sc.id,
+      nome: sc.name,
+      cargo: sc.isHead ? 'Olheiro Chefe (Head of Scouting)' : 'Olheiro',
+      departamento: 'OLHEIROS',
+      salario_semanal: sc.salary,
+      semanas_contrato: sc.contractRemaining * 4,
+      nivel_eficiencia: sc.stars * 20,
+      patrocinio_bonus: 0,
+      fotoUrl: scoutPhotoUrl(sc.id),
+      nacionalidade: scoutNacionalidade(sc.id),
+      bandeira: scoutBandeira(sc.id),
+      idade: scoutIdade(sc.id),
+      especialidade: sc.specialty
+    }));
+
+    const withoutOldScouts = baseEmployees.filter(e => e.departamento !== 'OLHEIROS' && !e.id.includes('scout'));
+    return [...withoutOldScouts, ...mappedScouts];
+  };
+
+  // Hired staff list state (including Scouts synced from ScoutingTab)
   const [employees, setEmployees] = useState<CorporationStaff[]>(() => {
-    if (gameState.corporationStaffEmployees && gameState.corporationStaffEmployees.length > 0) return gameState.corporationStaffEmployees;
-    const saved = localStorage.getItem('legendshub_corporation_staff');
-    return saved ? JSON.parse(saved) : INITIAL_STAFF_EMPLOYEES;
+    let baseStaff: CorporationStaff[] = [];
+    if (gameState.corporationStaffEmployees && gameState.corporationStaffEmployees.length > 0) {
+      baseStaff = [...gameState.corporationStaffEmployees];
+    } else {
+      const saved = localStorage.getItem('legendshub_corporation_staff');
+      baseStaff = saved ? JSON.parse(saved) : [...INITIAL_STAFF_EMPLOYEES];
+    }
+    return getMergedEmployees(baseStaff);
   });
 
   // Hirable Employment Center Job pool
@@ -562,11 +640,11 @@ export default function GamingOfficeTab({
     return saved ? JSON.parse(saved) : JOB_MARKET_POOL;
   });
 
-  // Watch for external sync (so CentralDeEmpregos changes apply instantly)
+  // Watch for external sync (so CentralDeEmpregos changes apply instantly) and synchronize list on Mount
   useEffect(() => {
-    if (gameState.corporationStaffEmployees) {
-      setEmployees(gameState.corporationStaffEmployees);
-    }
+    const saved = localStorage.getItem('legendshub_corporation_staff');
+    const baseStaff = saved ? JSON.parse(saved) : [...INITIAL_STAFF_EMPLOYEES];
+    setEmployees(getMergedEmployees(gameState.corporationStaffEmployees || baseStaff));
   }, [gameState.corporationStaffEmployees]);
 
   useEffect(() => {
@@ -807,6 +885,27 @@ export default function GamingOfficeTab({
             break;
           default:
             nextCargo = 'Especialista de Divisão';
+        }
+      }
+
+      const isScout = negotiatingEmployee.id.startsWith('scout-') || negotiatingEmployee.id.includes('scout');
+      if (isScout) {
+        const saved = localStorage.getItem('legendshub_custom_scouts');
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            const updatedScoutsList = parsed.map((s: any) => {
+              if (s.id === negotiatingEmployee.id) {
+                return {
+                  ...s,
+                  salary: negotiationSalary,
+                  contractRemaining: Math.max(1, Math.round(negotiationWeeks / 4))
+                };
+              }
+              return s;
+            });
+            localStorage.setItem('legendshub_custom_scouts', JSON.stringify(updatedScoutsList));
+          } catch (e) {}
         }
       }
 
@@ -1139,6 +1238,17 @@ export default function GamingOfficeTab({
   };
 
   const handleFireEmployee = (id: string, name: string) => {
+    const isScout = id.startsWith('scout-') || id.includes('scout');
+    if (isScout) {
+      const saved = localStorage.getItem('legendshub_custom_scouts');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          const updated = parsed.filter((s: any) => s.id !== id);
+          localStorage.setItem('legendshub_custom_scouts', JSON.stringify(updated));
+        } catch (e) {}
+      }
+    }
     const filterOut = employees.filter(e => e.id !== id);
     setEmployees(filterOut);
     triggerNotification("📡 Staff Desligado", `${name} foi demitido e não faz mais parte da listagem de despesas financeiras.`);
@@ -1154,9 +1264,32 @@ export default function GamingOfficeTab({
     else if (target.cargo === 'Analista de Marketing') nextCargo = 'Gerente de Marketing';
     else if (target.cargo === 'Coach') nextCargo = 'Head Coach';
     else if (target.cargo === 'Analista Macro') nextCargo = 'Coordenador Técnico';
-    else if (target.cargo === 'Olheiro') nextCargo = 'Olheiro Sênior';
+    else if (target.cargo === 'Olheiro' || target.cargo.includes('Olheiro')) nextCargo = 'Olheiro Sênior';
     else if (target.cargo === 'Psicólogo') nextCargo = 'Coordenador Mental';
     else nextCargo = `Chefe Executivo / ${target.cargo}`;
+
+    const isScout = id.startsWith('scout-') || id.includes('scout');
+    if (isScout) {
+      const saved = localStorage.getItem('legendshub_custom_scouts');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          const updated = parsed.map((s: any) => {
+            if (s.id === id) {
+              const prevStars = s.stars || 3;
+              const nextStars = Math.min(5, prevStars + 1);
+              return {
+                ...s,
+                salary: Math.round(s.salary * 1.25),
+                stars: nextStars
+              };
+            }
+            return s;
+          });
+          localStorage.setItem('legendshub_custom_scouts', JSON.stringify(updated));
+        } catch (e) {}
+      }
+    }
 
     const updated = employees.map(e => {
       if (e.id === id) {
@@ -1177,6 +1310,28 @@ export default function GamingOfficeTab({
   const handleProlongEmployee = (id: string, extWeeks: number) => {
     const target = employees.find(e => e.id === id);
     if (!target) return;
+
+    const isScout = id.startsWith('scout-') || id.includes('scout');
+    if (isScout) {
+      const saved = localStorage.getItem('legendshub_custom_scouts');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          const updated = parsed.map((s: any) => {
+            if (s.id === id) {
+              const prevRemaining = s.contractRemaining || 12;
+              const extMonths = Math.max(1, Math.round(extWeeks / 4));
+              return {
+                ...s,
+                contractRemaining: prevRemaining + extMonths
+              };
+            }
+            return s;
+          });
+          localStorage.setItem('legendshub_custom_scouts', JSON.stringify(updated));
+        } catch (e) {}
+      }
+    }
 
     const updated = employees.map(e => {
       if (e.id === id) {
@@ -1496,7 +1651,7 @@ export default function GamingOfficeTab({
                     <div>
                       <h4 className="text-xs uppercase font-extrabold text-sky-405 tracking-wider">Mesa de Comando Vaga</h4>
                       <p className="text-[10px] text-slate-400 mt-1 max-w-xs leading-relaxed">
-                        Nenhum funcionário do Staff está assumindo a liderança operativa. Clique em <strong className="text-sky-400">[ PROMOVER ]</strong> em qualquer card subordinado abaixo para promover o funcionário e aplicar o bônus departamental do clube!
+                        Nenhum funcionário do Staff está assumindo a liderança operativa. Clique em <strong className="text-sky-400">PROMOVER</strong> em qualquer card subordinado abaixo para promover o funcionário e aplicar o bônus departamental do clube!
                       </p>
                     </div>
                   </div>
@@ -1522,7 +1677,7 @@ export default function GamingOfficeTab({
                     onClick={() => handleOpenNegotiation(activeLeader)}
                     className="flex-1 py-2 bg-amber-600 hover:bg-[#ffb000] text-black rounded-xl text-[9px] font-black uppercase tracking-widest text-center transition-all cursor-pointer shadow-sm"
                   >
-                    🚀 [ NEGOCIAR ]
+                    🚀 NEGOCIAR
                   </button>
                 </div>
               )}
@@ -1638,7 +1793,7 @@ export default function GamingOfficeTab({
                               }`}
                               title="Negociar Salário, Vínculo ou Setor"
                             >
-                              [ NEGOCIAR ]
+                              NEGOCIAR
                             </button>
 
                             {/* SELECT AS OPERATIONS LEADER */}
@@ -2325,7 +2480,7 @@ export default function GamingOfficeTab({
                 onClick={handleApplyNegotiation}
                 className="flex-1 py-2.5 bg-[#00E5FF] hover:bg-cyan-400 text-black rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-150 animate-pulse font-mono shadow-md cursor-pointer"
               >
-                [ APLICAR CONTRATO ]
+                APLICAR CONTRATO
               </button>
             </div>
 

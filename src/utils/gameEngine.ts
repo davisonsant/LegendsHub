@@ -232,6 +232,7 @@ export function initializeNewGame(
     leagues: defaultLeagues,
     finance: {
       balance: initialBudget,
+      currency: isBrowser ? (localStorage.getItem('legendshub_currency') || 'USD') : 'USD',
       caixa_bruto: initialBudget,
       caixa_formatado_hud: formattedHud
     },

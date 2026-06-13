@@ -6,6 +6,15 @@
 export type CurrencyType = 'USD' | 'EUR' | 'BRL';
 
 export function getCurrencyType(): CurrencyType {
+  if (typeof window !== 'undefined') {
+    const gs = (window as any).__legendshub_gameState;
+    if (gs && gs.finance && gs.finance.currency) {
+      const gCurr = gs.finance.currency;
+      if (gCurr === 'EUR' || gCurr === '€') return 'EUR';
+      if (gCurr === 'BRL' || gCurr === 'R$') return 'BRL';
+      if (gCurr === 'USD' || gCurr === '$') return 'USD';
+    }
+  }
   if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
     return (localStorage.getItem('legendshub_currency') as CurrencyType) || 'USD';
   }
@@ -13,6 +22,16 @@ export function getCurrencyType(): CurrencyType {
 }
 
 export function getCurrencySymbol(): string {
+  if (typeof window !== 'undefined') {
+    const gs = (window as any).__legendshub_gameState;
+    if (gs && gs.finance && gs.finance.currency) {
+      const gCurr = gs.finance.currency;
+      if (gCurr === 'EUR') return '€';
+      if (gCurr === 'BRL') return 'R$';
+      if (gCurr === 'USD') return '$';
+      if (gCurr === '€' || gCurr === '$' || gCurr === 'R$') return gCurr;
+    }
+  }
   const type = getCurrencyType();
   if (type === 'EUR') return '€';
   if (type === 'BRL') return 'R$';

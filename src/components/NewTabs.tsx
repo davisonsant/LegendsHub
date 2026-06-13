@@ -2544,29 +2544,84 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
   }
 
   // Calculate detailed week sheet values matching advanceGameWeek algorithm
-  const sponsorsInflow = playerTeam.sponsors.reduce((acc, s) => acc + s.incomePerWeek, 0);
+  const sponsorsInflow = playerTeam.sponsors.filter(s => s.isSigned).reduce((acc, s) => acc + s.incomePerWeek, 0);
   const socioTorcedores = Math.round(playerTeam.popularity * 145);
   const socioMultiplier = 1 + (socioTorcedores / 10000);
   const merchSalesAmount = Math.round(playerTeam.popularity * jerseyPrice * 18 * socioMultiplier);
   const ticketsSalesAmount = Math.round(playerTeam.popularity * ticketPrice * 22);
-  const totalEntries = sponsorsInflow + merchSalesAmount + ticketsSalesAmount;
+
+  // New Variables based on User Requests synced with game state
+  if ((playerTeam as any).weeklyAthleteSales === undefined) (playerTeam as any).weeklyAthleteSales = 0;
+  if ((playerTeam as any).weeklyPrizes === undefined) (playerTeam as any).weeklyPrizes = 0;
+  if ((playerTeam as any).weeklyHiringCosts === undefined) (playerTeam as any).weeklyHiringCosts = 0;
+  if ((playerTeam as any).weeklyBootcampCosts === undefined) (playerTeam as any).weeklyBootcampCosts = 0;
+  if ((playerTeam as any).weeklyComunidadeCosts === undefined) (playerTeam as any).weeklyComunidadeCosts = 0;
+  if ((playerTeam as any).weeklyVisaCosts === undefined) (playerTeam as any).weeklyVisaCosts = 0;
+
+  const weeklyAthleteSales = (playerTeam as any).weeklyAthleteSales || 0;
+  const weeklyPrizes = (playerTeam as any).weeklyPrizes || 0;
+
+  // TV & Transmission Rights slots
+  let tvSlotsList: any[] = [];
+  if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+    const saved = localStorage.getItem('legendshub_tv_slots');
+    if (saved) {
+      try { tvSlotsList = JSON.parse(saved); } catch (e) {}
+    }
+  }
+  if (!tvSlotsList || tvSlotsList.length === 0) {
+    tvSlotsList = [
+      { id: 'slot-1', status: 'OCUPADO', emissora: 'CBLOL TV Premium', vigencia_restante: 8, repasse_semanal: 8500, meta_contratual: 'Ficar no Top 4 do campeonato', multa_rescisao: 25000 },
+      { id: 'slot-2', status: 'VAGO' },
+      { id: 'slot-3', status: 'VAGO' }
+    ];
+  }
+  const tvRightsInflow = tvSlotsList.filter(s => s.status === 'OCUPADO').reduce((acc, s) => acc + (s.repasse_semanal || 0), 0);
+
+  // Investments: Fixed Income interest + Sports Fund gains (if any)
+  const fixedInterestAdd = playerTeam.investments.fixedIncome > 0 ? Math.round(playerTeam.investments.fixedIncome * 0.0014) : 0;
+  // check if won last match for sports fund
+  let wonLastMatch = false;
+  try {
+    const lastPlayedWeek = gameState.week;
+    const matchesList = gameState.calendarSchedule?.[lastPlayedWeek] || [];
+    const playerMatch = matchesList.find(m => m.teamBlueId === playerTeam.id || m.teamRedId === playerTeam.id);
+    if (playerMatch?.isFinished) {
+      const isBlue = playerMatch.teamBlueId === playerTeam.id;
+      wonLastMatch = (isBlue && playerMatch.scoreBlue > playerMatch.scoreRed) || (!isBlue && playerMatch.scoreRed > playerMatch.scoreBlue);
+    }
+  } catch(e){}
+  const sportsFundAdd = (playerTeam.investments.sportsFund > 0 && wonLastMatch) ? Math.round(playerTeam.investments.sportsFund * 0.05) : 0;
+  const investmentsInflow = fixedInterestAdd + sportsFundAdd;
+
+  const totalEntries = sponsorsInflow + merchSalesAmount + ticketsSalesAmount + weeklyAthleteSales + weeklyPrizes + investmentsInflow + tvRightsInflow;
 
   const infrastructureCostsExpenses = (playerTeam.infrastructure.gamingHouseLevel * 8000) + 
                                        (playerTeam.infrastructure.trainingCenterLevel * 6000) +
                                        (playerTeam.infrastructure.mediaTeamLevel * 4000);
-  const hiredStaffCostsWeekly = gameState.availableStaff.filter(s => s.hired).reduce((acc, s) => acc + s.salary, 0);
-  
-  // Calculate special spending outflows from loans & installments
+  const hiredStaffCostsWeekly = (gameState.availableStaff || []).filter(s => s.hired).reduce((acc, s) => acc + s.salary, 0);
+  const additionalStaffWeeklySalaries = (gameState.corporationStaffEmployees || []).reduce((acc, s) => acc + s.salario_semanal, 0);
+  const totalStaffCostsWeekly = hiredStaffCostsWeekly + additionalStaffWeeklySalaries;
+
+  // Special spending outflows
   const activeLoansWeeklyOutflow = playerTeam.loans.reduce((acc, l) => acc + Math.round(l.totalToPay / l.remainingWeeks), 0);
   const activeInstallmentsWeeklyOutflow = playerTeam.installmentPlans.reduce((acc, p) => acc + p.installmentAmount, 0);
-  
+
+  const playerHiringCostsWeekly = (playerTeam as any).weeklyHiringCosts || 0;
+  const weeklyBootcampCosts = (playerTeam as any).weeklyBootcampCosts || 0;
+  const weeklyComunidadeCosts = (playerTeam as any).weeklyComunidadeCosts || 0;
+  const weeklyVisaCosts = (playerTeam as any).weeklyVisaCosts || 0;
+
   // Luxury tax check (Increased limit to $120.000)
   const isSalarCapExceeded = basePlayerPayrollWeekly > 120000;
   const luxuryTaxFine = isSalarCapExceeded ? Math.round((basePlayerPayrollWeekly - 120000) * 1.50) : 0;
 
-  // Total weekly spending
-  const totalSpending = basePlayerPayrollWeekly + infrastructureCostsExpenses + hiredStaffCostsWeekly + 
-                        activeLoansWeeklyOutflow + activeInstallmentsWeeklyOutflow + luxuryTaxFine;
+  const poachingPenaltyPrice = (playerTeam.poachingPenaltiesWeeks && playerTeam.poachingPenaltiesWeeks > 0) ? 45000 : 0;
+  const totalMultasWeekly = luxuryTaxFine + poachingPenaltyPrice;
+
+  const totalSpending = basePlayerPayrollWeekly + infrastructureCostsExpenses + totalStaffCostsWeekly + 
+                        playerHiringCostsWeekly + weeklyBootcampCosts + weeklyComunidadeCosts + 
+                        activeLoansWeeklyOutflow + activeInstallmentsWeeklyOutflow + totalMultasWeekly + weeklyVisaCosts;
 
   const netWeeklyBalance = totalEntries - totalSpending;
 
@@ -2892,6 +2947,12 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
       months: p.contractMonths || 12
     })).filter(c => c.months <= 6);
 
+    const ffpFine = luxuryTaxFine * 4;
+    const poachFine = poachingPenaltyPrice * 4;
+    const basePayrollMonth = basePlayerPayrollWeekly * 4;
+    const staffCostsMonth = totalStaffCostsWeekly * 4;
+    const housingCostsMonth = infrastructureCostsExpenses * 4;
+
     const report = {
       timestamp: new Date().toLocaleTimeString(),
       loans: loanIssues,
@@ -2902,9 +2963,21 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
       },
       consular: consularIssues,
       contracts: expiringContracts,
-      overallRecommendation: (!payrollBreached && loanIssues.length === 0 && consularIssues.length === 0) 
+      detailedExpenses: {
+        basePayrollMonth,
+        staffCostsMonth,
+        housingCostsMonth,
+        ffpFine,
+        poachFine,
+        hiringCosts: playerHiringCostsWeekly * 4,
+        bootcampCosts: weeklyBootcampCosts * 4,
+        comunidadeCosts: weeklyComunidadeCosts * 4,
+        visaCosts: weeklyVisaCosts * 4,
+        totalSpendingMonth: (basePayrollMonth + staffCostsMonth + housingCostsMonth + ffpFine + poachFine + (playerHiringCostsWeekly * 4) + (weeklyBootcampCosts * 4) + (weeklyComunidadeCosts * 4) + (weeklyVisaCosts * 4))
+      },
+      overallRecommendation: (!payrollBreached && loanIssues.length === 0 && consularIssues.length === 0 && ffpFine === 0 && poachFine === 0) 
         ? "ORGANIZAÇÃO IMPECÁVEL: Parabéns! O jurídico assina o parecer sem ressalvas. Risco zero de punições esportivas." 
-        : "ADVERTÊNCIA INTERNA: Pendências financeiras, de teto de folha de pagamento ou consulares foram localizadas. Corrija-as para evitar multas da liga."
+        : "ADVERTÊNCIA INTERNA: Pendências financeiras, de teto de folha de pagamento, multas (FFP/Aliciamento) ou consulares foram localizadas. Corrija-as para evitar multas da liga."
     };
 
     setInternalAuditReport(report);
@@ -3106,7 +3179,7 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
         <div className={`border-b ${isDark ? 'border-sky-500/10' : 'border-slate-100'} pb-2.5 flex justify-between items-center`}>
           <div className="flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-sky-400" />
-            <h4 className={`text-xs font-black uppercase tracking-wider ${isDark ? 'text-white' : 'text-[#1e293b]'}`}>Balanço Financeiro Semanal do Rift</h4>
+            <h4 className={`text-xs font-black uppercase tracking-wider ${isDark ? 'text-white' : 'text-[#1e293b]'}`}>Balanço Financeiro Semanal</h4>
           </div>
           <div className={`text-xs font-black flex items-center gap-1.5 px-3 py-1 rounded-lg border transition-all duration-300 ${
             netWeeklyBalance >= 0 
@@ -3114,7 +3187,7 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
               : (isDark ? 'text-red-400 border-red-500/20 bg-red-500/5 shadow-[0_0_15px_rgba(239,68,68,0.05)]' : 'text-red-650 border-red-200 bg-red-50 shadow-[0_0_15px_rgba(239,68,68,0.05)]')
           }`}>
             <span className={isDark ? 'text-slate-400' : 'text-slate-650'}>Saldo Líquido Semanal:</span>
-            <span className="font-mono font-black">$ {netWeeklyBalance.toLocaleString()}</span>
+            <span className="font-mono font-black">{getCurrencySymbol()} {netWeeklyBalance.toLocaleString('pt-BR')}</span>
             {netWeeklyBalance >= 0 ? <TrendingUp className="w-4 h-4 text-emerald-500" /> : <TrendingUp className="w-4 h-4 rotate-180 text-red-500" />}
           </div>
         </div>
@@ -3126,24 +3199,40 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
             {/* Inflows Section */}
             <div className={`space-y-2 p-4 rounded-xl border leading-normal hover:border-emerald-500/10 transition-all duration-300 ${isDark ? 'bg-slate-950/45 border-slate-900/60' : 'bg-[#f8fafc] border-slate-200 shadow-sm'}`}>
               <span className={`block text-[10px] font-extrabold uppercase tracking-widest border-b pb-2 ${isDark ? 'border-slate-800/40 text-emerald-450' : 'border-slate-200 text-[#15803d]'}`}>
-                ➕ Entradas Recomendadas (Weekly Inflows)
+                ➕ RECEITAS ESTIMADAS / SEMANA (WEEKLY INFLOWS)
               </span>
               <div className="space-y-1.5 font-mono">
                 <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
-                  <span>Patrocinadores Corporativos</span>
-                  <span className={isDark ? 'text-emerald-400' : 'text-[#16a34a]'}>+$ {sponsorsInflow.toLocaleString()}</span>
+                  <span>Patrocínios</span>
+                  <span className={isDark ? 'text-emerald-400' : 'text-[#16a34a]'}>+{getCurrencySymbol()} {sponsorsInflow.toLocaleString('pt-BR')}</span>
                 </div>
                 <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
-                  <span>Loja Oficial (Camisas Camisetas)</span>
-                  <span className={isDark ? 'text-emerald-400' : 'text-[#16a34a]'}>+$ {merchSalesAmount.toLocaleString()}</span>
+                  <span>MatchDay & Bilheteria</span>
+                  <span className={isDark ? 'text-emerald-400' : 'text-[#16a34a]'}>+{getCurrencySymbol()} {ticketsSalesAmount.toLocaleString('pt-BR')}</span>
                 </div>
                 <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
-                  <span>Produtos Arena & Bilheteria</span>
-                  <span className={isDark ? 'text-emerald-400' : 'text-[#16a34a]'}>+$ {ticketsSalesAmount.toLocaleString()}</span>
+                  <span>Merchandising</span>
+                  <span className={isDark ? 'text-emerald-400' : 'text-[#16a34a]'}>+{getCurrencySymbol()} {merchSalesAmount.toLocaleString('pt-BR')}</span>
+                </div>
+                <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
+                  <span>Venda de Atletas</span>
+                  <span className={isDark ? 'text-emerald-400' : 'text-[#16a34a]'}>+{getCurrencySymbol()} {weeklyAthleteSales.toLocaleString('pt-BR')}</span>
+                </div>
+                <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
+                  <span>Premiações</span>
+                  <span className={isDark ? 'text-emerald-400' : 'text-[#16a34a]'}>+{getCurrencySymbol()} {weeklyPrizes.toLocaleString('pt-BR')}</span>
+                </div>
+                <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
+                  <span>Investimentos</span>
+                  <span className={isDark ? 'text-emerald-400' : 'text-[#16a34a]'}>+{getCurrencySymbol()} {investmentsInflow.toLocaleString('pt-BR')}</span>
+                </div>
+                <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
+                  <span>Direitos de TV & Transmissão</span>
+                  <span className={isDark ? 'text-emerald-400' : 'text-[#16a34a]'}>+{getCurrencySymbol()} {tvRightsInflow.toLocaleString('pt-BR')}</span>
                 </div>
                 <div className={`border-t pt-1.5 flex justify-between font-bold ${isDark ? 'border-slate-800/40 text-white' : 'border-slate-200 text-slate-800'}`}>
-                  <span className="uppercase text-[10px]">Subtotal Entradas</span>
-                  <span className={isDark ? 'text-emerald-400 font-black' : 'text-[#16a34a] font-black'}>+$ {totalEntries.toLocaleString()}</span>
+                  <span className="uppercase text-[10px]">TOTAL RECEITAS ESTIMADAS</span>
+                  <span className={isDark ? 'text-emerald-400 font-black' : 'text-[#16a34a] font-black'}>+{getCurrencySymbol()} {totalEntries.toLocaleString('pt-BR')}</span>
                 </div>
               </div>
             </div>
@@ -3151,38 +3240,66 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
             {/* Outflows Section */}
             <div className={`space-y-2 p-4 rounded-xl border leading-normal hover:border-red-500/10 transition-all duration-300 ${isDark ? 'bg-slate-950/45 border-slate-900/60' : 'bg-[#f8fafc] border-slate-200 shadow-sm'}`}>
               <span className={`block text-[10px] font-extrabold uppercase tracking-widest border-b pb-2 ${isDark ? 'border-slate-800/40 text-red-430' : 'border-slate-200 text-red-700'}`}>
-                ➖ Saídas Operacionais (Weekly Outflows)
+                ➖ DESPESAS ESTIMADAS / SEMANAL (WEEKLY OUTFLOWS)
               </span>
               <div className="space-y-1.5 font-mono">
                 <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
-                  <span>Folha Salarial Atletas</span>
-                  <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-$ {Math.round(basePlayerPayrollWeekly).toLocaleString()}</span>
+                  <span>Folha Salarial (Jogadores)</span>
+                  <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-{getCurrencySymbol()} {Math.round(basePlayerPayrollWeekly).toLocaleString('pt-BR')}</span>
                 </div>
                 <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
-                  <span>Despesas CT e GH Operacional</span>
-                  <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-$ {infrastructureCostsExpenses.toLocaleString()}</span>
+                  <span>Gaming House & Custos</span>
+                  <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-{getCurrencySymbol()} {infrastructureCostsExpenses.toLocaleString('pt-BR')}</span>
                 </div>
                 <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
-                  <span>Salário de Staff Contratado</span>
-                  <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-$ {hiredStaffCostsWeekly.toLocaleString()}</span>
+                  <span>Gaming Office (Funcionários)</span>
+                  <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-{getCurrencySymbol()} {totalStaffCostsWeekly.toLocaleString('pt-BR')}</span>
                 </div>
                 <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
-                  <span>Parcelas Empréstimos Ativos</span>
-                  <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-$ {activeLoansWeeklyOutflow.toLocaleString()}</span>
+                  <span>Contratação (Jogadores)</span>
+                  <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-{getCurrencySymbol()} {playerHiringCostsWeekly.toLocaleString('pt-BR')}</span>
+                </div>
+                <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-655'}`}>
+                  <span>Bootcamp</span>
+                  <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-{getCurrencySymbol()} {weeklyBootcampCosts.toLocaleString('pt-BR')}</span>
+                </div>
+                <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-655'}`}>
+                  <span>Comunidade</span>
+                  <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-{getCurrencySymbol()} {weeklyComunidadeCosts.toLocaleString('pt-BR')}</span>
                 </div>
                 <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
-                  <span>Financiamentos Internos/Luvas</span>
-                  <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-$ {activeInstallmentsWeeklyOutflow.toLocaleString()}</span>
+                  <span>Empréstimos</span>
+                  <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-{getCurrencySymbol()} {activeLoansWeeklyOutflow.toLocaleString('pt-BR')}</span>
                 </div>
+                <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
+                  <span>Financiamentos</span>
+                  <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-{getCurrencySymbol()} {activeInstallmentsWeeklyOutflow.toLocaleString('pt-BR')}</span>
+                </div>
+                {/* Multas Section */}
+                <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
+                  <span>Multas</span>
+                  <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-{getCurrencySymbol()} {totalMultasWeekly.toLocaleString('pt-BR')}</span>
+                </div>
+                {/* Specific Fine breakdown if of FFP or Poaching */}
                 {isSalarCapExceeded && (
-                  <div className={`flex justify-between px-1 py-0.5 rounded border ${isDark ? 'text-red-300 bg-red-950/30 border-red-500/10' : 'text-red-700 bg-red-50 border-red-200'}`}>
-                    <span>🚨 Taxa Luxo Excedente</span>
-                    <span className={isDark ? 'text-red-400 font-bold' : 'text-[#dc2626] font-bold'}>-$ {luxuryTaxFine.toLocaleString()}</span>
+                  <div className={`flex justify-between pl-2 text-[10px] ${isDark ? 'text-red-300' : 'text-red-700'}`}>
+                    <span>↳ Multa (Fair Play Financeiro)</span>
+                    <span>-{getCurrencySymbol()} {luxuryTaxFine.toLocaleString('pt-BR')}</span>
                   </div>
                 )}
+                {playerTeam.poachingPenaltiesWeeks !== undefined && playerTeam.poachingPenaltiesWeeks > 0 && (
+                  <div className={`flex justify-between pl-2 text-[10px] ${isDark ? 'text-red-300' : 'text-red-700'}`}>
+                    <span>↳ Multa (Poaching/Aliciamento)</span>
+                    <span>-{getCurrencySymbol()} {poachingPenaltyPrice.toLocaleString('pt-BR')}</span>
+                  </div>
+                )}
+                <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
+                  <span>Custos Judiciais (Vistos)</span>
+                  <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-{getCurrencySymbol()} {weeklyVisaCosts.toLocaleString('pt-BR')}</span>
+                </div>
                 <div className={`border-t pt-1.5 flex justify-between font-bold ${isDark ? 'border-slate-800/40 text-white' : 'border-slate-200 text-slate-800'}`}>
-                  <span className="uppercase text-[10px]">Subtotal Saídas</span>
-                  <span className={isDark ? 'text-red-400 font-black' : 'text-[#dc2626] font-black'}>-$ {totalSpending.toLocaleString()}</span>
+                  <span className="uppercase text-[10px]">TOTAL DESPESAS ESTIMADAS</span>
+                  <span className={isDark ? 'text-red-400 font-black' : 'text-[#dc2626] font-black'}>-{getCurrencySymbol()} {totalSpending.toLocaleString('pt-BR')}</span>
                 </div>
               </div>
             </div>
@@ -3263,9 +3380,9 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
               {/* Hover Tooltip display context */}
               <div className={`absolute inset-x-2 bottom-1 border p-1.5 rounded text-[9px] font-mono flex justify-between items-center h-7 select-none transition-all ${isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-slate-100/95 border-slate-200'}`}>
                 {flowTooltip === 'inflow' ? (
-                  <span className={isDark ? "text-emerald-400 font-bold uppercase w-full text-center" : "text-[#16a34a] font-bold uppercase w-full text-center"}>💸 Total Faturado: $ {totalEntries.toLocaleString('pt-BR')}</span>
+                  <span className={isDark ? "text-emerald-400 font-bold uppercase w-full text-center" : "text-[#16a34a] font-bold uppercase w-full text-center"}>💸 Total Faturado: {getCurrencySymbol()} {totalEntries.toLocaleString('pt-BR')}</span>
                 ) : flowTooltip === 'outflow' ? (
-                  <span className={isDark ? "text-rose-400 font-bold uppercase w-full text-center" : "text-red-650 font-bold uppercase w-full text-center"}>🛡️ Despesas Totais: $ {totalSpending.toLocaleString('pt-BR')}</span>
+                  <span className={isDark ? "text-rose-400 font-bold uppercase w-full text-center" : "text-red-650 font-bold uppercase w-full text-center"}>🛡️ Despesas Totais: {getCurrencySymbol()} {totalSpending.toLocaleString('pt-BR')}</span>
                 ) : (
                   <span className={isDark ? "text-slate-400 w-full text-center" : "text-slate-500 w-full text-center"}>Passe o mouse nas barras para inspecionar</span>
                 )}
@@ -3279,19 +3396,223 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
         </div>
       </div>
 
+      {/* SECTION 2.1: MONTHLY BALANCE SHEET DETAILS */}
+      {(() => {
+        // Estimate monthly revenues and expenses (4x weekly) based on exact weekly values
+        const sInflowMonth = sponsorsInflow * 4;
+        const merchInflowMonth = merchSalesAmount * 4;
+        const ticketsInflowMonth = ticketsSalesAmount * 4;
+        const athleteSalesInflowMonth = weeklyAthleteSales * 4;
+        const prizesInflowMonth = weeklyPrizes * 4;
+        const investmentsInflowMonth = investmentsInflow * 4;
+        const tvRightsInflowMonth = tvRightsInflow * 4;
+        const totalEntriesMonth = sInflowMonth + ticketsInflowMonth + merchInflowMonth + athleteSalesInflowMonth + prizesInflowMonth + investmentsInflowMonth + tvRightsInflowMonth;
+
+        const athleteCostsMonth = basePlayerPayrollWeekly * 4;
+        const ghCostsMonth = infrastructureCostsExpenses * 4;
+        const staffCostsMonth = totalStaffCostsWeekly * 4;
+        const hiringCostsMonth = playerHiringCostsWeekly * 4;
+        const bootcampCostsMonth = weeklyBootcampCosts * 4;
+        const comunidadeCostsMonth = weeklyComunidadeCosts * 4;
+        const loansCostsMonth = activeLoansWeeklyOutflow * 4;
+        const installmentsCostsMonth = activeInstallmentsWeeklyOutflow * 4;
+        const multasCostsMonth = totalMultasWeekly * 4;
+        const visaCostsMonth = weeklyVisaCosts * 4;
+
+        const totalSpendingMonth = athleteCostsMonth + ghCostsMonth + staffCostsMonth + hiringCostsMonth +
+                                   bootcampCostsMonth + comunidadeCostsMonth + loansCostsMonth +
+                                   installmentsCostsMonth + multasCostsMonth + visaCostsMonth;
+
+        const netMonthlyBalance = totalEntriesMonth - totalSpendingMonth;
+
+        return (
+          <div id="balanco-financeiro-mensal" className={`p-5 rounded-2xl border transition-all duration-300 ${isDark ? 'border-[#1e2d44] bg-[#0a1424]' : 'border-slate-200 bg-white shadow-md'} shadow-lg space-y-5`}>
+            <div className={`border-b ${isDark ? 'border-sky-500/10' : 'border-slate-100'} pb-2.5 flex justify-between items-center`}>
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-sky-450" />
+                <h4 className={`text-xs font-black uppercase tracking-wider ${isDark ? 'text-white' : 'text-[#1e293b]'}`}>Balanço Financeiro Mensal</h4>
+              </div>
+              <div className={`text-xs font-black flex items-center gap-1.5 px-3 py-1 rounded-lg border transition-all duration-300 ${
+                netMonthlyBalance >= 0 
+                  ? (isDark ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5 shadow-[0_0_15px_rgba(16,185,129,0.05)]' : 'text-[#16a34a] border-emerald-250 bg-emerald-50 shadow-[0_0_15px_rgba(16,185,129,0.05)]')
+                  : (isDark ? 'text-red-400 border-red-500/20 bg-red-500/5 shadow-[0_0_15px_rgba(239,68,68,0.05)]' : 'text-red-650 border-red-200 bg-red-50 shadow-[0_0_15px_rgba(239,68,68,0.05)]')
+              }`}>
+                <span className={isDark ? 'text-slate-400' : 'text-slate-650'}>Balanço Mensal:</span>
+                <span className="font-mono font-black">{getCurrencySymbol()} {netMonthlyBalance.toLocaleString('pt-BR')}</span>
+                {netMonthlyBalance >= 0 ? <TrendingUp className="w-4 h-4 text-emerald-500" /> : <TrendingUp className="w-4 h-4 rotate-180 text-red-500" />}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Left Side: Monthly items */}
+              <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-4 text-[11px] font-bold">
+                
+                {/* Inflows Section */}
+                <div className={`space-y-2 p-4 rounded-xl border leading-normal hover:border-emerald-500/10 transition-all duration-300 ${isDark ? 'bg-slate-950/45 border-slate-900/60' : 'bg-[#f8fafc] border-slate-200 shadow-sm'}`}>
+                  <span className={`block text-[10px] font-extrabold uppercase tracking-widest border-b pb-2 ${isDark ? 'border-slate-800/40 text-emerald-450' : 'border-slate-200 text-[#15803d]'}`}>
+                    ➕ RECEITAS ESTIMADAS / MÊS
+                  </span>
+                  <div className="space-y-1.5 font-mono">
+                    <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
+                      <span>Patrocínios</span>
+                      <span className={isDark ? 'text-emerald-400' : 'text-[#16a34a]'}>+{getCurrencySymbol()} {sInflowMonth.toLocaleString('pt-BR')}</span>
+                    </div>
+                    <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
+                      <span>MatchDay & Bilheteria</span>
+                      <span className={isDark ? 'text-emerald-400' : 'text-[#16a34a]'}>+{getCurrencySymbol()} {ticketsInflowMonth.toLocaleString('pt-BR')}</span>
+                    </div>
+                    <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
+                      <span>Merchandising</span>
+                      <span className={isDark ? 'text-emerald-400' : 'text-[#16a34a]'}>+{getCurrencySymbol()} {merchInflowMonth.toLocaleString('pt-BR')}</span>
+                    </div>
+                    <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
+                      <span>Venda de Atletas</span>
+                      <span className={isDark ? 'text-emerald-400' : 'text-[#16a34a]'}>+{getCurrencySymbol()} {athleteSalesInflowMonth.toLocaleString('pt-BR')}</span>
+                    </div>
+                    <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
+                      <span>Premiações</span>
+                      <span className={isDark ? 'text-emerald-400' : 'text-[#16a34a]'}>+{getCurrencySymbol()} {prizesInflowMonth.toLocaleString('pt-BR')}</span>
+                    </div>
+                    <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
+                      <span>Investimentos</span>
+                      <span className={isDark ? 'text-emerald-400' : 'text-[#16a34a]'}>+{getCurrencySymbol()} {investmentsInflowMonth.toLocaleString('pt-BR')}</span>
+                    </div>
+                    <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
+                      <span>Direitos de TV & Transmissão</span>
+                      <span className={isDark ? 'text-emerald-400' : 'text-[#16a34a]'}>+{getCurrencySymbol()} {tvRightsInflowMonth.toLocaleString('pt-BR')}</span>
+                    </div>
+                    <div className={`border-t pt-1.5 flex justify-between font-bold ${isDark ? 'border-slate-800/40 text-white' : 'border-slate-200 text-slate-800'}`}>
+                      <span className="uppercase text-[10px]">TOTAL RECEITAS ESTIMADAS</span>
+                      <span className={isDark ? 'text-emerald-400 font-black' : 'text-[#16a34a] font-black'}>+{getCurrencySymbol()} {totalEntriesMonth.toLocaleString('pt-BR')}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Outflows Section */}
+                <div className={`space-y-2 p-4 rounded-xl border leading-normal hover:border-red-500/10 transition-all duration-300 ${isDark ? 'bg-slate-950/45 border-slate-900/60' : 'bg-[#f8fafc] border-slate-200 shadow-sm'}`}>
+                  <span className={`block text-[10px] font-extrabold uppercase tracking-widest border-b pb-2 ${isDark ? 'border-slate-800/40 text-red-430' : 'border-slate-200 text-red-700'}`}>
+                    ➖ DESPESAS ESTIMADAS / MÊS
+                  </span>
+                  <div className="space-y-1.5 font-mono">
+                    <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
+                      <span>Folha Salarial (Jogadores)</span>
+                      <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-{getCurrencySymbol()} {athleteCostsMonth.toLocaleString('pt-BR')}</span>
+                    </div>
+                    <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
+                      <span>Gaming House & Custos</span>
+                      <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-{getCurrencySymbol()} {ghCostsMonth.toLocaleString('pt-BR')}</span>
+                    </div>
+                    <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
+                      <span>Gaming Office (Funcionários)</span>
+                      <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-{getCurrencySymbol()} {staffCostsMonth.toLocaleString('pt-BR')}</span>
+                    </div>
+                    <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
+                      <span>Contratação (Jogadores)</span>
+                      <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-{getCurrencySymbol()} {hiringCostsMonth.toLocaleString('pt-BR')}</span>
+                    </div>
+                    <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
+                      <span>Bootcamp</span>
+                      <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-{getCurrencySymbol()} {bootcampCostsMonth.toLocaleString('pt-BR')}</span>
+                    </div>
+                    <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
+                      <span>Comunidade</span>
+                      <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-{getCurrencySymbol()} {comunidadeCostsMonth.toLocaleString('pt-BR')}</span>
+                    </div>
+                    <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
+                      <span>Empréstimos</span>
+                      <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-{getCurrencySymbol()} {loansCostsMonth.toLocaleString('pt-BR')}</span>
+                    </div>
+                    <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
+                      <span>Financiamentos</span>
+                      <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-{getCurrencySymbol()} {installmentsCostsMonth.toLocaleString('pt-BR')}</span>
+                    </div>
+                    <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
+                      <span>Multas</span>
+                      <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-{getCurrencySymbol()} {multasCostsMonth.toLocaleString('pt-BR')}</span>
+                    </div>
+                    {isSalarCapExceeded && (
+                      <div className={`flex justify-between pl-2 text-[10px] ${isDark ? 'text-red-300' : 'text-red-700'}`}>
+                        <span>↳ Multa (Fair Play Financeiro)</span>
+                        <span>-{getCurrencySymbol()} {(luxuryTaxFine * 4).toLocaleString('pt-BR')}</span>
+                      </div>
+                    )}
+                    {playerTeam.poachingPenaltiesWeeks !== undefined && playerTeam.poachingPenaltiesWeeks > 0 && (
+                      <div className={`flex justify-between pl-2 text-[10px] ${isDark ? 'text-red-300' : 'text-red-700'}`}>
+                        <span>↳ Multa (Poaching/Aliciamento)</span>
+                        <span>-{getCurrencySymbol()} {(poachingPenaltyPrice * 4).toLocaleString('pt-BR')}</span>
+                      </div>
+                    )}
+                    <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-slate-650'}`}>
+                      <span>Custos Judiciais (Vistos)</span>
+                      <span className={isDark ? 'text-red-400' : 'text-[#dc2626]'}>-{getCurrencySymbol()} {visaCostsMonth.toLocaleString('pt-BR')}</span>
+                    </div>
+                    <div className={`border-t pt-1.5 flex justify-between font-bold ${isDark ? 'border-slate-800/40 text-white' : 'border-slate-200 text-slate-800'}`}>
+                      <span className="uppercase text-[10px]">TOTAL DESPESAS ESTIMADAS</span>
+                      <span className={isDark ? 'text-red-400 font-black' : 'text-[#dc2626] font-black'}>-{getCurrencySymbol()} {totalSpendingMonth.toLocaleString('pt-BR')}</span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Right Side: Animated pie/breakdown of the monthly breakdown */}
+              <div className={`lg:col-span-4 flex flex-col justify-between p-4 rounded-xl border h-full ${isDark ? 'bg-slate-950/30 border-slate-900/60' : 'bg-slate-50 border-slate-205 shadow-sm'}`}>
+                <div className="space-y-1 font-sans">
+                  <span className={`text-[10px] font-bold uppercase tracking-wider block ${isDark ? 'text-slate-400' : 'text-slate-550'}`}>Projeção Mensal</span>
+                  <span className={`text-[11.5px] font-black block uppercase ${isDark ? 'text-white' : 'text-slate-800'}`}>Gráfico de Proporção</span>
+                </div>
+
+                <div className={`relative my-3 h-28 flex justify-center items-center rounded-lg border p-2 overflow-hidden ${isDark ? 'bg-slate-950/25 border-slate-900/30' : 'bg-white border-slate-200 shadow-inner'}`}>
+                  <div className="flex gap-4 items-center">
+                    <div className="relative w-16 h-16">
+                      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                        <circle cx="18" cy="18" r="15.915" fill="none" stroke={isDark ? "#115e59" : "#ccfbf1"} strokeWidth="4" />
+                        {(() => {
+                          const combined = totalEntriesMonth + totalSpendingMonth;
+                          const inflowPct = combined > 0 ? (totalEntriesMonth / combined) * 100 : 50;
+                          return (
+                            <circle cx="18" cy="18" r="15.915" fill="none" stroke="#00cbd6" strokeWidth="4" 
+                              strokeDasharray={`${inflowPct} ${100 - inflowPct}`} strokeDashoffset="0" />
+                          );
+                        })()}
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center text-[8.5px] font-black font-mono">
+                        {Math.round((totalEntriesMonth / (Math.max(1, totalEntriesMonth + totalSpendingMonth))) * 100)}% IN
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 text-[9px] font-bold">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-[#00cbd6]" />
+                        <span className={isDark ? 'text-slate-300' : 'text-slate-650'}>Entradas: {Math.round((totalEntriesMonth / (Math.max(1, totalEntriesMonth + totalSpendingMonth))) * 105)}%</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-[#f43f5e]" />
+                        <span className={isDark ? 'text-slate-300' : 'text-slate-650'}>Saídas: {Math.round((totalSpendingMonth / (Math.max(1, totalEntriesMonth + totalSpendingMonth))) * 105)}%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <p className={`text-[10.1px] leading-snug ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Balanço mensal consolidado de receitas fixas estimadas contra obrigações e despesas mensais recorrentes da organização.
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* SECTION 2.5: SALARY CAP DYNAMIC LINE MONITOR CARD */}
       <div id="salary-cap-monitor" className={`p-5 rounded-2xl border shadow-lg space-y-4 ${isDark ? 'border-[#1e2d44] bg-[#0a1424]' : 'border-slate-200 bg-white'}`}>
         <div className={`flex justify-between items-center border-b pb-2 ${isDark ? 'border-[#1e2d44]/55' : 'border-slate-100'}`}>
           <div className="space-y-0.5">
             <h4 className={`text-xs font-black uppercase tracking-wider flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
               <Scale className="w-4.5 h-4.5 text-[#00cbd6]" />
-              Monitor Dinâmico de Teto Salarial (Salary Cap Match)
+              Monitor Dinâmico de Teto Salarial (Salary Cap)
             </h4>
             <p className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-550'}`}>Histórico de folha de pagamento semanal vs limite da liga ($120.000) no Split</p>
           </div>
-          <span className={`text-[9.5px] uppercase font-mono px-2.5 py-1 rounded border font-extrabold ${isDark ? 'bg-slate-950 border-slate-800 text-slate-400' : 'bg-slate-100 border-slate-205 text-slate-600'}`}>
-            Parâmetro: Split Atual Rift
-          </span>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
@@ -3461,7 +3782,7 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
             <div className={`border-b pb-2.5 flex items-center justify-between ${isDark ? 'border-[#1e2d44]' : 'border-slate-100'}`}>
               <div className="flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-indigo-400" />
-                <h3 className={`text-xs uppercase font-extrabold ${isDark ? 'text-white' : 'text-slate-800'}`}>Central de Crédito Bancário Rivals</h3>
+                <h3 className={`text-xs uppercase font-extrabold ${isDark ? 'text-white' : 'text-slate-800'}`}>Central de Crédito Bancário</h3>
               </div>
               <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded border ${isDark ? 'bg-indigo-500/10 text-indigo-400 border-indigo-400/20' : 'bg-indigo-50 text-indigo-650 border-indigo-200'}`}>
                 Score Avaliado: {playerTeam.creditScore || 720}
@@ -3555,7 +3876,6 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
               <TrendingUp className="w-5 h-5 text-emerald-500" />
               <h3 className={`text-xs uppercase font-extrabold ${isDark ? 'text-white' : 'text-slate-800'}`}>Painel de Alocação de Investimentos</h3>
             </div>
-            <span className={`text-[10px] uppercase font-mono font-semibold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Anytime Deposits</span>
           </div>
 
           <div className="space-y-3.5 max-h-[380px] overflow-y-auto pr-1">
@@ -4148,6 +4468,52 @@ export function EscritorioTab({ gameState, onUpdateGameState, triggerNotificatio
                     </div>
                   )}
                 </div>
+
+                {/* Detailed Expense Object Audit */}
+                {internalAuditReport.detailedExpenses && (
+                  <div className={`p-3.5 rounded-xl border leading-relaxed ${isDark ? 'bg-slate-900/35 border-slate-800' : 'bg-slate-100/50 border-slate-300 shadow-sm'}`}>
+                    <span className="font-extrabold uppercase text-[10px] block mb-2 text-sky-455">📊 Balanço de Gastos Coletivos (Mensais):</span>
+                    <div className="space-y-1.5 text-[10px] font-mono">
+                      <div className="flex justify-between">
+                        <span className={isDark ? 'text-slate-400' : 'text-slate-600'}>Salários dos Atletas:</span>
+                        <span className="font-bold text-[#dc2626]">-{getCurrencySymbol()} {internalAuditReport.detailedExpenses.basePayrollMonth.toLocaleString('pt-BR')}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className={isDark ? 'text-slate-400' : 'text-slate-600'}>Staff & Corpo de Coaches:</span>
+                        <span className="font-bold text-[#dc2626]">-{getCurrencySymbol()} {internalAuditReport.detailedExpenses.staffCostsMonth.toLocaleString('pt-BR')}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className={isDark ? 'text-slate-400' : 'text-slate-600'}>Gaming House & Manutenção:</span>
+                        <span className="font-bold text-[#dc2626]">-{getCurrencySymbol()} {internalAuditReport.detailedExpenses.housingCostsMonth.toLocaleString('pt-BR')}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className={isDark ? 'text-slate-400' : 'text-slate-600'}>Custos Ativos de Transferências:</span>
+                        <span className="font-bold text-[#dc2626]">-{getCurrencySymbol()} {internalAuditReport.detailedExpenses.hiringCosts.toLocaleString('pt-BR')}</span>
+                      </div>
+                      {(internalAuditReport.detailedExpenses.ffpFine > 0 || internalAuditReport.detailedExpenses.poachFine > 0) && (
+                        <div className="border-t border-red-500/10 my-1.5 py-1.5 space-y-1">
+                          <span className="font-black text-rose-500 uppercase text-[9px] block">⚠️ SANÇÕES ADMINISTRATIVAS APLICADAS:</span>
+                          {internalAuditReport.detailedExpenses.ffpFine > 0 && (
+                            <div className="flex justify-between pl-2 text-rose-455">
+                              <span>↳ Multa (Fair Play Financeiro):</span>
+                              <span className="font-bold">-{getCurrencySymbol()} {internalAuditReport.detailedExpenses.ffpFine.toLocaleString('pt-BR')}</span>
+                            </div>
+                          )}
+                          {internalAuditReport.detailedExpenses.poachFine > 0 && (
+                            <div className="flex justify-between pl-2 text-rose-455">
+                              <span>↳ Multa (Poaching/Aliciamento):</span>
+                              <span className="font-bold">-{getCurrencySymbol()} {internalAuditReport.detailedExpenses.poachFine.toLocaleString('pt-BR')}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <div className={`border-t pt-1.5 flex justify-between font-extrabold ${isDark ? 'border-slate-800 text-white' : 'border-slate-350 text-slate-800'}`}>
+                        <span>TOTAL PROJETADO / MÊS:</span>
+                        <span className="text-red-500 font-extrabold">-{getCurrencySymbol()} {internalAuditReport.detailedExpenses.totalSpendingMonth.toLocaleString('pt-BR')}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Overall Recommendation */}
                 <div className={`pt-2 border-t font-medium text-[10px] leading-relaxed ${
