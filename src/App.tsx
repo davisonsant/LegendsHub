@@ -1789,6 +1789,7 @@ export default function App() {
              gameState={gameState} 
              theme={theme} 
              onUpdateGameState={setGameState} 
+             triggerNotification={triggerNotification}
            />
          );
       case 'Inbox':

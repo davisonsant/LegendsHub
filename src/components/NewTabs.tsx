@@ -6968,15 +6968,147 @@ export function ensureManagers(gameState: GameState): GameState {
   };
 }
 
+export function ensureJobProposals(gameState: GameState): any[] {
+  if (gameState.jobProposals && gameState.jobProposals.length > 0) {
+    const currentWeekValue = gameState.week || 1;
+    const valid = gameState.jobProposals.filter(p => !p.expiresWeek || p.expiresWeek > currentWeekValue);
+    if (valid.length > 0) return valid;
+  }
+
+  const currentWeekValue = gameState.week || 1;
+  const playerTeamId = gameState.playerTeamId;
+  const otherTeams = (gameState.teams || []).filter(t => t.id !== playerTeamId);
+
+  if (otherTeams.length === 0) return [];
+
+  const sortedByWins = [...otherTeams].sort((a, b) => b.wins - a.wins);
+  const proposals: any[] = [];
+  
+  const bottomTeams = sortedByWins.slice(Math.floor(sortedByWins.length / 2));
+  const topTeams = sortedByWins.slice(0, Math.floor(sortedByWins.length / 2));
+  
+  // 1. Bottom/Rebuilding Team Proposal (Desempenho Ruim)
+  if (bottomTeams.length > 0) {
+    const team = bottomTeams[Math.floor(Math.random() * bottomTeams.length)];
+    const salary = Math.round(3200 + (team.budget * 0.003) + Math.random() * 1500);
+    const contractWeeks = [16, 24, 32][Math.floor(Math.random() * 3)];
+    proposals.push({
+      id: `prop-${team.id}`,
+      teamId: team.id,
+      teamName: team.name,
+      acronym: team.acronym,
+      primaryColor: team.primaryColor,
+      secondaryColor: team.secondaryColor,
+      budget: team.budget,
+      region: team.region || 'CBLOL',
+      logoUrl: team.logoUrl,
+      salary,
+      contractWeeks,
+      scenario: 'RUIM',
+      motivationReason: `O conselho diretivo está alarmado com a colocação atual e o desempenho negativo no campeonato. Eles buscam um manager estratégico capaz de recuperar o vestiário, reverter a má fase técnica e escapar da zona de rebaixamento imediata.`,
+      expectation: `Garantir recuperação rápida para sair das últimas posições e terminar o split com dignidade.`,
+      expiresWeek: currentWeekValue + 2,
+    });
+  }
+
+  // 2. High Performance Team - Wins / Elenco (Desempenho Ótimo / Título)
+  if (topTeams.length > 0) {
+    const team = topTeams[0];
+    const salary = Math.round(5500 + (team.budget * 0.005) + Math.random() * 2500);
+    const contractWeeks = [32, 48][Math.floor(Math.random() * 2)];
+    proposals.push({
+      id: `prop-${team.id}`,
+      teamId: team.id,
+      teamName: team.name,
+      acronym: team.acronym,
+      primaryColor: team.primaryColor,
+      secondaryColor: team.secondaryColor,
+      budget: team.budget,
+      region: team.region || 'CBLOL',
+      logoUrl: team.logoUrl,
+      salary,
+      contractWeeks,
+      scenario: 'BOM_VITORIAS',
+      motivationReason: `O conselho está admirado com sua excelente taxa de vitórias e estabilidade em playoffs. A organização quer contratar seu talento para capitanear um elenco recheado de superestrelas e conquistar o tão sonhado caneco da liga principal.`,
+      expectation: `Garantir vaga nos Playoffs, disputar a final absoluta e carimbar a classificação para o Worlds.`,
+      expiresWeek: currentWeekValue + 2,
+    });
+  }
+
+  // 3. Medium/High Team - Financeiro / Infraestrutura
+  if (otherTeams.length > 1) {
+    const pickedIds = proposals.map(p => p.teamId);
+    const remaining = otherTeams.filter(t => !pickedIds.includes(t.id));
+    const team = remaining.length > 0 ? remaining[0] : otherTeams[1 % otherTeams.length];
+    
+    if (team && !proposals.find(p => p.teamId === team.id)) {
+      const salary = Math.round(4200 + (team.budget * 0.004) + Math.random() * 1800);
+      const contractWeeks = 24;
+      proposals.push({
+        id: `prop-${team.id}`,
+        teamId: team.id,
+        teamName: team.name,
+        acronym: team.acronym,
+        primaryColor: team.primaryColor,
+        secondaryColor: team.secondaryColor,
+        budget: team.budget,
+        region: team.region || 'CBLOL',
+        logoUrl: team.logoUrl,
+        salary,
+        contractWeeks,
+        scenario: 'BOM_FINANCEIRO',
+        motivationReason: `A conselho adorou o seu excelente controle financeiro e maturidade administrativa. Eles planejam investir forte na ampliação do Gaming Office e querem você liderando essa nova fase de consolidação executiva saudável.`,
+        expectation: `Consolidação administrativa sadia, desenvolvimento de talento de base e classificação estável par os Playoffs.`,
+        expiresWeek: currentWeekValue + 3,
+      });
+    }
+  }
+
+  // Ensure real teams as fallbacks if something went low on count
+  const defaultRealTeamsData = [
+    { name: 'FURIA Esports', acronym: 'FUR', primaryColor: '#000000', secondaryColor: '#ffffff', budget: 1800000, region: 'CBLOL' },
+    { name: 'Fnatic', acronym: 'FNC', primaryColor: '#ff5900', secondaryColor: '#000000', budget: 2400000, region: 'LEC' },
+    { name: 'paiN Gaming', acronym: 'PNG', primaryColor: '#ff0000', secondaryColor: '#000000', budget: 2100000, region: 'CBLOL' },
+    { name: 'LOUD', acronym: 'LLL', primaryColor: '#00ff00', secondaryColor: '#000000', budget: 1950000, region: 'CBLOL' }
+  ];
+
+  if (proposals.length < 2) {
+    defaultRealTeamsData.forEach((dt, idx) => {
+      if (proposals.length < 3 && !proposals.find(p => p.acronym === dt.acronym)) {
+        proposals.push({
+          id: `prop-def-${dt.acronym}`,
+          teamId: `def-${dt.acronym}`,
+          teamName: dt.name,
+          acronym: dt.acronym,
+          primaryColor: dt.primaryColor,
+          secondaryColor: dt.secondaryColor,
+          budget: dt.budget,
+          region: dt.region,
+          salary: 4500 + (idx * 500),
+          contractWeeks: 24,
+          scenario: 'BOM_INFRA',
+          motivationReason: `Eles analisaram meticulosamente seus métodos corporativos modernos, controle de infraestrutura tática e optaram por contratá-lo visando expansão total da franquia.`,
+          expectation: `Estabelecer hegemonia tática e obter bons resultados nas eliminatórias internacionais.`,
+          expiresWeek: currentWeekValue + 2,
+        });
+      }
+    });
+  }
+
+  return proposals;
+}
+
 interface CarreiraTabProps {
   gameState: GameState;
   theme: 'light' | 'dark';
   onUpdateGameState?: (state: GameState | ((prev: GameState | null) => GameState)) => void;
+  triggerNotification?: (title: string, desc: string) => void;
 }
 
-export function CarreiraTab({ gameState, theme, onUpdateGameState }: CarreiraTabProps) {
+export function CarreiraTab({ gameState, theme, onUpdateGameState, triggerNotification }: CarreiraTabProps) {
   const isDark = theme !== 'light';
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedProposalId, setSelectedProposalId] = useState<string | null>(null);
   
   // Lazy-initialize managers database
   useEffect(() => {
@@ -6988,7 +7120,22 @@ export function CarreiraTab({ gameState, theme, onUpdateGameState }: CarreiraTab
     }
   }, [gameState.managers, gameState.teams, onUpdateGameState]);
 
+  // Lazy-initialize job proposals in gameState
+  useEffect(() => {
+    if (onUpdateGameState && (!gameState.jobProposals || gameState.jobProposals.length === 0)) {
+      onUpdateGameState((prev) => {
+        if (!prev) return prev;
+        if (prev.jobProposals && prev.jobProposals.length > 0) return prev;
+        return {
+          ...prev,
+          jobProposals: ensureJobProposals(prev)
+        };
+      });
+    }
+  }, [gameState.jobProposals, onUpdateGameState, gameState.week]);
+
   const managersList = gameState.managers || ensureManagers(gameState).managers || [];
+  const selectedProposal = (gameState.jobProposals || []).find(p => p.id === selectedProposalId);
   
   const getReputationLabel = (mgr: any) => {
     const tier = mgr.reputationTier;
@@ -7008,6 +7155,131 @@ export function CarreiraTab({ gameState, theme, onUpdateGameState }: CarreiraTab
     "Olheiros enviando relatórios de popularidade e evolução de comissão técnica.",
     "Acompanhamento fiscal da liga ativado para fair play financeiro corporativo."
   ]);
+
+  const handleRefuseProposal = (proposalId: string) => {
+    if (!onUpdateGameState) return;
+    onUpdateGameState((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        jobProposals: (prev.jobProposals || []).filter(p => p.id !== proposalId)
+      };
+    });
+    setSelectedProposalId(null);
+    triggerNotification?.("❌ Proposta Rejeitada", "A proposta da equipe foi recusada oficialmente.");
+  };
+
+  const handleAcceptProposal = (proposal: any) => {
+    if (!onUpdateGameState) return;
+
+    onUpdateGameState((prev) => {
+      if (!prev) return prev;
+      
+      const oldTeamId = prev.playerTeamId;
+      const newTeamId = proposal.teamId;
+
+      const newTeam = prev.teams.find(t => t.id === newTeamId);
+      const oldTeam = prev.teams.find(t => t.id === oldTeamId);
+
+      if (!newTeam) return prev;
+
+      let nextManagers = [...(prev.managers || [])];
+      
+      // 1. Demitir manager antigo da equipe que chamou o player
+      const rivalIndex = nextManagers.findIndex(m => m.teamId === newTeamId && m.id !== 'player-manager');
+      let demotedName = "o antigo manager";
+      if (rivalIndex !== -1) {
+        demotedName = nextManagers[rivalIndex].name;
+        // Retirar ele da equipe, enviando pro mercado de staff livre
+        nextManagers[rivalIndex] = {
+          ...nextManagers[rivalIndex],
+          teamId: null,
+        };
+      }
+
+      // 2. Colocar o player na nova equipe
+      const playerIndex = nextManagers.findIndex(m => m.id === 'player-manager');
+      if (playerIndex !== -1) {
+        nextManagers[playerIndex] = {
+          ...nextManagers[playerIndex],
+          teamId: newTeamId,
+          reputationTier: newTeam.boardTrust >= 85 ? 'S' : newTeam.boardTrust >= 70 ? 'A' : 'B'
+        };
+      }
+
+      // 3. Colocar uma IA na equipe que o player deixou vagar (se houver)
+      let aiReplacementName = "";
+      if (oldTeamId && oldTeam) {
+        const unemployedIdx = nextManagers.findIndex(m => m.teamId === null && m.id !== 'player-manager');
+        if (unemployedIdx !== -1) {
+          aiReplacementName = nextManagers[unemployedIdx].name;
+          nextManagers[unemployedIdx] = {
+            ...nextManagers[unemployedIdx],
+            teamId: oldTeamId,
+          };
+        } else {
+          // Criar novo procedural MGR IA para substituição perfeita
+          const newMgr: Manager = {
+            id: `MGR_AI_${oldTeam.acronym || 'PREV'}_${Math.floor(Math.random() * 900)}`,
+            name: `Manager IA ${["Felipe", "Eduardo", "Rodrigo", "Thiago", "Gustavo"][Math.floor(Math.random() * 5)]} ${["Moreira", "Barbosa", "Nunes", "Mendes", "Cardoso"][Math.floor(Math.random() * 5)]}`,
+            age: 28 + Math.floor(Math.random() * 22),
+            nationality: 'Brasil',
+            photoUrl: `https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150`,
+            teamId: oldTeamId,
+            reputationTier: 'B',
+            popularity: 65,
+            style: 'Equilibrado',
+            emotionalProfile: 'Analítico',
+            stats: { wins: 0, losses: 0, titles: 0, financialEfficiency: 75, youthPromotions: 0 },
+            titlesGallery: [],
+            previousTeams: [{ teamName: oldTeam.name, years: `${prev.season || 1}º Ano` }],
+            recentResults: [],
+            topChampions: ['Azir', 'Orianna']
+          };
+          aiReplacementName = newMgr.name;
+          nextManagers.push(newMgr);
+        }
+      }
+
+      // 4. Inverter controle humano no banco de dados de equipes
+      const nextTeams = prev.teams.map(t => {
+        if (t.id === newTeamId) {
+          return { 
+            ...t, 
+            isPlayerControlled: true,
+            boardTrust: 80,
+            popularity: Math.min(100, t.popularity + 5)
+          };
+        }
+        if (oldTeamId && t.id === oldTeamId) {
+          return { 
+            ...t, 
+            isPlayerControlled: false 
+          };
+        }
+        return t;
+      });
+
+      const nextProposals = (prev.jobProposals || []).filter(p => p.teamId !== newTeamId);
+
+      return {
+        ...prev,
+        playerTeamId: newTeamId,
+        teams: nextTeams,
+        managers: nextManagers,
+        jobProposals: nextProposals
+      };
+    });
+
+    triggerNotification?.(
+      "💼 Contrato Estipulado!", 
+      `Você assumiu as rédeas da equipe ${proposal.teamName}! O manager anterior foi demitido e um treinador IA assumiu as rédeas na sua antiga organização.`
+    );
+
+    setSelectedProposalId(null);
+    setSelectedManagerId('player-manager');
+    setActiveSubTab('profile');
+  };
 
   const activeManager = managersList.find(m => m.id === selectedManagerId) || managersList.find(m => m.id === 'player-manager') || {
     id: 'player-manager',
@@ -7153,7 +7425,7 @@ export function CarreiraTab({ gameState, theme, onUpdateGameState }: CarreiraTab
             onClick={() => setActiveSubTab('market')}
             className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold uppercase transition-all tracking-wider ${activeSubTab === 'market' ? activeTabStyle : inactiveTabStyle}`}
           >
-            Central de Empregos
+            Central de Propostas
           </button>
         </div>
       </div>
@@ -7338,88 +7610,205 @@ export function CarreiraTab({ gameState, theme, onUpdateGameState }: CarreiraTab
               <div className="flex justify-between items-center pb-2 border-b border-slate-500/10">
                 <div>
                   <h3 className="text-xs font-black tracking-widest uppercase">CENTRAL DE DESEMPREGADOS & MERCADO DE STAFF</h3>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Managers atualmente aguardando propostas esportivas de conselhos diretivos.</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Analise propostas oficiais recebidas de comissões técnicas de organizações rivais do ecossistema.</p>
                 </div>
-                <span className="px-2 py-0.5 rounded text-[8px] font-black bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase">MERCADO LIVRE</span>
+                <span className="px-2 py-0.5 rounded text-[8px] font-black bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 uppercase">PROPOSTAS ATIVAS</span>
               </div>
 
-              <div className="space-y-4 max-h-[640px] overflow-y-auto pr-1 scrollbar-thin">
-                {managersList.filter(m => m.teamId === null).map((mgr) => {
-                  return (
-                    <div 
-                      key={mgr.id}
-                      className={`p-4 rounded-xl border flex flex-col md:flex-row justify-between items-start md:items-center gap-4 ${isDark ? 'bg-slate-900/60 border-slate-800/60' : 'bg-slate-50 border-slate-200'}`}
-                    >
-                      <div className="flex gap-3">
-                        <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-800 border border-slate-500/20 shrink-0 flex items-center justify-center">
-                          <img 
-                            referrerPolicy="no-referrer" 
-                            src={getGameAssetUrl('managers', mgr.id, mgr.photoUrl)} 
-                            alt={mgr.name} 
-                            className="w-full h-full object-cover bg-transparent" 
-                            onError={(e) => { e.currentTarget.src = 'assets/ui/fallback-player.png'; }}
-                          />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-bold text-xs" style={{ color: isDark ? '#ffffff' : '#0f172a' }}>{mgr.name}</h4>
-                            <span className="px-1 py-0.2 bg-slate-500/20 rounded text-[8px] font-bold">{mgr.reputationTier} Tier</span>
+              {/* SPLIT PANEL GRID: Left holds list of offers, Right holds the active detail contract */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                {/* LEFT: Cards of job proposals */}
+                <div className="space-y-3 max-h-[580px] overflow-y-auto pr-1 scrollbar-thin">
+                  {(gameState.jobProposals || []).length > 0 ? (
+                    (gameState.jobProposals || []).map((proposal: any) => {
+                      const isSelected = selectedProposalId === proposal.id;
+                      const matchedTeam = gameState.teams.find(t => t.id === proposal.teamId);
+                      const displayLogo = matchedTeam?.logoUrl;
+                      const remainingWeeks = proposal.expiresWeek ? (proposal.expiresWeek - (gameState.week || 1)) : 2;
+
+                      let scenarioBadge = <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[7px] font-black">PROPOSTA DE CARREIRA</span>;
+                      if (proposal.scenario === 'RUIM') {
+                        scenarioBadge = <span className="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[7px] font-black">RECONSTRUÇÃO / SAIR DA LANTERNA</span>;
+                      } else if (proposal.scenario === 'BOM_VITORIAS') {
+                        scenarioBadge = <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[7px] font-black">TIER ELITE / BUSCA DO TÍTULO</span>;
+                      } else if (proposal.scenario === 'BOM_FINANCEIRO') {
+                        scenarioBadge = <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[7px] font-black">ESTABILIDADE FISCAL E INFRA</span>;
+                      }
+
+                      return (
+                        <div 
+                          key={proposal.id}
+                          id={proposal.id}
+                          onClick={() => setSelectedProposalId(proposal.id)}
+                          className={`p-4 rounded-xl border flex gap-3 cursor-pointer transition-all hover:scale-[1.01] relative overflow-hidden ${
+                            isSelected 
+                              ? 'border-[#00cbd6] bg-[#00cbd6]/5 shadow-md' 
+                              : (isDark ? 'bg-slate-900/60 border-slate-800/60 hover:bg-slate-850' : 'bg-slate-50 border-slate-200 hover:bg-slate-100')
+                          }`}
+                        >
+                          <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: proposal.primaryColor || '#00cbd6' }} />
+
+                          <div className="w-11 h-11 rounded-lg flex items-center justify-center font-black text-xs text-white shrink-0 border border-slate-500/10 relative overflow-hidden bg-slate-950/60 shadow-inner">
+                            {displayLogo ? (
+                              <img 
+                                referrerPolicy="no-referrer"
+                                src={displayLogo} 
+                                alt={proposal.teamName} 
+                                className="w-8 h-8 object-contain"
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                              />
+                            ) : (
+                              <span style={{ color: proposal.primaryColor || '#00cbd6' }}>
+                                {proposal.acronym || proposal.teamName.slice(0, 3).toUpperCase()}
+                              </span>
+                            )}
                           </div>
-                          <p className={`text-[10.5px] mt-0.5 ${textMutedStyle}`}>
-                            {mgr.nationality} • {mgr.age} anos • {mgr.style} • {mgr.emotionalProfile}
+
+                          <div className="flex-1 space-y-1 min-w-0">
+                            <div className="flex justify-between items-start">
+                              <h4 className="font-extrabold text-[11.5px] truncate text-slate-100" style={{ color: isDark ? '#ffffff' : '#0f172a' }}>
+                                {proposal.teamName}
+                              </h4>
+                              <span className="text-[8px] font-mono font-black text-rose-500 bg-rose-500/5 px-1 py-0.5 rounded border border-rose-500/10 leading-none">
+                                {`$ ${proposal.salary.toLocaleString()}/sem`}
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between items-center text-[9.5px]">
+                              <span className={textMutedStyle}>{proposal.region || 'CBLOL'} • Orc: ${(proposal.budget / 1000000).toFixed(1)}M</span>
+                            </div>
+
+                            <div className="flex justify-between items-center pt-2 mt-1 border-t border-slate-500/10 text-[8.5px] gap-2">
+                              {scenarioBadge}
+                              <span className="text-amber-500 font-extrabold flex items-center gap-0.5">
+                                <Clock className="w-2.5 h-2.5" /> Expira em {remainingWeeks > 0 ? remainingWeeks : 1} sem
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="py-16 text-center border border-dashed border-slate-800 rounded-xl space-y-2">
+                      <Briefcase className="w-9 h-9 mx-auto opacity-35 text-cyan-400 animate-bounce" />
+                      <p className="font-bold text-xs uppercase tracking-widest text-[#00cbd6]">Nenhuma Proposta Ativa</p>
+                      <p className="text-[10px] text-slate-500">Volte na próxima rodada ou passe a semana para receber novas ofertas.</p>
+                      {onUpdateGameState && (
+                        <button
+                          onClick={() => {
+                            onUpdateGameState(prev => {
+                              if (!prev) return prev;
+                              return {
+                                ...prev,
+                                jobProposals: ensureJobProposals(prev)
+                              };
+                            });
+                          }}
+                          className="mt-3 bg-cyan-600 hover:bg-cyan-500 text-white text-[9px] uppercase font-black py-1.5 px-3.5 rounded-lg transition"
+                        >
+                          Escanear Propostas Novamente
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* RIGHT: Active selected proposal specifications */}
+                <div className={`p-5 rounded-xl border flex flex-col justify-between min-h-[440px] ${
+                  isDark ? 'bg-[#09111e] border-slate-800/80' : 'bg-slate-100 border-slate-200/80 shadow-inner'
+                }`}>
+                  {selectedProposal ? (
+                    <div className="flex flex-col h-full justify-between gap-4">
+                      <div className="space-y-4">
+                        {/* Card Title Header with Team Details */}
+                        <div className="flex justify-between items-start pb-2 border-b border-slate-500/10">
+                          <div>
+                            <span className="text-[7.5px] tracking-wider font-extrabold uppercase text-cyan-400">ESPECIFICAÇÕES DE CONTRATO</span>
+                            <h3 className="text-[14px] font-black" style={{ color: isDark ? '#ffffff' : '#0f172a' }}>{selectedProposal.teamName}</h3>
+                            <p className="text-[9.5px] text-slate-400 font-semibold">Liga Afiliada: <strong className="text-white">{selectedProposal.region || 'CBLOL'}</strong></p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[7.5px] block font-bold text-gray-400 uppercase leading-none mb-0.5">Orçamento Geral</span>
+                            <span className="text-xs font-mono font-black text-emerald-400 leading-none">$ {selectedProposal.budget.toLocaleString()}</span>
+                          </div>
+                        </div>
+
+                        {/* board motivation text */}
+                        <div className="space-y-1.5">
+                          <h4 className="text-[9px] font-extrabold uppercase text-zinc-400 flex items-center gap-1.5 letters-wider">
+                            <Award className="w-3.5 h-3.5 text-cyan-400 shrink-0" /> MOTIVAÇÃO DO CONSELHO
+                          </h4>
+                          <p className="text-[11px] leading-relaxed text-justify text-slate-300" style={{ color: isDark ? '#cbd5e1' : '#334155' }}>
+                            {selectedProposal.motivationReason}
                           </p>
-                          <p className="text-[10.5px] text-cyan-400 font-semibold mt-1">
-                            Popularidade: {mgr.popularity}% • Desempenho Histórico: {mgr.stats.wins}V - {mgr.stats.losses}D
+                        </div>
+
+                        {/* board expectation */}
+                        <div className="space-y-1.5">
+                          <h4 className="text-[9px] font-extrabold uppercase text-zinc-400 flex items-center gap-1.5 letters-wider">
+                            <Shield className="w-3.5 h-3.5 text-amber-500 shrink-0" /> EXPECTATIVA DA DIREÇÃO
+                          </h4>
+                          <p className="text-[11px] leading-relaxed text-justify text-slate-300" style={{ color: isDark ? '#cbd5e1' : '#334155' }}>
+                            {selectedProposal.expectation}
                           </p>
+                        </div>
+
+                        {/* job compensations panel layout */}
+                        <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-500/10">
+                          <div className="p-3 rounded-lg bg-black/15 text-center">
+                            <span className="text-[7px] text-zinc-400 uppercase font-black block leading-none mb-1">Salário Semanal</span>
+                            <span className="text-xs font-mono font-black text-emerald-400">{`$ ${selectedProposal.salary.toLocaleString()}/sem`}</span>
+                          </div>
+                          <div className="p-3 rounded-lg bg-black/15 text-center">
+                            <span className="text-[7px] text-zinc-400 uppercase font-black block leading-none mb-1">Tempo de Contrato</span>
+                            <span className="text-xs font-extrabold text-white">{selectedProposal.contractWeeks} semanas</span>
+                          </div>
                         </div>
                       </div>
 
-                      <div className="flex gap-2 w-full md:w-auto">
-                        <button
-                          onClick={() => { setSelectedManagerId(mgr.id); setActiveSubTab('profile'); }}
-                          className={`flex-1 md:flex-initial px-3 py-1.5 text-[9.5px] font-extrabold uppercase tracking-wide border rounded cursor-pointer transition-all ${isDark ? 'border-slate-800 text-slate-300 hover:bg-slate-850' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`}
-                        >
-                          Análise Tática
-                        </button>
-                        {onUpdateGameState && (
+                      {/* Interactive Acceptance Panel Options */}
+                      <div className="flex flex-col gap-2 pt-4 border-t border-slate-500/10">
+                        <div className="flex gap-2.5">
                           <button
                             onClick={() => {
-                              onUpdateGameState((prev) => {
-                                if (!prev) return prev;
-                                // Fire player or simulated swap
-                                const nextList = (prev.managers || []).map(m => {
-                                  if (m.id === 'player-manager') {
-                                    return { ...m, teamId: null }; // Unemploy player
-                                  }
-                                  if (m.id === mgr.id) {
-                                    return { ...m, teamId: prev.playerTeamId }; // Hire selected
-                                  }
-                                  return m;
-                                });
-                                return {
-                                  ...prev,
-                                  managers: nextList
-                                };
-                              });
-                              setSimulationLogs(prev => [`🤝 HIRE: ${mgr.name} foi contratado pelo clube do jogador para compor o staff corporativo titular!`, ...prev]);
+                              const confirmAccept = window.confirm(
+                                `⚠️ CONFIRMAR TRANSFERÊNCIA DE CARREIRA!\n\n` +
+                                `Deseja rescindir com seu clube atual e assinar com a ${selectedProposal.teamName}?\n\n` +
+                                `• Salário: $ ${selectedProposal.salary.toLocaleString()}/semana\n` +
+                                `• Vencimento do Contrato: ${selectedProposal.contractWeeks} semanas\n\n` +
+                                `Nota: Ao assinar, o manager anterior da ${selectedProposal.teamName} é demitido do cargo, e um manager IA inteligente assume o comando da sua equipe anterior.`
+                              );
+                              if (confirmAccept) {
+                                handleAcceptProposal(selectedProposal);
+                              }
                             }}
-                            className="flex-1 md:flex-initial px-3 py-1.5 text-[9.5px] font-extrabold bg-cyan-600 hover:bg-cyan-500 text-white rounded cursor-pointer transition-all uppercase tracking-wide"
+                            className="flex-1 bg-emerald-600 hover:bg-emerald-500 hover:scale-[1.01] text-white font-black text-[10.5px] uppercase py-2.5 rounded-lg text-center transition cursor-pointer shadow-md"
                           >
-                            CONTRATAR PARA STAFF
+                            Aceitar Proposta
                           </button>
-                        )}
+                          <button
+                            onClick={() => handleRefuseProposal(selectedProposal.id)}
+                            className="flex-1 bg-red-600/15 hover:bg-red-600 text-red-500 hover:text-white font-black text-[10.5px] uppercase py-2.5 rounded-lg text-center transition cursor-pointer border border-red-500/20"
+                          >
+                            Recusar Oferta
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => setSelectedProposalId(null)}
+                          className="w-full bg-slate-700/25 hover:bg-slate-700/40 text-slate-300 font-extrabold text-[9.5px] uppercase py-2 rounded-lg text-center transition cursor-pointer"
+                        >
+                          Cancelar / Postergar Decisão
+                        </button>
                       </div>
                     </div>
-                  );
-                })}
-
-                {managersList.filter(m => m.teamId === null).length === 0 && (
-                  <div className="py-16 text-center text-slate-550 border border-dashed border-slate-800 rounded-xl">
-                    <Users className="w-10 h-10 mx-auto mb-2 opacity-45 text-cyan-400" />
-                    <p className="font-bold text-xs uppercase tracking-widest">Nenhum Manager Disponível</p>
-                    <p className="text-[11px] mt-1 text-slate-500 font-semibold text-center">Todas as organizações estão com suas comissões técnicas ativas no momento.</p>
-                  </div>
-                )}
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-center py-20 text-slate-500 space-y-1.5">
+                      <Briefcase className="w-8 h-8 opacity-30 text-[#00cbd6] animate-pulse" />
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">Nenhuma Proposta Selecionada</h4>
+                      <p className="text-[10px] max-w-[210px] mx-auto">Selecione uma das comissões técnicas na lista à esquerda para inspecionar os detalhes do convite de liderança.</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           ) : (

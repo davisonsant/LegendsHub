@@ -317,6 +317,7 @@ export interface GameState {
   corporationStaffEmployees?: CorporationStaff[];
   corporationStaffJobPool?: CorporationStaff[];
   managers?: Manager[];
+  jobProposals?: any[];
   careerHistory: {
     year: number;
     teamName: string;
