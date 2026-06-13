@@ -1,0 +1,34 @@
+{
+  "version": "1.0.0",
+  "description": "Banco de dados oficial protegido do LegendsHub Manager.",
+  "lastModified": 1717757000000,
+  "teams": {
+    "CBLOL": [
+      { "id": "pain-gaming", "name": "paiN Gaming", "acronym": "PNG", "popularity": "ALTA", "budget": 3500000, "primaryColor": "#000000", "secondaryColor": "#FF0000", "logoUrl": "" },
+      { "id": "loud-gaming", "name": "LOUD", "acronym": "LLL", "popularity": "ALTA", "budget": 3600000, "primaryColor": "#00FF00", "secondaryColor": "#000000", "logoUrl": "" },
+      { "id": "vivo-keyd-stars", "name": "Vivo Keyd Stars", "acronym": "VKS", "popularity": "MEDIA", "budget": 2800000, "primaryColor": "#0000FF", "secondaryColor": "#FFFFFF", "logoUrl": "" },
+      { "id": "red-canids", "name": "RED Canids", "acronym": "RED", "popularity": "MEDIA", "budget": 2500000, "primaryColor": "#FF0000", "secondaryColor": "#333333", "logoUrl": "" },
+      { "id": "furia-esports", "name": "FURIA", "acronym": "FUR", "popularity": "MEDIA", "budget": 2600000, "primaryColor": "#FFFFFF", "secondaryColor": "#000000", "logoUrl": "" },
+      { "id": "fluxo-w7m", "name": "Fluxo Esports", "acronym": "FLX", "popularity": "BAIXA", "budget": 1800000, "primaryColor": "#5B21B6", "secondaryColor": "#111827", "logoUrl": "" }
+    ],
+    "LCK": [
+      { "id": "lck_t1", "name": "T1", "acronym": "T1", "popularity": "ALTA", "budget": 8500000, "primaryColor": "#E50914", "secondaryColor": "#222222", "logoUrl": "" },
+      { "id": "lck_geng", "name": "Gen.G", "acronym": "GEN", "popularity": "ALTA", "budget": 8800000, "primaryColor": "#D4AF37", "secondaryColor": "#111111", "logoUrl": "" },
+      { "id": "lck_dplus", "name": "Dplus KIA", "acronym": "DK", "popularity": "MEDIA", "budget": 6200000, "primaryColor": "#000000", "secondaryColor": "#00E5FF", "logoUrl": "" }
+    ]
+  },
+  "champions": [
+    { "id": "aatrox", "name": "Aatrox", "tier": "A", "power": 85, "roles": ["TOP"], "buffStatus": "NORMAL" },
+    { "id": "ahri", "name": "Ahri", "tier": "S+", "power": 96, "roles": ["MID"], "buffStatus": "BUFFED" },
+    { "id": "azir", "name": "Azir", "tier": "S", "power": 91, "roles": ["MID"], "buffStatus": "NORMAL" },
+    { "id": "jinx", "name": "Jinx", "tier": "A", "power": 84, "roles": ["ADC"], "buffStatus": "NORMAL" },
+    { "id": "keria", "name": "Keria", "tier": "S+", "power": 95, "roles": ["SUP"], "buffStatus": "NORMAL" }
+  ],
+  "sponsors": [
+    { "id": "spon_intel", "name": "Intel Gaming", "incomePerWeek": 154000, "termsInWeeks": 12, "minPopularity": 60, "logoUrl": "" },
+    { "id": "spon_coca", "name": "Coca-Cola Essentials", "incomePerWeek": 210000, "termsInWeeks": 8, "minPopularity": 75, "logoUrl": "" },
+    { "id": "spon_redbull", "name": "Red Bull Energy", "incomePerWeek": 180500, "termsInWeeks": 16, "minPopularity": 65, "logoUrl": "" },
+    { "id": "spon_razer", "name": "Razer Equipment", "incomePerWeek": 132000, "termsInWeeks": 24, "minPopularity": 50, "logoUrl": "" },
+    { "id": "spon_bmw", "name": "BMW Esports", "incomePerWeek": 310000, "termsInWeeks": 16, "minPopularity": 80, "logoUrl": "" }
+  ]
+}

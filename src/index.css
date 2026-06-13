@@ -1,0 +1,232 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@400;550;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+:root, body.light-mode {
+  --bg-main-panel: #E2E8F0;          /* Fundo cinza claro geral */
+  --bg-card: #FFFFFF;                /* Fundo de blocos e cabeçalhos de tabelas */
+  --bg-row-even: #F8FAFC;            /* Linhas alternadas da tabela (clara) */
+  --bg-row-hover: #F1F5F9;           /* Hover na linha da tabela */
+  --border-element: #CBD5E1;         /* Bordas divisórias */
+  --text-main: #1E293B;              /* Texto principal */
+  --text-muted: #64748B;             /* Subtextos */
+
+  /* TOKENS DE COR DE IDENTIDADE VISUAL */
+  --primary-brand-color: #1A5CFF;
+  --bg-main-canvas: #F4F6F9;
+  --bg-card-surface: #FFFFFF;
+  --bg-card-inactive: #E4E7EC;
+  --text-primary: #101828;
+}
+
+body.dark-mode {
+  --bg-main-panel: #121824;          /* Fundo escuro geral */
+  --bg-card: #1A2333;                /* Fundo dos cards e tabelas */
+  --bg-row-even: #1E293B;            /* Linhas alternadas da tabela (escura) */
+  --bg-row-hover: #26334D;           /* Hover na linha da tabela */
+  --border-element: #2E3A4E;         /* Bordas escuras */
+  --text-main: #F8FAFC;              /* Texto principal claro */
+  --text-muted: #94A3B8;             /* Subtextos claros */
+
+  /* TOKENS DE COR DE IDENTIDADE VISUAL (DARK ADAPTATION) */
+  --primary-brand-color: #00cbd6;
+  --bg-main-canvas: #070d19;
+  --bg-card-surface: #0a1424;
+  --bg-card-inactive: #0c1424;
+  --text-primary: #ffffff;
+}
+
+body {
+  background-color: #f8fafd;
+  color: #1e293b;
+  font-family: var(--font-sans);
+}
+
+.table-row, .champion-card, .achievement-card, .panel-header {
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}
+
+/* Layout da Área do Mapa de Scouting */
+.scouting-map-container {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-element);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    min-height: 320px;
+}
+
+/* Pinos de Região Estilizados */
+.map-pin {
+    display: inline-flex;
+    align-items: center;
+    background-color: transparent;
+    border: 2px solid #3B82F6; /* Azul dos botões das telas */
+    color: #3B82F6;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.map-pin:hover {
+    background-color: rgba(59, 130, 246, 0.1);
+    transform: translateY(-2px);
+}
+
+/* Sistema de Estrelas do Staff */
+.staff-stars {
+    color: #FBBF24; /* Amarelo Ouro para as estrelas */
+    font-size: 16px;
+}
+
+/* Slot de Destaque do Head de Scouting */
+.head-scout-card {
+    border: 2px dashed #3B82F6;
+    background-color: rgba(59, 130, 246, 0.02);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 15px;
+}
+
+/* Botão Mudar Head / Ação do Líder */
+.btn-change-head {
+    background-color: var(--bg-main-panel); /* Adapta ao fundo inverso */
+    color: var(--text-main);
+    border: 1px solid var(--border-element);
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+/* Garanta legibilidade no Light Mode */
+body.light-mode .btn-change-head {
+    background-color: #E2E8F0;
+    color: #1E293B;
+    border-color: #CBD5E1;
+}
+body.light-mode .btn-change-head:hover {
+    background-color: #CBD5E1;
+}
+
+body.dark-mode .btn-change-head {
+    background-color: var(--bg-main-panel);
+    color: var(--text-main);
+    border-color: var(--border-element);
+}
+body.dark-mode .btn-change-head:hover {
+    background-color: var(--bg-row-even);
+}
+
+/* ==========================================================================
+   AVATARES PROCEDURAIS POR GÊNERO (FALLBACKS)
+   ========================================================================== */
+.scout-avatar-container {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: #FFFFFF;
+    overflow: hidden;
+}
+
+/* Fallbacks de Cores solicitados pela IA do Google Studio */
+.avatar-fallback-M {
+    background: linear-gradient(135deg, #1E3A8A, #3B82F6); /* Tons de Azul/Ciano */
+    border: 2px solid #60A5FA;
+}
+
+.avatar-fallback-F {
+    background: linear-gradient(135deg, #701A75, #EC4899); /* Tons de Rosa/Roxo */
+    border: 2px solid #F472B6;
+}
+
+.scout-procedural-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* ==========================================================================
+   ELEMENTOS DA FILA SOLO (JOVENS TALENTOS)
+   ========================================================================== */
+.badge-scouted {
+    background-color: #EF4444;
+    color: white;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.meta-champions-flex {
+    display: flex;
+    gap: 6px;
+}
+
+.champ-mini-tag {
+    background-color: rgba(59, 130, 246, 0.1);
+    color: #3B82F6;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+body.dark-mode .champ-mini-tag {
+  background-color: rgba(59, 130, 246, 0.2);
+  color: #60A5FA;
+}
+
+/* Slide-in animation for loaded items */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-slide-in {
+  animation: slideIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Destaque visual requintado para a semana corrente */
+.current-week-card {
+  border-width: 2px;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body.dark-mode .current-week-card {
+  border-color: #00cbd6 !important;
+  background-color: rgba(0, 203, 214, 0.05) !important;
+  box-shadow: 0 0 20px rgba(0, 203, 214, 0.15), inset 0 0 10px rgba(0, 203, 214, 0.05);
+}
+
+body.light-mode .current-week-card {
+  border-color: #1A5CFF !important;
+  background-color: rgba(26, 92, 255, 0.04) !important;
+  box-shadow: 0 4px 15px rgba(26, 92, 255, 0.1), inset 0 0 8px rgba(26, 92, 255, 0.02);
+}
+
+
+
+
+

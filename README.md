@@ -1,11 +1,27 @@
-<div align="center">
+# 🎮 LegendsHub Manager
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+Um simulador e gerenciador tático de eSports inspirado no cenário competitivo de **League of Legends** (LoL), no estilo *Football Manager* e *Brasfoot*.
 
-  <h1>Built with AI Studio</h2>
+## 🚀 Como Iniciar
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+### 1. Instalar Dependências
+```bash
+npm install
+```
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+### 2. Desenvolvimento Web
+```bash
+npm run dev
+```
 
-</div>
+### 3. Executar App Desktop
+```bash
+npm run desktop:start
+```
+
+### 4. Compilar para Windows (.exe)
+```bash
+npm run desktop:build
+```
+
+O executável portátil será salvo na pasta `dist-desktop/` como `LegendsHub Manager_Portable.exe`.

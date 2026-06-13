@@ -1,0 +1,4606 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Play, FolderOpen, Edit, Settings, Trash2, Shield, Circle, User, 
+  ChevronRight, Calendar, Globe, Upload, HelpCircle, Save, Download, 
+  Moon, Sun, RefreshCw, X, Check, Award, Server, Layers, Terminal, Cpu,
+  Music, Gamepad2, Keyboard, Database, Volume2, AlertTriangle
+} from 'lucide-react';
+import { REGIONAL_TEAMS_DATABASE, CHAMPIONS_LIST, SPONSOR_PRESETS } from '../data/initialDatabase';
+import { getPlayersForTeam, REAL_ROSTERS_DB } from '../data/realPlayers';
+import { SavedGameHeader, Team, Position, Player, Sponsor, Champion } from '../types';
+import { getGameItem, setGameItem, removeGameItem } from '../utils/localForageStore';
+import { GameEditor } from './GameEditor';
+import { getGameAssetUrl } from '../utils/gameAssets';
+
+interface HomeLauncherProps {
+  onStartNewGame: (managerName: string, selectedTeamId: string, region: 'CBLOL' | 'LCK' | 'LPL' | 'LEC' | 'LCS' | 'LCP', year: number) => void;
+  onLoadGame: (slotId: string) => void;
+  onOpenEditor: () => void;
+  onOpenSettings: () => void;
+}
+
+type LauncherState = 'MENU' | 'DISCLAIMER' | 'PROFILE' | 'TEAM_SELECT' | 'DB_SETTINGS' | 'DB_SELECT' | 'LOAD_CAREER' | 'EDITOR_JOGO' | 'WIZARD';
+
+const LOCALIZED_TEXT = {
+  'PT-BR': {
+    title: 'LEGENDS HUB',
+    subtitle: 'Gerencie sua equipe rumo ao Worlds.',
+    newCareer: 'NOVA CARREIRA',
+    continueGame: 'CONTINUAR JOGO',
+    editor: 'EDITOR DE JOGO',
+    settingsDb: 'CONFIGURAÇÕES & BANCO DE DADOS',
+    exit: 'SAIR',
+    disclaimerTitle: 'AVISO LEGAL',
+    disclaimerSub: 'Leia antes de continuar',
+    disclaimerBody: 'Este software é uma simulação gerencial de eSports estritamente fictícia para fins de entretenimento e estudo, sem fins lucrativos.',
+    disclaimerTag: 'Este projeto é fan-made e independente. Nenhuma receita comercial é gerada a partir deste jogo.',
+    disclaimerBtn: 'LI E CONCORDO →',
+    profileTitle: 'Crie seu Manager',
+    profileDesc: 'Você assume o comando de uma organização. Comece definindo seu nome e idade — eles vão aparecer na sua bio, contratos e nos boletins da imprensa.',
+    nameLabel: 'Nome do Manager',
+    placeholderName: 'Ex: Erick Santos',
+    ageLabel: 'Idade do Manager',
+    regionLabel: 'Região Principal',
+    nationalityLabel: 'Nacionalidade do Manager',
+    photoLabel: 'Foto de Perfil',
+    langLabel: 'Idioma Selecionado',
+    currencyLabel: 'Moeda Selecionada',
+    themeLabel: 'Tema de Cores',
+    cancel: 'CANCELAR',
+    confirmProfile: 'CONFIRMAR PERFIL →',
+    selectTeamTitle: 'Selecione sua Equipe',
+    selectTeamDesc: 'Escolha uma organização de League of Legends para iniciar seu caminho como pro manager.',
+    gridRegions: 'Filtrar por Região',
+    gridLigas: 'Ligas Associadas',
+    gridTeams: 'Grid de Instalações de Times',
+    budgetLabel: 'ORÇAMENTO DE CAIXA',
+    fansLabel: 'TORCIDA ATIVA',
+    tierLabel: 'TIER COMPUTADO',
+    starsLabel: 'PRESTÍGIO INTERNACIONAL',
+    startCareerBtn: 'COMEÇAR CARREIRA →',
+    customAvatar: 'Selecione o Avatar do Manager',
+    dbSettingsLabel: 'Gerenciar Banco de Dados (.db)',
+    dbExport: 'EXPORTAR DATABASE (.db)',
+    dbImport: 'IMPORTAR DATABASE (.db)',
+    dbStatus: 'Banco de Dados Ativo',
+    dbOfficial: 'OFICIAL INTERNO (PADRÃO)',
+    dbCustom: 'IMPORTADO REGISTRADO (.db)',
+    dbReset: 'RESTAURAR PADRÕES',
+    activeSavePreview: 'Última gravação identificada no Slot',
+    back: 'VOLTAR AO MENU',
+  },
+  'EN-US': {
+    title: 'LEGENDS HUB',
+    subtitle: 'Manage your team on the road to Worlds.',
+    newCareer: 'NEW CAREER',
+    continueGame: 'CONTINUE CAREER',
+    editor: 'GAME EDITOR',
+    settingsDb: 'SETTINGS & DATABASE',
+    exit: 'QUIT',
+    disclaimerTitle: 'LEGAL DISCLAIMER',
+    disclaimerSub: 'Read before proceeding',
+    disclaimerBody: 'This software is a strictly fictional management eSports simulation designed for study and entertainment purposes, with no commercial intents.',
+    disclaimerTag: 'This project is independent and fan-made. No commercial revenue is generated from playing this game.',
+    disclaimerBtn: 'I AGREE & PROCEED →',
+    profileTitle: 'Create Your Manager',
+    profileDesc: 'You take control of an Esports franchise. Define your professional name and age — they will appear on contracts, bio cards and media alerts.',
+    nameLabel: 'Manager Full Name',
+    placeholderName: 'E.g. Erick Santos',
+    ageLabel: 'Manager Age',
+    regionLabel: 'Primary Region',
+    nationalityLabel: 'Nationality',
+    photoLabel: 'Profile Picture',
+    langLabel: 'Active Language',
+    currencyLabel: 'Active Currency',
+    themeLabel: 'Active Theme',
+    cancel: 'CANCEL',
+    confirmProfile: 'CONFIRM MANAGER →',
+    selectTeamTitle: 'Select Your Team',
+    selectTeamDesc: 'Choose a historic League of Legends organization to launch your grand executive dynasty.',
+    gridRegions: 'Filter by Region',
+    gridLigas: 'Associated Leagues',
+    gridTeams: 'Teams Installation Roster',
+    budgetLabel: 'STARTING BUDGET',
+    fansLabel: 'ACTIVE FANBASE',
+    tierLabel: 'COMPUTED TIER',
+    starsLabel: 'INTERNATIONAL PRESTIGE',
+    startCareerBtn: 'START GRAND CAREER →',
+    customAvatar: 'Choose Manager Appearance',
+    dbSettingsLabel: 'Manage Database Files (.db)',
+    dbExport: 'EXPORT DATABASE (.db)',
+    dbImport: 'IMPORT DATABASE (.db)',
+    dbStatus: 'Active Database',
+    dbOfficial: 'OFFICIAL INTERNAL DEFAULTS',
+    dbCustom: 'CUSTOM LOADED (.db)',
+    dbReset: 'RESTORE ORIGINAL DEFAULTS',
+    activeSavePreview: 'Last detected career state in Slot',
+    back: 'BACK TO MENU',
+  },
+  'ES-ES': {
+    title: 'LEGENDS HUB',
+    subtitle: 'Gestiona tu equipo rumbo al Worlds.',
+    newCareer: 'NUEVA CARRERA',
+    continueGame: 'CONTINUAR CARRERA',
+    editor: 'EDITOR DE JUEGO',
+    settingsDb: 'AJUSTES & BASE DE DATOS',
+    exit: 'SALIR',
+    disclaimerTitle: 'AVISO LEGAL',
+    disclaimerSub: 'Leer antes de continuar',
+    disclaimerBody: 'Este software es una simulación de gestión de deportes electrónicos estrictamente ficticia con fines de entretenimiento y estudio, sin fines de lucro.',
+    disclaimerTag: 'Este proyecto es independiente y creado por fans. No se genera ningún tipo de beneficio comercial con este juego.',
+    disclaimerBtn: 'HE LEÍDO Y ACEPTO →',
+    profileTitle: 'Crea tu Mánager',
+    profileDesc: 'Tomas el timón de una organización de eSports. Comienza definiendo tu nombre y edad, se usarán en tu ficha bio, contratos de patrocinio e informes de prensa.',
+    nameLabel: 'Nombre del Mánager',
+    placeholderName: 'Ej: Erick Santos',
+    ageLabel: 'Edad del Mánager',
+    regionLabel: 'Región Principal',
+    nationalityLabel: 'Nacionalidad',
+    photoLabel: 'Foto de Perfil',
+    langLabel: 'Idioma Seleccionado',
+    currencyLabel: 'Moneda Activa',
+    themeLabel: 'Tema de Interfaz',
+    cancel: 'CANCELAR',
+    confirmProfile: 'CONFIRMAR MÁNAGER →',
+    selectTeamTitle: 'Selecciona tu Equipo',
+    selectTeamDesc: 'Elige una organización mítica de League of Legends para dar inicio a tu dinastía directiva.',
+    gridRegions: 'Filtrar por Región',
+    gridLigas: 'Ligas Asociadas',
+    gridTeams: 'Instalaciones de Equipos',
+    budgetLabel: 'PRESUPUESTO DE CAJA',
+    fansLabel: 'AFICIÓN ACTIVA',
+    tierLabel: 'TIER DETALLADO',
+    starsLabel: 'PRESTIGIO INTERNACIONAL',
+    startCareerBtn: 'COMENZAR CARRERA →',
+    customAvatar: 'Seleccionar Imagen de Mánager',
+    dbSettingsLabel: 'Gestión de Base de Datos (.db)',
+    dbExport: 'EXPORTAR BASE DE DATOS (.db)',
+    dbImport: 'IMPORTAR BASE DE DATOS (.db)',
+    dbStatus: 'Base de Datos Activa',
+    dbOfficial: 'OFICIAL INTERNA (POR DEFECTO)',
+    dbCustom: 'SOPORTE IMPORTADO (.db)',
+    dbReset: 'RESTAURAR VALORES DE FÁBRICA',
+    activeSavePreview: 'Último progreso detectado en el Slot',
+    back: 'VOLVER AL MENÚ',
+  }
+};
+
+const NATIONALITIES = ['Brasil', 'United States', 'South Korea', 'Spain', 'China', 'Germany', 'France', 'Poland'];
+
+const AVATAR_TEMPLATES = [
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150',
+  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150',
+  'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&q=80&w=150',
+  'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=150',
+  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150'
+];
+
+export default function HomeLauncher({
+  onStartNewGame,
+  onLoadGame,
+  onOpenEditor,
+  onOpenSettings
+}: HomeLauncherProps) {
+  // Navigation / Flow states
+  const [activeState, setActiveState] = useState<LauncherState>('MENU');
+  const [wizardStep, setWizardStep] = useState<number>(1);
+  const [scannedDatabases, setScannedDatabases] = useState<Array<{name: string; filename: string; size: string; type: string; description: string}>>([
+    { name: 'default.db', filename: 'default.db', size: '3.8 MB', type: 'Pronto (Local)', description: 'Base padrão oficial com os dados de fábrica de times, jogadores e campeonatos do LegendsHub.' },
+    { name: 'cenario_2026.db', filename: 'cenario_2026.db', size: '4.5 MB', type: 'Comunidade Update', description: 'Atualização de roster global para a Temporada 2026 trazendo as ligas CBLOL, LCK, LEC e LPL.' },
+    { name: 'fearless_draft.db', filename: 'fearless_draft.db', size: '4.1 MB', type: 'Draft Estratégico Mod', description: 'Customização focada no ecossistema competitivo do Fearless Draft com rosters alternativos.' },
+    { name: 'brasil_superliga_2026.db', filename: 'brasil_superliga_2026.db', size: '3.6 MB', type: 'Superliga Mod', description: 'Banco de dados expandindo o cenário competitivo nacional com ligas secundárias brasileiras.' }
+  ]);
+
+  const handleLoadCustomDbWizard = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const parsed = JSON.parse(ev.target?.result as string);
+          if (parsed && typeof parsed === 'object') {
+            localStorage.setItem('legendshub_custom_db', JSON.stringify(parsed));
+            setDbType('CUSTOM');
+            const newDb = {
+              name: file.name,
+              filename: file.name,
+              size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+              type: 'Customizado (Computador)',
+              description: 'Banco de dados carregado com sucesso do computador do jogador.'
+            };
+            setScannedDatabases(prev => [newDb, ...prev.filter(d => d.filename !== file.name)]);
+            setSelectedDbId(newDb.filename);
+            alert(lang === 'EN-US' ? 'Database custom map imported successfully!' : 'Banco de dados customizado importado com sucesso!');
+          }
+        } catch (err) {
+          alert('Erro ao processar arquivo .db inválido.');
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  const [showAvisoLegal, setShowAvisoLegal] = useState<boolean>(() => {
+    return localStorage.getItem('legendshub_hide_disclaimer') !== 'true';
+  });
+  const [dontShowAgain, setDontShowAgain] = useState<boolean>(false);
+  const [settingsSubTab, setSettingsSubTab] = useState<'profile' | 'appearance' | 'db' | 'saves' | 'music' | 'gameplay' | 'shortcuts'>('profile');
+  const [isSpinning, setIsSpinning] = useState(false);
+
+  // Additional settings states with persistence
+  const [uiScale, setUiScale] = useState<string>(() => {
+    return localStorage.getItem('legendshub_ui_scale') || 'Regular';
+  });
+  const [musicVolume, setMusicVolume] = useState<number>(() => {
+    return Number(localStorage.getItem('legendshub_music_volume') || '85');
+  });
+  const [sfxVolume, setSfxVolume] = useState<number>(() => {
+    return Number(localStorage.getItem('legendshub_sfx_volume') || '75');
+  });
+  const [activePlaylist, setActivePlaylist] = useState<string>(() => {
+    return localStorage.getItem('legendshub_playlist_track') || 'Legends Theme Song v2.4 (Default)';
+  });
+  const [playbackMode, setPlaybackMode] = useState<'LOOP' | 'RANDOM'>(() => {
+    return (localStorage.getItem('legendshub_playback_mode') as 'LOOP' | 'RANDOM') || 'LOOP';
+  });
+  const [simSpeed, setSimSpeed] = useState<'STANDARD' | 'FAST' | 'ULTRA'>(() => {
+    return (localStorage.getItem('legendshub_sim_speed') as 'STANDARD' | 'FAST' | 'ULTRA') || 'FAST';
+  });
+  const [aiDifficulty, setAiDifficulty] = useState<'REGULAR' | 'PROFESSIONAL' | 'HARDCORE'>(() => {
+    return (localStorage.getItem('legendshub_ai_difficulty') as 'REGULAR' | 'PROFESSIONAL' | 'HARDCORE') || 'PROFESSIONAL';
+  });
+  const [alertsEnabled, setAlertsEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('legendshub_alerts_enabled') !== 'false';
+  });
+  const [boardEvalEnabled, setBoardEvalEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('legendshub_board_eval_enabled') !== 'false';
+  });
+
+  // Interactive user preferences loaded reactively on the fly
+  const [lang, setLang] = useState<'PT-BR' | 'EN-US' | 'ES-ES'>(() => {
+    const saved = localStorage.getItem('legendshub_lang');
+    if (saved === 'en') return 'EN-US';
+    if (saved === 'es') return 'ES-ES';
+    return 'PT-BR';
+  });
+
+  const [activeCurrency, setActiveCurrency] = useState<'BRL' | 'USD' | 'EUR'>(() => {
+    return (localStorage.getItem('legendshub_currency') as 'BRL' | 'USD' | 'EUR') || 'USD';
+  });
+
+  const [activeTheme, setActiveTheme] = useState<'light' | 'dark'>(() => {
+    return (localStorage.getItem('legendshub_theme') as 'light' | 'dark') || 'dark';
+  });
+
+  // Profile manager customization fields
+  const [hasTerminated, setHasTerminated] = useState(false);
+  const [managerName, setManagerName] = useState(() => {
+    return localStorage.getItem('legendshub_temp_manager_name') || localStorage.getItem('legendshub_manager_name') || 'Erick Santos';
+  });
+  const [managerAge, setManagerAge] = useState<number>(30);
+  const [managerRegion, setManagerRegion] = useState<'CBLOL' | 'LCK' | 'LPL' | 'LEC' | 'LCS' | 'LCP'>('CBLOL');
+  const [managerNationality, setManagerNationality] = useState('Brasil');
+  const [profilePhoto, setProfilePhoto] = useState<string>(() => {
+    const saved = localStorage.getItem('legendshub_manager_avatar');
+    if (saved && (saved.startsWith('http://') || saved.startsWith('https://'))) {
+      return saved;
+    }
+    return AVATAR_TEMPLATES[0];
+  });
+  const [customPhotoFile, setCustomPhotoFile] = useState<string | null>(() => {
+    const saved = localStorage.getItem('legendshub_manager_avatar');
+    if (saved && saved.startsWith('data:image/')) {
+      return saved;
+    }
+    return null;
+  });
+
+  // Teams lists grid selection items
+  const [selectedRegionGrid, setSelectedRegionGrid] = useState<string>('Brasil');
+  const [selectedTeamId, setSelectedTeamId] = useState<string>(() => {
+    const activeDbString = localStorage.getItem('legendshub_custom_db');
+    if (activeDbString) {
+      try {
+        const currentDb = JSON.parse(activeDbString);
+        const list = currentDb['CBLOL'] || [];
+        if (list.length > 0) return list[0].id;
+      } catch(e){}
+    }
+    return 'cblol_loud';
+  });
+  const [selectedYear, setSelectedYear] = useState<number>(2025);
+
+  // Synchronize team selection ID to current filtered region list to prevent item-to-image mismatch desync
+  useEffect(() => {
+    const activeDbString = localStorage.getItem('legendshub_custom_db');
+    let currentDb = REGIONAL_TEAMS_DATABASE;
+    if (activeDbString) {
+      try { currentDb = JSON.parse(activeDbString); } catch(ev){}
+    }
+    const keyMap: { [key: string]: string } = {
+      'Brasil': 'CBLOL',
+      'América do Norte': 'LCS',
+      'EUROPA': 'LEC',
+      'Coreia': 'LCK',
+      'China': 'LPL'
+    };
+    const regAcronym = keyMap[selectedRegionGrid] || 'CBLOL';
+    const list = currentDb[regAcronym] || [];
+    const isStillInList = list.some(t => t.id === selectedTeamId);
+    if (!isStillInList && list.length > 0) {
+      setSelectedTeamId(list[0].id);
+    }
+  }, [selectedRegionGrid, selectedTeamId]);
+
+  // Load preview slot details
+  const [previewSave, setPreviewSave] = useState<SavedGameHeader | null>(null);
+  const [logoError, setLogoError] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputDbRef = useRef<HTMLInputElement>(null);
+
+  // Load custom database if registered in local storage
+  const [dbType, setDbType] = useState<'OFFICIAL' | 'CUSTOM'>(() => {
+    return localStorage.getItem('legendshub_custom_db') ? 'CUSTOM' : 'OFFICIAL';
+  });
+
+  // Escolha do Banco de Dados States
+  const [selectedDbId, setSelectedDbId] = useState<string>('db_default_local');
+  const [isRefreshingRepo, setIsRefreshingRepo] = useState<boolean>(false);
+  const [connectionStatus, setConnectionStatus] = useState<'ONLINE' | 'OFFLINE'>('ONLINE');
+  const [downloadProgress, setDownloadProgress] = useState<{
+    status: 'idle' | 'downloading' | 'validating' | 'injecting' | 'success';
+    id?: string;
+    percent: number;
+    log: string[];
+  }>({
+    status: 'idle',
+    percent: 0,
+    log: []
+  });
+
+  // --- CARREGAR CARREIRA SLOTS ---
+  const [savesSlotsData, setSavesSlotsData] = useState<any[]>([]);
+  const [slotToDelete, setSlotToDelete] = useState<any | null>(null);
+
+  const loadSavesSlotsData = async () => {
+    const list = await Promise.all([1, 2, 3].map(async (id) => {
+      const parsed = await getGameItem<any>(`legendshub_save_slot_${id}`);
+      const date = await getGameItem<string>(`legendshub_save_slot_${id}_date`) || 'N/A';
+      if (parsed) {
+        try {
+          const pTeam = parsed.teams?.find((t: any) => t.id === parsed.playerTeamId) || {
+            name: 'Organização',
+            acronym: 'ORG',
+            primaryColor: '#00d2fd'
+          };
+          
+          let budget = pTeam.budget || 1500000;
+          let formattedBudget = budget < 1000000 
+            ? `$ ${budget.toLocaleString('pt-BR')}`
+            : `$ ${(budget / 1000000).toFixed(2)}M`;
+
+          return {
+            id,
+            status: 'OCUPADO' as const,
+            nome_manager: parsed.managerName || 'Manager',
+            nome_time: pTeam.name,
+            logo_time: pTeam.primaryColor || '#00d2fd',
+            data_in_game: `Semana ${parsed.week || 1}, Temp. ${parsed.season || '1'}`,
+            moeda_formata_orcamento: formattedBudget,
+            ultima_modificacao_real: date
+          };
+        } catch (e) {
+          return { id, status: 'VAZIO' as const };
+        }
+      }
+      return { id, status: 'VAZIO' as const };
+    }));
+    setSavesSlotsData(list);
+  };
+
+  useEffect(() => {
+    loadSavesSlotsData();
+  }, []);
+
+  const getSavesSlotsData = () => savesSlotsData;
+
+  // --- DATABASE STANDALONE EDITOR ---
+  const [editorSub, setEditorSub] = useState<'cat_ligas' | 'cat_times' | 'cat_jogadores' | 'cat_imprensa' | 'cat_patrocinadores' | 'cat_campeoes'>('cat_ligas');
+  const [editorDb, setEditorDb] = useState<any>(null);
+  const [editorChamps, setEditorChamps] = useState<any[]>([]);
+  const [editorSponsors, setEditorSponsors] = useState<any[]>([]);
+  const [editorPlayersDict, setEditorPlayersDict] = useState<{ [id: string]: any }>({});
+  
+  // Custom states for Imprensa e Influencers
+  const [editorPress, setEditorPress] = useState<any[]>([]);
+  const [editorInfluencers, setEditorInfluencers] = useState<any[]>([]);
+
+  // Selection states within the editor
+  const [editorRegion, setEditorRegion] = useState<'CBLOL' | 'LCK' | 'LPL' | 'LEC' | 'LCS' | 'LCP'>('CBLOL');
+  const [editorSelectedTeamId, setEditorSelectedTeamId] = useState<string>('');
+  const [editorSelectedPlayerId, setEditorSelectedPlayerId] = useState<string>('');
+  const [editorSelectedSponsorId, setEditorSelectedSponsorId] = useState<string>('');
+  const [editorSelectedChampId, setEditorSelectedChampId] = useState<string>('');
+  
+  // Db Files list and active selections
+  const [activeDbFilename, setActiveDbFilename] = useState<string>('default.db');
+  const [dbFilesList, setDbFilesList] = useState<string[]>(() => {
+    const listRaw = localStorage.getItem('legendshub_db_files');
+    if (listRaw) {
+      try {
+        const parsed = JSON.parse(listRaw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed.map(f => f === 'Legendshub_Default.db' ? 'default.db' : f);
+      } catch(e) {}
+    }
+    return ['default.db'];
+  });
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [newDbName, setNewDbName] = useState('');
+
+  // Player controls
+  const [editorSelectedIsAcademy, setEditorSelectedIsAcademy] = useState<boolean>(false);
+  const [formPlayerPosition, setFormPlayerPosition] = useState<'TOP' | 'JNG' | 'MID' | 'ADC' | 'SUP'>('MID');
+  const [formPlayerPopularity, setFormPlayerPopularity] = useState<number>(75);
+  const [formPlayerTier, setFormPlayerTier] = useState<string>('A');
+  const [formPlayerMoveToTeamId, setFormPlayerMoveToTeamId] = useState<string>('');
+
+  // Custom states for Imprensa / Influencers form
+  const [editorSelectedPressId, setEditorSelectedPressId] = useState<string>('');
+  const [formPressName, setFormPressName] = useState('');
+  const [formPressLogo, setFormPressLogo] = useState('');
+
+  const [editorSelectedInfId, setEditorSelectedInfId] = useState<string>('');
+  const [formInfName, setFormInfName] = useState('');
+  const [formInfPhoto, setFormInfPhoto] = useState('');
+  const [formInfHandle, setFormInfHandle] = useState('');
+
+  // Form input controllers for edited entities
+  // Leagues
+  const [formLeagueName, setFormLeagueName] = useState('');
+  const [formLeagueLogo, setFormLeagueLogo] = useState('');
+
+  // Teams
+  const [formTeamName, setFormTeamName] = useState('');
+  const [formTeamAcronym, setFormTeamAcronym] = useState('');
+  const [formTeamLogo, setFormTeamLogo] = useState('');
+  const [formTeamColor, setFormTeamColor] = useState('');
+  const [formTeamColorSec, setFormTeamColorSec] = useState('');
+  const [formTeamPopularity, setFormTeamPopularity] = useState<'BAIXA' | 'MEDIA' | 'ALTA'>('MEDIA');
+  const [formTeamTier, setFormTeamTier] = useState<'B' | 'A' | 'S'>('A');
+
+  // Players
+  const [formPlayerName, setFormPlayerName] = useState('');
+  const [formPlayerRealName, setFormPlayerRealName] = useState('');
+  const [formPlayerPhoto, setFormPlayerPhoto] = useState('');
+  const [formPlayerOvr, setFormPlayerOvr] = useState(70);
+  const [formPlayerAge, setFormPlayerAge] = useState(21);
+  const [formPlayerNationality, setFormPlayerNationality] = useState('');
+
+  // Sponsors
+  const [formSponsorName, setFormSponsorName] = useState('');
+  const [formSponsorLogo, setFormSponsorLogo] = useState('');
+  const [formSponsorPopularity, setFormSponsorPopularity] = useState(60);
+
+  // Champions
+  const [formChampName, setFormChampName] = useState('');
+  const [formChampTier, setFormChampTier] = useState('S+');
+  const [formChampPower, setFormChampPower] = useState(90);
+  const [formChampRoles, setFormChampRoles] = useState<string[]>([]);
+  const [formChampLogo, setFormChampLogo] = useState('');
+
+  // Custom League Metadata Store
+  const [leaguesMeta, setLeaguesMeta] = useState<{ [key: string]: { name: string, logo: string } }>({
+    'CBLOL': { name: 'CBLOL (Brasil)', logo: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=150' },
+    'LCK': { name: 'LCK (Coreia do Sul)', logo: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&q=80&w=150' },
+    'LPL': { name: 'LPL (China)', logo: 'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?auto=format&fit=crop&q=80&w=150' },
+    'LEC': { name: 'LEC (EUROPA)', logo: 'https://images.unsplash.com/photo-1553481187-be93c21490a9?auto=format&fit=crop&q=80&w=150' },
+    'LCS': { name: 'LCS (América do Norte)', logo: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=150' },
+    'LCP': { name: 'LCP (Pacífico)', logo: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&q=80&w=150' }
+  });
+
+  const launchEditor = () => {
+    let dbParsed = REGIONAL_TEAMS_DATABASE;
+    const savedDb = localStorage.getItem('legendshub_custom_db');
+    if (savedDb) {
+      try { dbParsed = JSON.parse(savedDb); } catch(e) {}
+    }
+    setEditorDb(JSON.parse(JSON.stringify(dbParsed)));
+
+    let champsParsed = CHAMPIONS_LIST;
+    const savedChamps = localStorage.getItem('legendshub_custom_champions');
+    if (savedChamps) {
+      try { champsParsed = JSON.parse(savedChamps); } catch(e) {}
+    }
+    setEditorChamps(JSON.parse(JSON.stringify(champsParsed)));
+
+    let sponsorsParsed = [...SPONSOR_PRESETS];
+    const savedSponsors = localStorage.getItem('legendshub_custom_sponsors');
+    if (savedSponsors) {
+      try { sponsorsParsed = JSON.parse(savedSponsors); } catch(e) {}
+    }
+    setEditorSponsors(JSON.parse(JSON.stringify(sponsorsParsed)));
+
+    // Load custom leagues meta
+    const savedLeagues = localStorage.getItem('legendshub_custom_leagues_meta');
+    if (savedLeagues) {
+      try { setLeaguesMeta(JSON.parse(savedLeagues)); } catch(e) {}
+    }
+
+    let playersDict = {};
+    const savedPlayers = localStorage.getItem('legendshub_custom_players_dict');
+    if (savedPlayers) {
+      try { playersDict = JSON.parse(savedPlayers); } catch(e) {}
+    }
+    setEditorPlayersDict(playersDict);
+
+    // Load custom press and influencers
+    let pressParsed = [
+      { id: 'press_1', name: 'GE Esports', logoUrl: 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&q=80&w=150' },
+      { id: 'press_2', name: 'Mais Esports', logoUrl: 'https://images.unsplash.com/photo-1546074177-ffedd1d85d4c?auto=format&fit=crop&q=80&w=150' },
+      { id: 'press_3', name: 'CBLOL News', logoUrl: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&q=80&w=150' }
+    ];
+    const savedPress = localStorage.getItem('legendshub_custom_press');
+    if (savedPress) {
+      try { pressParsed = JSON.parse(savedPress); } catch(e) {}
+    }
+    setEditorPress(pressParsed);
+    setEditorSelectedPressId(pressParsed[0]?.id || '');
+    setFormPressName(pressParsed[0]?.name || '');
+    setFormPressLogo(pressParsed[0]?.logoUrl || '');
+
+    let infParsed = [
+      { id: 'inf_1', name: 'Baiano', photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150', socialHandle: '@baianolol' },
+      { id: 'inf_2', name: 'Casimiro', photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150', socialHandle: '@casimiro' },
+      { id: 'inf_3', name: 'Revolta', photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150', socialHandle: '@revolta' }
+    ];
+    const savedInf = localStorage.getItem('legendshub_custom_influencers');
+    if (savedInf) {
+      try { infParsed = JSON.parse(savedInf); } catch(e) {}
+    }
+    setEditorInfluencers(infParsed);
+    setEditorSelectedInfId(infParsed[0]?.id || '');
+    setFormInfName(infParsed[0]?.name || '');
+    setFormInfPhoto(infParsed[0]?.photoUrl || '');
+    setFormInfHandle(infParsed[0]?.socialHandle || '');
+
+    // Initial pre-selections
+    setEditorRegion('CBLOL');
+    const firstTeam = dbParsed['CBLOL']?.[0]?.id || '';
+    setEditorSelectedTeamId(firstTeam);
+
+    const firstTeamPlayers = getPlayersForTeam(firstTeam, false).roster;
+    const pId = firstTeamPlayers[0]?.id || '';
+    setEditorSelectedPlayerId(pId);
+
+    setEditorSelectedSponsorId(sponsorsParsed[0]?.id || '');
+    setEditorSelectedChampId(champsParsed[0]?.id || '');
+
+    // Set form fields for league
+    const currentL = leaguesMeta['CBLOL'] || { name: 'CBLOL (Brasil)', logo: '' };
+    setFormLeagueName(currentL.name);
+    setFormLeagueLogo(currentL.logo);
+
+    setActiveState('EDITOR_JOGO');
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const src = evt.target?.result as string;
+        if (!src) return;
+        
+        // Quality compression to avoid local storage quota issues
+        const img = new Image();
+        img.src = src;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxDim = 160; // 160px is plenty for avatars/logos inside the game engine
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            try {
+              // Quality compression setup
+              const compressed = canvas.toDataURL('image/png');
+              setter(compressed);
+            } catch (err) {
+              setter(src);
+            }
+          } else {
+            setter(src);
+          }
+        };
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const findTeamInEditor = (tId: string) => {
+    if (!editorDb) return null;
+    for (const reg of Object.keys(editorDb)) {
+      const match = editorDb[reg].find((t: any) => t.id === tId);
+      if (match) return match;
+    }
+    return null;
+  };
+
+  const handleSelectTeam = (tId: string) => {
+    setEditorSelectedTeamId(tId);
+    const t = findTeamInEditor(tId);
+    if (t) {
+      setFormTeamName(t.name);
+      setFormTeamAcronym(t.acronym);
+      setFormTeamLogo(t.logoUrl || '');
+      setFormTeamColor(t.primaryColor || '#00cbd6');
+      setFormTeamColorSec(t.secondaryColor || '#1e293b');
+      setFormTeamPopularity(t.popularity >= 85 ? 'ALTA' : t.popularity >= 68 ? 'MEDIA' : 'BAIXA');
+      setFormTeamTier(t.budget >= 2800000 ? 'S' : t.budget >= 1900000 ? 'A' : 'B');
+    }
+    const plyrs = getPlayersForTeam(tId, false).roster;
+    if (plyrs.length > 0) {
+      handleSelectPlayer(plyrs[0], tId);
+    } else {
+      setEditorSelectedPlayerId('');
+    }
+  };
+
+  const handleSelectPlayer = (p: any, tId: string) => {
+    setEditorSelectedPlayerId(p.id);
+    const dictKey = `${tId}_${p.id}_${p.name}`;
+    const dictKeyAlt = p.id;
+    const override = editorPlayersDict[dictKey] || editorPlayersDict[dictKeyAlt] || {};
+    setFormPlayerName(override.name || p.name);
+    setFormPlayerRealName(override.realName || p.realName);
+    setFormPlayerPhoto(override.photoUrl || p.photoUrl || '');
+    setFormPlayerOvr(override.overallRating || p.baseRating || 75);
+    setFormPlayerAge(override.age || p.age || 21);
+    setFormPlayerNationality(override.nationality || p.nationality || 'Brasil');
+    
+    // Additional player properties
+    setFormPlayerPosition(override.position || p.position || 'MID');
+    setFormPlayerPopularity(override.popularity || p.popularity || 75);
+    const calculatedTier = (override.overallRating || p.overallRating || p.baseRating || 75) >= 85 ? 'S' : (override.overallRating || p.overallRating || p.baseRating || 75) >= 75 ? 'A' : (override.overallRating || p.overallRating || p.baseRating || 75) >= 65 ? 'B' : 'C';
+    setFormPlayerTier(override.tier || p.tier || calculatedTier);
+    setFormPlayerMoveToTeamId(override.newTeamId || tId);
+  };
+
+  const handleSelectSponsor = (sp: any) => {
+    setEditorSelectedSponsorId(sp.id);
+    setFormSponsorName(sp.name);
+    setFormSponsorLogo(sp.logoUrl);
+    setFormSponsorPopularity(sp.minPopularity || 50);
+  };
+
+  const handleSelectChamp = (c: any) => {
+    setEditorSelectedChampId(c.id);
+    setFormChampName(c.name);
+    setFormChampTier(c.tier || 'S+');
+    setFormChampPower(c.power || 80);
+    setFormChampRoles(c.roles || []);
+    setFormChampLogo(c.idealPlaystyle || '');
+  };
+
+  const calcProceduralBudget = (tier: 'B' | 'A' | 'S', pop: 'BAIXA' | 'MEDIA' | 'ALTA') => {
+    let base = 2000000;
+    if (tier === 'S') base = 2800000;
+    if (tier === 'B') base = 1200000;
+
+    let popOffset = 100000;
+    if (pop === 'ALTA') popOffset = 700000;
+    if (pop === 'BAIXA') popOffset = -350000;
+
+    return base + popOffset;
+  };
+
+  const calcProceduralSponsorWeekly = (pop: number) => {
+    return pop * 650;
+  };
+
+  const calcProceduralSponsorBonus = (pop: number) => {
+    return pop * 1250;
+  };
+
+  const handleExportEditedDb = () => {
+    const exportedObj = {
+      legendshub_db_schema_version: '2.0',
+      teams_database: editorDb,
+      champions: editorChamps,
+      sponsors: editorSponsors,
+      players_overrides: editorPlayersDict
+    };
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportedObj, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", "LegendsHub_Active_Database.db");
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    alert("Arquivo .db exportado com sucesso para Downloads!");
+  };
+
+  // This complies with the requested JSON schema for reactive state
+  const getReactiveJsonState = () => {
+    return {
+      "tela_ativa": "ESCOLA_DO_BANCO_DE_DADOS",
+      "instrucao_tela": "Selecione a base de dados oficial ou da comunidade para carregar os jogadores, times e ligas antes de iniciar a sua jornada rumo ao Worlds.",
+      "banco_dados_default": {
+        "id": "db_default_local",
+        "status": "PRONTO",
+        "tipo": "LOCAL_BUILT_IN",
+        "localizacao": "%USERPROFILE%/AppData/Local/LegendsHub/db/default.db"
+      },
+      "repositorio_comunidade": {
+        "url_origem": "https://github.com/davisonsant/LegendsHub/db",
+        "status_conexao": connectionStatus,
+        "atualizacoes_disponiveis": [
+          {
+            "id": "db_remoto_01",
+            "nome_arquivo": "LegendsHub_Cenário_Oficial_2026.db",
+            "tamanho": "4.2 MB",
+            "data_publicacao": "2026-05-20"
+          },
+          {
+            "id": "db_remoto_02",
+            "nome_arquivo": "Fearless_Draft_Roster_Custom.db",
+            "tamanho": "3.9 MB",
+            "data_publicacao": "2026-05-25"
+          },
+          {
+            "id": "db_patch_atual",
+            "nome": "Cenário Oficial LoL 2026 - Atualizado",
+            "versao": "v2.4",
+            "autor": "Comunidade LegendsHub"
+          }
+        ]
+      },
+      "acoes_disponiveis": {
+        "botao_buscar_atualizacoes": { "acao": "refresh_github_db_list" },
+        "botao_confirmar_partida": { "acao": "iniciar_carreira", "parametro_db": selectedDbId }
+      }
+    };
+  };
+
+  const handleStartCareerWithDb = (dbId: string) => {
+    setSelectedDbId(dbId);
+    
+    // Start gorgeous interactive step progress simulation
+    setDownloadProgress({
+      status: 'downloading',
+      id: dbId,
+      percent: 10,
+      log: [
+        `⚡ [EVENT] Disparando ação: "iniciar_carreira" com parametro_db="${dbId}"`,
+        `📡 Estabelecendo tunelamento com os servidores de base de dados para cache de rosters...`
+      ]
+    });
+
+    const addLog = (text: string, progress: number, statusVal: 'idle' | 'downloading' | 'validating' | 'injecting' | 'success') => {
+      setDownloadProgress(prev => ({
+        ...prev,
+        status: statusVal,
+        percent: progress,
+        log: [...prev.log, text]
+      }));
+    };
+
+    // Stage 1: Download/Injeção do arquivo físico .db do repositório indicado (ou local built-in)
+    setTimeout(() => {
+      if (dbId === 'db_default_local') {
+        addLog(`📂 Carregando banco de dados oficial interno local: default.db`, 40, 'downloading');
+      } else if (dbId === 'db_patch_atual') {
+        addLog(`🌐 Sincronizando catálogo remoto para "${dbId}" direto do repositório oficial da união LegendsHub (v2.4)`, 35, 'downloading');
+        addLog(`⬇️ Iniciando download do pacote físico binário comprimido de https://github.com/davisonsant/LegendsHub/db`, 50, 'downloading');
+      } else {
+        const dbName = dbId === 'db_remoto_01' ? 'LegendsHub_Cenário_Oficial_2026.db' : 'Fearless_Draft_Roster_Custom.db';
+        addLog(`🌐 Conectando com repositório oficial da comunidade: https://github.com/davisonsant/LegendsHub/db`, 30, 'downloading');
+        addLog(`⬇️ Baixando arquivo físico binário compactado: ${dbName} (Tamanho real: ~4 MB) ...`, 55, 'downloading');
+      }
+    }, 450);
+
+    // Stage 2: Validação de checksum / integridade do arquivo
+    setTimeout(() => {
+      addLog(`📥 Arquivo transferido com sucesso para a memória sandbox temporária!`, 65, 'validating');
+      addLog(`🔍 Iniciando varredura criptográfica para validação de checksum MD5 / SHA-256...`, 75, 'validating');
+      const mockChecksum = dbId === 'db_default_local' 
+        ? 'MD5: ecf37bb805d21798ec4df2aa7342fb6e' 
+        : dbId === 'db_remoto_01'
+        ? 'SHA-256: 4ae9d8e52fb4fca8765239dfc8230b42fd28e75d'
+        : dbId === 'db_patch_atual'
+        ? 'SHA-256: 9fb7facf8a42e1de2cbd8e040523db4a0dcd872e'
+        : 'SHA-256: bc28ae52b11ff49a7522dceea9c7242fd22a101b';
+      addLog(`🔑 Hash checksum retornado: ${mockChecksum}`, 80, 'validating');
+      addLog(`✔️ Checksum bate com o repositório original! Integridade do arquivo totalmente validada.`, 85, 'validating');
+    }, 1150);
+
+    // Stage 3: Injeção/Compilação e inicialização de carreira abrindo a dashboard
+    setTimeout(() => {
+      addLog(`🧱 Descompactando buffers e injetando as tabelas e índices dentro do motor operacional local...`, 90, 'injecting');
+      addLog(`⚙️ Compilando base de dados selecionada e inicializando universo procedural...`, 95, 'injecting');
+      addLog(`🚀 Universo inicializado e salvo! Abrindo a tela central do Manager...`, 100, 'success');
+    }, 1900);
+
+    // Final trigger: dispara o gatilho que abre a tela Central do Manager (Guia é exibido automaticamente por legendshub_guided_seen)
+    setTimeout(() => {
+      handleFinalInitialize();
+    }, 2600);
+  };
+
+  const handleRefreshDbList = () => {
+    setIsRefreshingRepo(true);
+    setConnectionStatus('ONLINE');
+    setTimeout(() => {
+      setIsRefreshingRepo(false);
+      alert(lang === 'EN-US' ? 'Database updates list updated!' : lang === 'ES-ES' ? '¡Discos de base de datos actualizados!' : 'Lista de bases de dados sincronizada com sucesso via repositório remoto!');
+    }, 700);
+  };
+
+  // Load last save slot preview details
+  useEffect(() => {
+    const fetchPreview = async () => {
+      const parsed = await getGameItem<any>(`legendshub_save_slot_1`);
+      if (parsed) {
+        try {
+          const savedDate = await getGameItem<string>(`legendshub_save_slot_1_date`) || new Date().toLocaleDateString('pt-BR');
+          setPreviewSave({
+            slotId: `slot_1`,
+            managerName: parsed.managerName || 'Manager',
+            teamName: parsed.teams?.find((t: any) => t.id === parsed.playerTeamId)?.name || 'Organização',
+            date: savedDate,
+            season: parsed.season || 2025,
+            score: parsed.week || 1
+          });
+        } catch (e) {
+          console.error('Error fetching slot preview', e);
+        }
+      }
+    };
+    fetchPreview();
+  }, []);
+
+  // Sync Global Theme classes reactively
+  useEffect(() => {
+    if (activeTheme === 'dark') {
+      document.body.classList.add('dark-mode');
+      document.body.classList.remove('light-mode');
+    } else {
+      document.body.classList.add('light-mode');
+      document.body.classList.remove('dark-mode');
+    }
+  }, [activeTheme]);
+
+  // Handle active choices translating immediately to localized environments
+  const writePreferences = (langVal: 'PT-BR' | 'EN-US' | 'ES-ES', currVal: 'BRL' | 'USD' | 'EUR', themeVal: 'light' | 'dark') => {
+    const lg = langVal === 'EN-US' ? 'en' : langVal === 'ES-ES' ? 'es' : 'pt';
+    localStorage.setItem('legendshub_lang', lg);
+    localStorage.setItem('legendshub_currency', currVal);
+    localStorage.setItem('legendshub_theme', themeVal);
+
+    // dispatch custom events to make global HUD elements sync immediately
+    window.dispatchEvent(new Event('language_changed'));
+    window.dispatchEvent(new Event('currency_changed'));
+  };
+
+  const handleUpdateLanguage = (newLang: 'PT-BR' | 'EN-US' | 'ES-ES') => {
+    setLang(newLang);
+    writePreferences(newLang, activeCurrency, activeTheme);
+  };
+
+  const handleUpdateCurrency = (newCurr: 'BRL' | 'USD' | 'EUR') => {
+    setActiveCurrency(newCurr);
+    writePreferences(lang, newCurr, activeTheme);
+  };
+
+  const handleUpdateTheme = (newTheme: 'light' | 'dark') => {
+    setActiveTheme(newTheme);
+    writePreferences(lang, activeCurrency, newTheme);
+  };
+
+  // Convert game rates to selected currency format
+  const formatValueLocal = (usdVal: number) => {
+    const scale = activeCurrency === 'BRL' ? 5.2 : activeCurrency === 'EUR' ? 0.92 : 1.0;
+    const finalVal = usdVal * scale;
+    const symbol = activeCurrency === 'EUR' ? '€' : activeCurrency === 'BRL' ? 'R$' : '$';
+    if (finalVal >= 1000000) {
+      return `${symbol} ${(finalVal / 1000000).toFixed(2)}M`;
+    }
+    return `${symbol} ${Math.round(finalVal).toLocaleString('pt-BR')}`;
+  };
+
+  // Drag and drop profile selection
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const src = event.target?.result as string;
+        if (!src) return;
+        const img = new Image();
+        img.src = src;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxDim = 160;
+          let width = img.width;
+          let height = img.height;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            try {
+              setCustomPhotoFile(canvas.toDataURL('image/png'));
+            } catch (err) {
+              setCustomPhotoFile(src);
+            }
+          } else {
+            setCustomPhotoFile(src);
+          }
+        };
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const src = event.target?.result as string;
+        if (!src) return;
+        const img = new Image();
+        img.src = src;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxDim = 160;
+          let width = img.width;
+          let height = img.height;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            try {
+              setCustomPhotoFile(canvas.toDataURL('image/png'));
+            } catch (err) {
+              setCustomPhotoFile(src);
+            }
+          } else {
+            setCustomPhotoFile(src);
+          }
+        };
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Custom DB mechanics (.db files inside json dump)
+  const triggerDbExport = () => {
+    const rawDb = localStorage.getItem('legendshub_custom_db') || JSON.stringify(REGIONAL_TEAMS_DATABASE);
+    const blob = new Blob([rawDb], { type: 'application/json' });
+    const u = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = u;
+    a.download = 'legendshub_database_master.db';
+    a.click();
+  };
+
+  const triggerDbImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const parsed = JSON.parse(ev.target?.result as string);
+          if (parsed && typeof parsed === 'object') {
+            localStorage.setItem('legendshub_custom_db', JSON.stringify(parsed));
+            setDbType('CUSTOM');
+            alert(lang === 'EN-US' ? 'Database imported successfully!' : lang === 'ES-ES' ? '¡Base de datos importada con éxito!' : 'Banco de dados importado com sucesso!');
+          }
+        } catch (err) {
+          alert(lang === 'EN-US' ? 'Error parsing .db file.' : lang === 'ES-ES' ? 'Error al procesar archivo .db.' : 'Erro ao processar arquivo .db inválido.');
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  const triggerDbReset = () => {
+    localStorage.removeItem('legendshub_custom_db');
+    setDbType('OFFICIAL');
+    alert(lang === 'EN-US' ? 'Defaults restored.' : lang === 'ES-ES' ? 'Valores originales restaurados.' : 'Dicionários de fábrica restaurados com sucesso.');
+  };
+
+  // Helper to determine inherited logo for Academy team
+  const getTeamLogoWithAcademyInheritance = (team: any, db: any): string => {
+    if (!team) return '';
+    const customLogo = getGameAssetUrl('teams', team.id, team.logoUrl);
+    if (customLogo && customLogo !== '/assets/ui/fallback-silhouette.png' && customLogo !== '/perfil-default.jpeg') {
+      return customLogo;
+    }
+    
+    if (team.logoUrl) return team.logoUrl;
+    
+    const isAcademy = team.name?.toLowerCase().includes('academy') || team.acronym?.toLowerCase().includes('aca') || team.id?.toLowerCase().includes('academy') || team.id?.toLowerCase().includes('sub');
+    
+    if (isAcademy && db) {
+      const mainName = team.name.toLowerCase().replace('academy', '').trim();
+      const mainId = team.id.toLowerCase().replace('-academy', '').replace('_academy', '').replace('academy', '').trim();
+      
+      for (const region of Object.keys(db)) {
+        const foundMain = db[region]?.find((t: any) => {
+          if (t.id === team.id) return false;
+          return t.id.toLowerCase() === mainId || t.name.toLowerCase().includes(mainName) || mainName.includes(t.name.toLowerCase());
+        });
+        if (foundMain) {
+          const mainLogo = getGameAssetUrl('teams', foundMain.id, foundMain.logoUrl);
+          if (mainLogo && mainLogo !== '/assets/ui/fallback-silhouette.png' && mainLogo !== '/perfil-default.jpeg') {
+            return mainLogo;
+          }
+          if (foundMain.logoUrl) return foundMain.logoUrl;
+        }
+      }
+    }
+    return team.logoUrl || '/assets/ui/fallback-silhouette.png';
+  };
+
+  // Collect all teams based on regions filter
+  const getTeamsForActiveSelections = (): Team[] => {
+    // If we have custom DB loaded, draw from it. Otherwise initial defaults
+    const activeDbString = localStorage.getItem('legendshub_custom_db');
+    let activeDb = REGIONAL_TEAMS_DATABASE;
+    if (activeDbString) {
+      try {
+        activeDb = JSON.parse(activeDbString);
+      } catch(e) {}
+    }
+
+    const currentRegionAcronymMap: { [key: string]: 'CBLOL' | 'LCK' | 'LPL' | 'LEC' | 'LCS' | 'LCP' } = {
+      'Brasil': 'CBLOL',
+      'América do Norte': 'LCS',
+      'Coreia': 'LCK',
+      'EMEA': 'LEC',
+      'EUROPA': 'LEC',
+      'China': 'LPL',
+      'Pacífico': 'LCP'
+    };
+
+    if (selectedRegionGrid === 'Global') {
+      const all: Team[] = [];
+      Object.keys(activeDb).forEach((reg: any) => {
+        all.push(...((activeDb as any)[reg] || []));
+      });
+      return all;
+    }
+
+    const regAcronym = currentRegionAcronymMap[selectedRegionGrid] || 'CBLOL';
+    return (activeDb as any)[regAcronym] || [];
+  };
+
+  const gridTeamsList = getTeamsForActiveSelections();
+  const selectedTeamData = gridTeamsList.find(t => t.id === selectedTeamId) || gridTeamsList[0];
+
+  // Calculated tier logic:
+  // score = prestige * 1.5 + (budget / 500000) + (popularity / 10)
+  // if score >= 12 tier S, if score >= 8 tier A, else B
+  const computeTeamTier = (tItem: any): 'S' | 'A' | 'B' => {
+    if (!tItem) return 'B';
+    const popularity = tItem.popularity || 60;
+    const budget = tItem.budget || 500000;
+    const prestigeStars = tItem.popularity >= 88 ? 5 : tItem.popularity >= 75 ? 4 : tItem.popularity >= 60 ? 3 : 2;
+    const score = (prestigeStars * 1.5) + (budget / 500000) + (popularity / 10);
+    if (score >= 12) return 'S';
+    if (score >= 8) return 'A';
+    return 'B';
+  };
+
+  // Render variables mapping and theme colors
+  const text = LOCALIZED_TEXT[lang] || LOCALIZED_TEXT['PT-BR'];
+
+  const themeClasses = activeTheme === 'dark' ? {
+    bgWindow: 'bg-[#070d19] text-slate-100',
+    card: 'bg-[#0a1424] border border-[#1e2d44]',
+    input: 'bg-[#060c15] border-[#1e2d44] text-white',
+    textPrimary: 'text-white',
+    textSecondary: 'text-slate-400',
+    border: 'border-[#1e2d44]',
+    divider: 'border-slate-800',
+    innerBox: 'bg-[#040913]/90 border border-[#1e2d44]/60',
+    actionButton: 'bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-black',
+  } : {
+    bgWindow: 'bg-[#f4f6f9] text-[#101828]',
+    card: 'bg-white border border-slate-200 shadow-[0_4px_16px_rgba(0,0,0,0.03)]',
+    input: 'bg-slate-50 border-slate-200 text-slate-805',
+    textPrimary: 'text-[#101828]',
+    textSecondary: 'text-slate-500',
+    border: 'border-slate-200',
+    divider: 'border-slate-100',
+    innerBox: 'bg-[#f8fafc] border border-slate-200',
+    actionButton: 'bg-[#1A5CFF] hover:bg-[#0040E0] text-white font-black',
+  };
+
+  // Final Action Start career loop
+  const handleFinalInitialize = () => {
+    // Write preferences before launch
+    writePreferences(lang, activeCurrency, activeTheme);
+    // clear guide tutorial flag to force guide popup
+    localStorage.removeItem('legendshub_guided_seen');
+
+    // region mapping
+    const currentRegionAcronymMap: { [key: string]: 'CBLOL' | 'LCK' | 'LPL' | 'LEC' | 'LCS' | 'LCP' } = {
+      'Brasil': 'CBLOL',
+      'América do Norte': 'LCS',
+      'Coreia': 'LCK',
+      'EMEA': 'LEC',
+      'EUROPA': 'LEC',
+      'China': 'LPL',
+      'Pacífico': 'LCP'
+    };
+
+    const targetRegion = currentRegionAcronymMap[selectedRegionGrid] || managerRegion;
+    onStartNewGame(managerName, selectedTeamId, targetRegion, selectedYear);
+  };
+
+  if (hasTerminated) {
+    return (
+      <div className="min-h-screen bg-[#050914] text-rose-500 font-mono p-8 flex flex-col items-center justify-center relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(239,68,68,0.08)_0%,transparent_70%)] pointer-events-none" />
+        <div className="w-full max-w-lg border border-rose-500/20 bg-slate-950/80 p-8 rounded-2xl shadow-2xl relative">
+          <div className="flex items-center gap-2 text-rose-500 border-b border-rose-500/10 pb-4 mb-6">
+            <Terminal className="w-5 h-5 animate-pulse" />
+            <span className="font-bold text-xs tracking-widest uppercase text-rose-500">LEGENDS_HUB_V2_FATAL_SHUTDOWN</span>
+          </div>
+          <div className="space-y-4 text-xs tracking-wide text-left">
+            <p className="text-rose-400">&gt; shutdown -h now</p>
+            <p className="text-slate-400">Saving cache and flushing memory buffers... DONE</p>
+            <p className="text-slate-400">Disconnecting database registry... SUCCESS</p>
+            <p className="text-slate-400">Unmounting game simulation threads... TERMINATED [OK]</p>
+            <p className="text-amber-500 font-bold font-mono text-[11px] uppercase">&gt; O processo do Legends Hub foi finalizado com sucesso.</p>
+            <p className="text-slate-500 text-[10.5px]">Você pode fechar esta aba do navegador com total segurança ou optar por reiniciar o servidor virtual de simulação.</p>
+          </div>
+          <div className="mt-8 flex gap-3">
+            <button
+              onClick={() => setHasTerminated(false)}
+              className="px-5 py-2.5 bg-rose-955/40 hover:bg-rose-900/40 border border-rose-500/30 text-rose-400 font-mono font-bold text-xs uppercase tracking-widest rounded-xl transition-all cursor-pointer"
+            >
+              Reiniciar Simulação
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`min-h-screen ${themeClasses.bgWindow} relative flex flex-col justify-between py-12 px-6 overflow-hidden transition-all duration-300 font-sans`}>
+      {showAvisoLegal && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="w-full max-w-xl bg-[#121824] border border-[#2E3A4E] rounded-2xl p-6 md:p-8 flex flex-col shadow-2xl relative text-left leading-relaxed animate-fade-in">
+            {/* Absolute background decorative gradient */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-violet-600/10 rounded-full blur-2xl pointer-events-none" />
+
+            {/* Cabeçalho */}
+            <div className="flex items-start gap-3.5 border-b border-[#2E3A4E]/60 pb-4 mb-5">
+              <div className="p-2.5 bg-violet-500/10 rounded-xl">
+                <AlertTriangle className="text-violet-500 w-6 h-6 shrink-0" />
+              </div>
+              <div>
+                <h3 className="font-display text-base font-black tracking-widest uppercase text-white leading-none">
+                  AVISO LEGAL
+                </h3>
+                <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400 block mt-1">
+                  LEIA ANTES DE CONTINUAR
+                </span>
+              </div>
+            </div>
+
+            {/* Corpo do Texto */}
+            <div className="space-y-4 text-xs">
+              {/* Barra de destaque lateral à esquerda dos dois primeiros parágrafos */}
+              <div className="pl-4 border-l-2 border-violet-500/80 space-y-3">
+                <p className="text-[11.5px] leading-relaxed text-slate-300">
+                  O LegendsHub é um jogo de simulação fictício desenvolvido para fins de entretenimento e estudo, sem fins lucrativos. Não é afiliado, endossado ou conectado a quaisquer organizações, ligas, equipes, jogadores, torneios, marcas, imprensa, influencers ou entidades da indústria de eSports, incluindo a Riot Games ou o League of Legends.
+                </p>
+                <p className="text-[11.5px] leading-relaxed text-slate-300">
+                  Todos os nomes, imagens, logotipos e propriedades intelectuais são de seus respectivos donos. A inclusão de tais elementos é puramente coincidente ou para fins de paródia e não implica qualquer propriedade, endosso ou autorização por parte do desenvolvedor.
+                </p>
+              </div>
+
+              {/* Bloco de Destaque Verde */}
+              <div className="bg-[#14291f]/90 border border-emerald-500/30 rounded-xl p-4 text-emerald-405 text-emerald-400 text-[11.5px] font-bold leading-relaxed flex items-start gap-2.5 shadow-inner">
+                <span className="text-sm shrink-0">💡</span>
+                <span>Este projeto é fan-made e independente. Nenhuma receita comercial é gerada a partir deste jogo.</span>
+              </div>
+
+              {/* Parágrafo 3 e 4 */}
+              <div className="space-y-3">
+                <p className="text-[11.5px] leading-relaxed text-[#94A3B8]">
+                  O desenvolvedor não reivindica direitos sobre essas propriedades e se isenta de responsabilidade por imprecisões ou semelhanças percebidas.
+                </p>
+                <p className="text-[11.5px] leading-relaxed text-[#94A3B8]">
+                  Acredita que seus direitos foram infringidos? Entre em contato com{" "}
+                  <a href="mailto:davison.sant@live.com" className="text-violet-400 hover:text-violet-300 transition-colors underline font-medium">
+                    davison.sant@live.com
+                  </a>.
+                </p>
+              </div>
+            </div>
+
+            {/* Rodapé e Ações */}
+            <div className="border-t border-[#2E3A4E]/50 pt-5 mt-6 flex flex-col gap-4">
+              {/* Row 1: Checkbox + Botão */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <label className="flex items-center gap-2.5 text-[11px] font-semibold text-slate-300 cursor-pointer hover:text-white select-none">
+                  <input 
+                    type="checkbox" 
+                    checked={dontShowAgain}
+                    onChange={(e) => setDontShowAgain(e.target.checked)}
+                    className="w-4 h-4 rounded border-[#2E3A4E]/60 bg-[#0c1424] text-violet-600 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                  />
+                  <span>Não mostrar esta mensagem na próxima vez.</span>
+                </label>
+                
+                <button
+                  onClick={() => {
+                    if (dontShowAgain) {
+                      localStorage.setItem('legendshub_hide_disclaimer', 'true');
+                    }
+                    setShowAvisoLegal(false);
+                  }}
+                  className="px-6 py-3 bg-[#7C3AED] hover:bg-[#6D28D9] active:scale-95 transition-all text-white font-black uppercase text-xs rounded-lg flex items-center justify-center gap-2 shadow-lg shadow-violet-600/10 cursor-pointer self-end sm:self-auto"
+                >
+                  LI E CONCORDO →
+                </button>
+              </div>
+              
+              {/* Row 2: Letra miúda */}
+              <p className="text-[9.5px] leading-relaxed text-slate-500 font-medium">
+                Ao concordar, você concorda que o jogo é fornecido "como está", sem garantias e o desenvolvedor não será responsabilizado por quaisquer reivindicações decorrentes de seu uso.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Decorative dynamic grid lines context */}
+      <div className={`absolute top-0 left-0 w-full h-full pointer-events-none z-0 opacity-10 ${
+        activeTheme === 'dark' 
+          ? 'bg-[linear-gradient(rgba(255,255,255,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.015)_1px,transparent_1px)]' 
+          : 'bg-[linear-gradient(rgba(0,0,0,0.025)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.025)_1px,transparent_1px)]'
+      } bg-[size:32px_32px]`} />
+
+
+
+      {/* RENDER DYNAMIC FLOW STATES */}
+      <div className="w-full max-w-4xl mx-auto my-auto z-10 transition-all duration-300 relative py-8">
+        
+        {/* State: menu_inicial_puro (MENU) */}
+        {activeState === 'MENU' && (
+          <div className="flex flex-col items-center">
+            {/* Official Brand Logo Header */}
+            <div className="flex flex-col items-center text-center select-none mb-10 animate-fade-in">
+              <div className="relative mb-4 flex items-center justify-center">
+                {!logoError ? (
+                  <img 
+                    src="game/assets/ui/logo-lh.png" 
+                    alt="LegendsHub Logo" 
+                    className="w-24 h-24 object-contain filter drop-shadow-[0_4px_12px_rgba(29,78,216,0.15)]"
+                    referrerPolicy="no-referrer"
+                    onError={() => {
+                      setLogoError(true);
+                    }}
+                  />
+                ) : null}
+              </div>
+              <h1 className={`font-display text-4xl font-extrabold tracking-[0.2em] ${themeClasses.textPrimary} uppercase leading-none`}>
+                {text.title}
+              </h1>
+              <p className="text-[10px] text-blue-500/90 font-mono tracking-widest font-black uppercase mt-2.5">
+                {text.subtitle}
+              </p>
+            </div>
+
+            {/* Menu options card list */}
+            <div className={`w-full max-w-md ${themeClasses.card} p-6 rounded-2xl flex flex-col gap-3 animate-fade-in`}>
+              
+              {/* 1. CONTINUAR CARREIRA (Visible only if active save detected) */}
+              {previewSave && (
+                <button
+                  onClick={() => onLoadGame(previewSave.slotId)}
+                  className="group w-full text-left p-4 rounded-xl border border-emerald-500/25 bg-emerald-500/5 hover:bg-emerald-500/10 hover:border-emerald-500/40 cursor-pointer flex justify-between items-center transition-all duration-200"
+                >
+                  <div className="min-w-0">
+                    <span className="text-[8px] font-mono bg-emerald-500 text-slate-950 font-black px-1.5 py-0.5 rounded uppercase tracking-widest">
+                      {lang === 'PT-BR' ? 'CONTINUAR CARREIRA' : text.continueGame}
+                    </span>
+                    <h4 className="font-display text-xs font-black text-slate-200 mt-2 truncate">
+                      {previewSave.teamName}
+                    </h4>
+                    <p className="text-[9.5px] font-mono text-slate-400 mt-0.5 uppercase tracking-wider">
+                      MGR: {previewSave.managerName} • SLOT 1
+                    </p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-emerald-400 group-hover:translate-x-1 transition-transform" />
+                </button>
+              )}
+
+              {/* 2. NOVA CARREIRA */}
+              <button
+                onClick={() => {
+                  setWizardStep(1);
+                  setActiveState('WIZARD');
+                }}
+                className={`group w-full py-4.5 px-6 rounded-xl border ${activeTheme === 'dark' ? 'bg-[#121f35]/90 hover:bg-[#182740] border-[#1e2d44]' : 'bg-slate-5 font-bold hover:bg-slate-100 border-slate-200'} cursor-pointer flex justify-between items-center transition-all`}
+              >
+                <div className="flex items-center gap-3">
+                  <Play className="w-4 h-4 text-blue-500 fill-blue-500/10" />
+                  <span className={`text-[12px] font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                    {lang === 'PT-BR' ? 'NOVA CARREIRA' : text.newCareer}
+                  </span>
+                </div>
+                <ChevronRight className={`w-4 h-4 ${themeClasses.textSecondary} group-hover:translate-x-1 transition-transform`} />
+              </button>
+
+              {/* 3. CARREGAR CARREIRA */}
+              <button
+                onClick={() => setActiveState('LOAD_CAREER')}
+                className={`group w-full py-4.5 px-6 rounded-xl border ${activeTheme === 'dark' ? 'bg-[#121f35]/90 hover:bg-[#182740] border-[#1e2d44]' : 'bg-slate-5 hover:bg-slate-100 border-slate-200'} cursor-pointer flex justify-between items-center transition-all`}
+              >
+                <div className="flex items-center gap-3">
+                  <FolderOpen className="w-4 h-4 text-sky-505" />
+                  <span className={`text-[12px] font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                    {lang === 'PT-BR' ? 'CARREGAR CARREIRA' : (lang === 'ES-ES' ? 'CARGAR GESTIÓN' : 'LOAD CAREER')}
+                  </span>
+                </div>
+                <ChevronRight className={`w-4 h-4 ${themeClasses.textSecondary} group-hover:translate-x-1 transition-transform`} />
+              </button>
+
+              {/* 4. EDITOR DE JOGO */}
+              <button
+                onClick={launchEditor}
+                className={`group w-full py-4.5 px-6 rounded-xl border ${activeTheme === 'dark' ? 'bg-[#121f35]/90 hover:bg-[#182740] border-[#1e2d44]' : 'bg-slate-5 hover:bg-slate-100 border-slate-200'} cursor-pointer flex justify-between items-center transition-all`}
+              >
+                <div className="flex items-center gap-3">
+                  <Edit className="w-4 h-4 text-indigo-400" />
+                  <span className={`text-[12px] font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                    {lang === 'PT-BR' ? 'EDITOR DE JOGO' : text.editor}
+                  </span>
+                </div>
+                <ChevronRight className={`w-4 h-4 ${themeClasses.textSecondary} group-hover:translate-x-1 transition-transform`} />
+              </button>
+
+              {/* 5. CONFIGURAÇÕES */}
+              <button
+                onClick={() => setActiveState('DB_SETTINGS')}
+                className={`group w-full py-4.5 px-6 rounded-xl border ${activeTheme === 'dark' ? 'bg-[#121f35]/90 hover:bg-[#182740] border-[#1e2d44]' : 'bg-slate-5 hover:bg-slate-100 border-slate-200'} cursor-pointer flex justify-between items-center transition-all`}
+              >
+                <div className="flex items-center gap-3">
+                  <Settings className="w-4 h-4 text-slate-400" />
+                  <span className={`text-[12px] font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                    {lang === 'PT-BR' ? 'CONFIGURAÇÕES' : (lang === 'ES-ES' ? 'AJUSTES' : 'SETTINGS')}
+                  </span>
+                </div>
+                <ChevronRight className={`w-4 h-4 ${themeClasses.textSecondary} group-hover:translate-x-1 transition-transform`} />
+              </button>
+
+              {/* 6. SAIR */}
+              <button
+                onClick={() => setHasTerminated(true)}
+                className={`group w-full py-4.5 px-6 rounded-xl border border-red-500/10 hover:border-red-500/30 ${activeTheme === 'dark' ? 'bg-[#1c121e]/90 hover:bg-[#2c1a2f]' : 'bg-red-50 hover:bg-red-100'} cursor-pointer flex justify-between items-center transition-all`}
+              >
+                <div className="flex items-center gap-3">
+                  <X className="w-4 h-4 text-red-500" />
+                  <span className={`text-[12px] font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                    {lang === 'PT-BR' ? 'SAIR' : text.exit}
+                  </span>
+                </div>
+                <ChevronRight className={`w-4 h-4 ${themeClasses.textSecondary} group-hover:translate-x-1 transition-transform`} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* State: popup_aviso_legal (DISCLAIMER) */}
+        {activeState === 'DISCLAIMER' && (
+          <div className="flex items-center justify-center animate-fade-in">
+            <div className={`w-full max-w-xl ${themeClasses.card} p-8 rounded-2xl shadow-2xl relative overflow-hidden text-left`}>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
+
+              <h3 className={`font-display text-base font-black tracking-widest uppercase border-b ${themeClasses.border} pb-4 mb-5 flex items-center gap-2 text-rose-550`}>
+                <Shield className="text-rose-500 w-5 h-5 animate-pulse" />
+                {text.disclaimerTitle}
+              </h3>
+
+              <p className={`text-[10px] font-mono font-bold tracking-wider uppercase text-blue-400 mb-1`}>
+                {text.disclaimerSub}
+              </p>
+
+              <div className="space-y-4 my-4 leading-relaxed">
+                <p className={`text-xs ${themeClasses.textSecondary}`}>
+                  {text.disclaimerBody}
+                </p>
+
+                <div className={`p-4 rounded-xl ${themeClasses.innerBox} text-rose-500 text-[11.5px] font-bold italic leading-relaxed`}>
+                  💡 {text.disclaimerTag}
+                </div>
+              </div>
+
+              <div className="flex gap-3 justify-end pt-5 border-t border-slate-105 mt-6">
+                <button
+                  onClick={() => setActiveState('MENU')}
+                  className={`px-5 py-3 rounded-lg border ${themeClasses.border} text-[10px] font-black uppercase text-slate-400 hover:text-white transition-colors cursor-pointer`}
+                >
+                  {text.cancel}
+                </button>
+                <button
+                  onClick={() => {
+                    setWizardStep(1);
+                    setActiveState('WIZARD');
+                  }}
+                  className={`px-7 py-3 rounded-lg ${themeClasses.actionButton} font-mono text-[10px] uppercase tracking-wider cursor-pointer shadow-lg shadow-cyan-500/10`}
+                >
+                  {text.disclaimerBtn}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {activeState === 'WIZARD' && (
+          <div className="w-full max-w-4xl mx-auto flex flex-col items-center">
+            {/* Step Progress indicators */}
+            <div 
+              className="w-full flex justify-between items-center p-3.5 rounded-xl mb-6 select-none leading-normal border transition-all"
+              style={{
+                backgroundColor: activeTheme === 'dark' ? 'rgba(15, 23, 42, 0.4)' : '#E4E7EC',
+                borderColor: activeTheme === 'dark' ? 'rgba(30, 45, 68, 0.6)' : 'rgba(203, 213, 225, 0.8)'
+              }}
+            >
+              {[
+                { step: 1, title: lang === 'PT-BR' ? 'Banco de Dados' : 'Database', icon: Database },
+                { step: 2, title: lang === 'PT-BR' ? 'Perfil do Manager' : 'Manager Profile', icon: User },
+                { step: 3, title: lang === 'PT-BR' ? 'Selecione Equipe' : 'Select Team', icon: Shield },
+                { step: 4, title: lang === 'PT-BR' ? 'Conferir & Iniciar' : 'Review & Start', icon: Play }
+              ].map((item, idx, arr) => {
+                const isCompleted = wizardStep > item.step;
+                const isActive = wizardStep === item.step;
+                const IconComponent = item.icon;
+                return (
+                  <React.Fragment key={item.step}>
+                    <div className="flex items-center gap-2">
+                       <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black transition-all ${
+                         isCompleted 
+                           ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500' 
+                           : isActive 
+                           ? (activeTheme === 'dark' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-400 font-bold scale-110 shadow shadow-cyan-500/10' : 'bg-blue-600/15 text-blue-600 border border-blue-600 scale-110 shadow-sm') 
+                           : (activeTheme === 'dark' ? 'bg-slate-950 text-slate-500 border border-slate-800' : 'bg-white text-slate-400 border border-slate-300')
+                       }`}>
+                        {isCompleted ? <Check className="w-3.5 h-3.5" /> : <IconComponent className="w-3.5 h-3.5" />}
+                      </div>
+                      <span className={`text-[10px] font-black uppercase tracking-wider hidden sm:inline ${
+                         isActive 
+                           ? (activeTheme === 'dark' ? 'text-cyan-400 font-bold' : 'text-[#1A5CFF] font-bold') 
+                           : isCompleted 
+                           ? 'text-emerald-500' 
+                           : 'text-slate-500'
+                      }`}>
+                        {item.title}
+                      </span>
+                    </div>
+                    {idx < arr.length - 1 && (
+                      <div className={`h-0.5 flex-1 mx-2 hidden sm:block ${
+                        isCompleted ? 'bg-emerald-500/50' : (activeTheme === 'dark' ? 'bg-slate-800/40' : 'bg-slate-300/60')
+                      }`} />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+
+            {/* STAGE 1: ESCOLA DO BANCO DE DADOS */}
+            {wizardStep === 1 && (
+              <div className="w-full animate-fade-in flex flex-col items-center">
+                <div className={`w-full ${themeClasses.card} p-7 rounded-2xl text-left relative overflow-hidden`}>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
+                  
+                  <div className="border-b border-white/5 pb-4 mb-4">
+                    <span className="text-[10px] uppercase font-mono tracking-widest font-black text-cyan-400 block mb-1">
+                      {lang === 'PT-BR' ? 'ESTÁGIO 1 - ESSE É O SEU BANCO DE DADOS' : lang === 'EN-US' ? 'STAGE 1 - SELECT YOUR DATABASE' : 'ESTADIO 1 - SELECCIONA TU BASE DE DATOS'}
+                    </span>
+                    <h3 className={`font-display text-lg font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                      {lang === 'PT-BR' ? 'Escola do Banco de Dados' : lang === 'EN-US' ? 'Database Academy' : 'Escuela de Base de Datos'}
+                    </h3>
+                    <p className={`text-[11px] ${themeClasses.textSecondary} leading-relaxed mt-1.5`}>
+                      {lang === 'PT-BR' ? 'Defina o universo procedimental de jogo. O motor abaixo escaneia a pasta root [LegendsHub_Root]/databases/ para carregar jogadores, ligas e orçamentos competitivos.' : 
+                       lang === 'EN-US' ? 'Configure the engine procedural database. This reads from the [LegendsHub_Root]/databases/ directory to load active rosters, player contracts and financial ratios.' : 
+                       'Define el universo procedimental. El motor escanea el directorio [LegendsHub_Root]/databases/ para cargar los jugadores, ligas y presupuestos iniciales.'}
+                    </p>
+                  </div>
+
+                  {/* Root Database Folder indicator */}
+                  <div 
+                    className="border rounded-xl p-3 mb-5 flex items-center justify-between"
+                    style={{
+                      backgroundColor: activeTheme === 'dark' ? '#050b16' : '#F4F6F9',
+                      borderColor: activeTheme === 'dark' ? '#1e2d44' : '#CBD5E1',
+                    }}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Server className={`w-4 h-4 shrink-0 ${activeTheme === 'dark' ? 'text-cyan-400' : 'text-blue-600'}`} />
+                      <div className="min-w-0">
+                        <span className="block text-[8px] font-mono uppercase tracking-wider text-slate-500 font-bold">Diretório Root Escaneado</span>
+                        <span className={`font-mono text-[10px] truncate block font-bold ${activeTheme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>[LegendsHub_Root]/databases/</span>
+                      </div>
+                    </div>
+                    <span className="text-[8.5px] font-mono bg-emerald-500/10 text-emerald-500 border border-emerald-400/30 px-2 py-0.5 rounded font-bold uppercase shrink-0">
+                      Diretório Online
+                    </span>
+                  </div>
+
+                  {/* Scanned DB cards list */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-5">
+                    {scannedDatabases.map((db) => {
+                      const isSel = selectedDbId === db.filename;
+                      return (
+                        <div
+                          key={db.filename}
+                          onClick={() => setSelectedDbId(db.filename)}
+                          className={`p-4 rounded-xl border text-left cursor-pointer transition-all ${
+                            isSel
+                              ? (activeTheme === 'dark' ? 'bg-cyan-500/5 border-cyan-400 shadow-md ring-1 ring-cyan-400/30' : 'bg-blue-100/10 border-[#1A5CFF] shadow-md ring-1 ring-[#1A5CFF]/30')
+                              : (activeTheme === 'dark' ? `bg-slate-900/30 ${themeClasses.border} hover:bg-slate-900/50` : 'bg-white border-slate-200 hover:bg-slate-100')
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={`p-2 rounded-lg shrink-0 ${
+                              isSel 
+                                ? (activeTheme === 'dark' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-blue-600/10 text-[#1A5CFF]') 
+                                : (activeTheme === 'dark' ? 'bg-slate-800/80 text-slate-400' : 'bg-slate-100 text-slate-500')
+                            }`}>
+                              <Database className="w-5 h-5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-1">
+                                <h5 className={`text-xs font-black truncate uppercase tracking-wider ${isSel ? (activeTheme === 'dark' ? 'text-cyan-400' : 'text-[#1A5CFF]') : themeClasses.textPrimary}`}>
+                                  {db.name}
+                                </h5>
+                                <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded shrink-0 ${activeTheme === 'dark' ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>
+                                  {db.size}
+                                </span>
+                              </div>
+                              <p className={`text-[10px] mt-1 leading-normal line-clamp-2 ${themeClasses.textSecondary}`}>
+                                {db.description}
+                              </p>
+                              <div className="flex items-center gap-1.5 mt-2.5 font-mono text-[8px] uppercase tracking-wider text-slate-500">
+                                <span className="font-bold">Formato:</span>
+                                <span className={themeClasses.textSecondary}>{db.type}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Button to load custom Db from computer */}
+                  <div className={`flex flex-col sm:flex-row items-stretch sm:items-center justify-between p-4 rounded-xl border leading-normal gap-4 ${themeClasses.innerBox}`}>
+                    <div className="space-y-0.5 min-w-0">
+                      <h4 className={`text-xs font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                        {lang === 'PT-BR' ? 'Mod da Comunidade ou Database Custom' : lang === 'EN-US' ? 'Community Roster Mod or Custom DB' : 'Mod de la Comunidad o DB Personalizado'}
+                      </h4>
+                      <p className={`text-[10px] leading-normal ${themeClasses.textSecondary}`}>
+                        {lang === 'PT-BR' ? 'Caso possua um save customizado exportado (.db), faça o upload para integrá-lo dinamicamente.' :
+                         lang === 'EN-US' ? 'If you possess a custom system save file (.db), upload to synch it dynamically.' :
+                         'Si tienes una base de datos customizada (.db), súbela para integrarla de inmediato.'}
+                      </p>
+                    </div>
+
+                    <button 
+                      onClick={() => fileInputDbRef.current?.click()}
+                      className={`px-4 py-2 border text-[10px] font-bold uppercase rounded-lg flex items-center gap-2 cursor-pointer transition-colors shrink-0 ${
+                        activeTheme === 'dark' 
+                          ? 'bg-[#121f35] hover:bg-[#1b2f4e] border-[#1e2d44] text-slate-200' 
+                          : 'bg-slate-100 hover:bg-slate-205 border-slate-300 text-slate-700'
+                      }`}
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{lang === 'PT-BR' ? '📂 Carregar Arquivo de Banco (.db)' : '📂 Load Database File (.db)'}</span>
+                    </button>
+                    <input 
+                      type="file"
+                      ref={fileInputDbRef}
+                      onChange={handleLoadCustomDbWizard}
+                      accept=".db,.json"
+                      className="hidden"
+                    />
+                  </div>
+
+                  {/* Footer Actions */}
+                  <div className="flex justify-between items-center mt-6 pt-5 border-t border-white/5">
+                    <button
+                      onClick={() => setActiveState('MENU')}
+                      className={`px-5 py-3 rounded-lg border ${themeClasses.border} text-[10px] font-black uppercase text-slate-400 hover:text-white transition-colors cursor-pointer`}
+                    >
+                      {lang === 'PT-BR' ? 'VOLTAR AO MENU' : 'BACK TO MENU'}
+                    </button>
+                    <button
+                      onClick={() => setWizardStep(2)}
+                      className={`px-7 py-3 rounded-lg ${themeClasses.actionButton} font-mono text-[10px] uppercase tracking-wider cursor-pointer shadow-lg`}
+                    >
+                      {lang === 'PT-BR' ? 'AVANÇAR PARA PERFIL →' : 'ADVANCE TO PROFILE →'}
+                    </button>
+                  </div>
+
+                </div>
+              </div>
+            )}
+
+            {/* STAGE 2: CRIE O SEU MANAGER */}
+            {wizardStep === 2 && (
+              <div className="w-full animate-fade-in flex flex-col items-center">
+                <div className={`w-full ${themeClasses.card} p-7 rounded-2xl text-left`}>
+                  
+                  <div className="border-b border-white/5 pb-4 mb-5">
+                    <span className="text-[10px] uppercase font-mono tracking-widest font-black text-cyan-400 block mb-1">
+                      {lang === 'PT-BR' ? 'ESTÁGIO 2 - PERFIL DO TREINADOR' : lang === 'EN-US' ? 'STAGE 2 - COACH/MANAGER PROFILE' : 'ESTADIO 2 - PERFIL DEL ENTRENADOR'}
+                    </span>
+                    <h3 className={`font-display text-lg font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                      {text.profileTitle}
+                    </h3>
+                    <p className={`text-[11px] ${themeClasses.textSecondary} leading-relaxed mt-1.5`}>
+                      {text.profileDesc}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6 leading-normal">
+                    {/* Visual Avatar Manager Creator */}
+                    <div className="md:col-span-4 flex flex-col items-center gap-4 text-center">
+                      <span className="text-[9px] uppercase tracking-widest font-black text-slate-400 block w-full text-left">
+                        {text.photoLabel}
+                      </span>
+
+                      {/* Photo area with upload exactly as specified */}
+                      <div 
+                        onDragOver={handleDragOver}
+                        onDrop={handleDrop}
+                        onClick={() => fileInputRef.current?.click()}
+                        className={`w-32 h-32 rounded-2xl border-2 border-dashed ${themeClasses.border} overflow-hidden cursor-pointer flex flex-col items-center justify-center p-1.5 group hover:border-cyan-400 transition-colors relative bg-black/10`}
+                      >
+                        {customPhotoFile ? (
+                          <img src={customPhotoFile} alt="Manager" className="w-full h-full object-cover rounded-xl" />
+                        ) : (
+                          <>
+                            <img src={profilePhoto} alt="Manager" className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition-transform" />
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white text-[9px] font-bold uppercase tracking-wider transition-opacity">
+                              <Upload className="w-4 h-4 mb-1" />
+                              <span>Mudar Foto</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-3.5 py-1.5 bg-[#121f35]/90 border border-white/5 hover:border-cyan-400 text-cyan-400 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer shadow"
+                      >
+                        📂 Carregar Imagem do Computador
+                      </button>
+
+                      <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        onChange={handleFileSelect} 
+                        accept="image/*" 
+                        className="hidden" 
+                      />
+
+                      {/* Horizontal image gallery presets */}
+                      <div className="w-full px-2">
+                        <span className="block text-[8px] uppercase tracking-widest font-bold text-slate-500 mb-1">Escolha um Preset</span>
+                        <div className="flex gap-1.5 justify-center mt-1">
+                          {AVATAR_TEMPLATES.map((tmpl, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => {
+                                setProfilePhoto(tmpl);
+                                setCustomPhotoFile(null);
+                              }}
+                              className={`w-7 h-7 rounded-md border overflow-hidden ${profilePhoto === tmpl && !customPhotoFile ? 'border-cyan-400 scale-110 shadow' : 'border-white/10 opacity-60'} transition-all cursor-pointer`}
+                            >
+                              <img src={tmpl} alt="avatar option" className="w-full h-full object-cover" />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Form parameters */}
+                    <div className="md:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Name field */}
+                      <div className="sm:col-span-2">
+                        <label className="block text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1.5">
+                          {text.nameLabel}
+                        </label>
+                        <div className="relative">
+                          <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <input
+                            type="text"
+                            value={managerName}
+                            onChange={(e) => setManagerName(e.target.value)}
+                            className={`w-full ${themeClasses.input} rounded-lg pl-9 pr-3 py-2.5 text-xs focus:outline-none focus:border-cyan-400 font-bold tracking-normal`}
+                            placeholder={text.placeholderName}
+                            maxLength={25}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Age field */}
+                      <div>
+                        <label className="block text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1.5">
+                          {text.ageLabel}
+                        </label>
+                        <input
+                          type="number"
+                          value={managerAge}
+                          min={18}
+                          max={70}
+                          onChange={(e) => setManagerAge(Number(e.target.value))}
+                          className={`w-full ${themeClasses.input} rounded-lg px-3 py-2.5 text-xs focus:outline-none focus:border-cyan-400 font-mono font-bold`}
+                        />
+                      </div>
+
+                      {/* Nationality Dropdown */}
+                      <div>
+                        <label className="block text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1.5">
+                          {text.nationalityLabel}
+                        </label>
+                        <select
+                          value={managerNationality}
+                          onChange={(e) => setManagerNationality(e.target.value)}
+                          className={`w-full ${themeClasses.input} rounded-lg px-2.5 py-2.5 text-xs focus:outline-none cursor-pointer focus:border-cyan-400 font-bold`}
+                        >
+                          {NATIONALITIES.map((nat) => (
+                            <option key={nat} value={nat}>{nat}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Language sync Selector */}
+                      <div>
+                        <label className="block text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1.5">
+                          {text.langLabel}
+                        </label>
+                        <select
+                          value={lang}
+                          onChange={(e) => handleUpdateLanguage(e.target.value as any)}
+                          className={`w-full ${themeClasses.input} rounded-lg px-2.5 py-2.5 text-xs focus:outline-none focus:border-cyan-400 font-bold`}
+                        >
+                          <option value="PT-BR">PT-BR (Português)</option>
+                          <option value="EN-US">EN-US (English)</option>
+                          <option value="ES-ES">ES-ES (Español)</option>
+                        </select>
+                      </div>
+
+                      {/* Currency settings Sync */}
+                      <div>
+                        <label className="block text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1.5">
+                          {text.currencyLabel}
+                        </label>
+                        <select
+                          value={activeCurrency}
+                          onChange={(e) => handleUpdateCurrency(e.target.value as any)}
+                          className={`w-full ${themeClasses.input} rounded-lg px-2.5 py-2.5 text-xs focus:outline-none focus:border-cyan-400 font-bold`}
+                        >
+                          <option value="BRL">BRL (R$)</option>
+                          <option value="USD">USD ($)</option>
+                          <option value="EUR">EUR (€)</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 justify-end pt-6 border-t border-white/5 mt-6">
+                    <button
+                      onClick={() => setWizardStep(1)}
+                      className={`px-5 py-3 rounded-lg border ${themeClasses.border} text-[10px] font-black uppercase text-slate-400 hover:text-white transition-colors cursor-pointer`}
+                    >
+                      {lang === 'PT-BR' ? 'VOLTAR' : 'BACK'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (managerName.trim()) {
+                          setWizardStep(3);
+                        }
+                      }}
+                      disabled={!managerName.trim()}
+                      className={`px-7 py-3 rounded-lg ${themeClasses.actionButton} font-mono text-[10px] uppercase tracking-wider cursor-pointer shadow-lg disabled:opacity-40 select-none`}
+                    >
+                      {lang === 'PT-BR' ? 'AVANÇAR PARA SELEÇÃO DE TIME →' : 'CHOOSE TEAM →'}
+                    </button>
+                  </div>
+
+                </div>
+              </div>
+            )}
+
+            {/* STAGE 3: SELECIONE SUA EQUIPE */}
+            {wizardStep === 3 && (
+              <div className="w-full animate-fade-in flex flex-col items-center">
+                <div className={`w-full ${themeClasses.card} p-7 rounded-2xl text-left`}>
+                  
+                  <div className="border-b border-white/5 pb-4 mb-4">
+                    <span className="text-[10px] uppercase font-mono tracking-widest font-black text-cyan-400 block mb-1">
+                      {lang === 'PT-BR' ? 'ESTÁGIO 3 - ASSOCIAÇÃO DA FRANQUIA' : lang === 'EN-US' ? 'STAGE 3 - CHOOSE YOUR FRANCHISE' : 'ESTADIO 3 - FILTRA TU FRANQUICIA'}
+                    </span>
+                    <h3 className={`font-display text-base font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                      {text.selectTeamTitle}
+                    </h3>
+                    <p className={`text-[10.5px] ${themeClasses.textSecondary} leading-relaxed`}>
+                      {text.selectTeamDesc}
+                    </p>
+                  </div>
+
+                  {/* Regions lists grid controller */}
+                  <div className="mb-4">
+                    <span className="block text-[8px] uppercase tracking-widest font-black text-slate-400 mb-1.5">
+                      {text.gridRegions}
+                    </span>
+                    <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                      {[
+                        { key: 'Brasil', label: 'Brasil', league: 'CBLOL' },
+                        { key: 'América do Norte', label: 'América do Norte', league: 'LCS' },
+                        { key: 'EUROPA', label: 'Europa', league: 'LEC' },
+                        { key: 'Coreia', label: 'Coreia', league: 'LCK' },
+                        { key: 'China', label: 'China', league: 'LPL' },
+                        { key: 'Pacífico', label: 'Pacífico', league: 'LCP' }
+                      ].map((reg) => (
+                        <button
+                          key={reg.key}
+                          onClick={() => {
+                            setSelectedRegionGrid(reg.key);
+                            const activeDbString = localStorage.getItem('legendshub_custom_db');
+                            let currentDb = REGIONAL_TEAMS_DATABASE;
+                            if (activeDbString) {
+                              try { currentDb = JSON.parse(activeDbString); } catch(ev){}
+                            }
+                            const list = currentDb[reg.league as 'CBLOL' | 'LCK' | 'LPL' | 'LEC' | 'LCS' | 'LCP'] || [];
+                            if (list && list.length > 0) {
+                              setSelectedTeamId(list[0].id);
+                            }
+                          }}
+                          className={`px-4 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg border transition-all cursor-pointer whitespace-nowrap ${
+                            selectedRegionGrid === reg.key 
+                              ? 'bg-blue-600 border-blue-600 text-white shadow-md' 
+                              : `${themeClasses.border} bg-black/5 hover:bg-black/10 ${themeClasses.textSecondary}`
+                          }`}
+                        >
+                          {reg.label} ({reg.league})
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Two Column Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-5 leading-normal">
+                    {/* GRID OF TEAMS LISTING (Col Span 7) */}
+                    <div className="md:col-span-7 flex flex-col">
+                      <span className="block text-[8px] uppercase tracking-widest font-black text-slate-400 mb-1.5">
+                        {text.gridTeams}
+                      </span>
+
+                      <div className={`flex-1 border ${themeClasses.border} rounded-xl p-3 max-h-[350px] overflow-y-auto pr-1 space-y-1.5 scrollbar-thin ${activeTheme === 'dark' ? 'bg-[#040812]/50' : 'bg-slate-50'}`}>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                          {gridTeamsList.map((t) => {
+                            const isSel = selectedTeamId === t.id;
+                            return (
+                              <button
+                                key={t.id}
+                                onClick={() => setSelectedTeamId(t.id)}
+                                className={`p-2.5 rounded-lg border text-left flex items-center justify-between transition-all cursor-pointer ${
+                                  isSel 
+                                    ? (activeTheme === 'dark' ? 'bg-[#00E5FF]/10 border-cyan-400 text-cyan-400 scale-[1.01]' : 'bg-blue-600/10 border-[#1A5CFF] text-[#1A5CFF] font-bold scale-[1.01]')
+                                    : (activeTheme === 'dark' ? `bg-[#0c1424]/40 ${themeClasses.border} text-slate-350 hover:bg-slate-200/5` : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100')
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 truncate">
+                                  {(() => {
+                                    const activeDb = (() => { try { return JSON.parse(localStorage.getItem('legendshub_custom_db') || ''); } catch(e){ return null; } })();
+                                    const logo = getTeamLogoWithAcademyInheritance(t, activeDb);
+                                    return logo && logo !== '/perfil-default.jpeg' ? (
+                                      <img 
+                                        src={logo} 
+                                        alt={t.name} 
+                                        className={`w-5 h-5 object-contain shrink-0 rounded border p-0.5 ${activeTheme === 'dark' ? 'border-white/5 bg-slate-900/40' : 'border-slate-200 bg-slate-100'}`}
+                                        referrerPolicy="no-referrer" 
+                                        onError={(e) => { e.currentTarget.src = 'assets/ui/fallback-logo.png'; }} 
+                                      />
+                                    ) : (
+                                      <div 
+                                        className="w-4 h-4 rounded-full shrink-0 flex items-center justify-center font-mono font-black text-[8px] text-white" 
+                                        style={{ backgroundColor: t.primaryColor || '#152538' }}
+                                      >
+                                        {t.acronym?.substring(0, 2)}
+                                      </div>
+                                    );
+                                  })()}
+                                  <span className="text-[10px] font-bold truncate">
+                                    {t.name}
+                                  </span>
+                                </div>
+                                <span className="text-[8px] font-mono opacity-60">
+                                  {t.acronym}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* DETAILED SPECIFICATIONS PANEL (Col Span 5) */}
+                    <div className={`md:col-span-5 border ${themeClasses.border} rounded-xl p-5 flex flex-col justify-between shadow-inner`}>
+                      {selectedTeamData ? (
+                        <>
+                          <div className="flex flex-col items-center text-center mt-1">
+                            {/* Emblem Logo */}
+                            {(() => {
+                              const activeDb = (() => { try { return JSON.parse(localStorage.getItem('legendshub_custom_db') || ''); } catch(e){ return null; } })();
+                              const logo = getTeamLogoWithAcademyInheritance(selectedTeamData, activeDb);
+                              return logo && logo !== '/perfil-default.jpeg' ? (
+                                <img 
+                                  src={logo} 
+                                  alt={selectedTeamData.name} 
+                                  className="w-16 h-16 object-contain rounded-xl select-none mb-3 flex-shrink-0"
+                                  referrerPolicy="no-referrer"
+                                  onError={(e) => { e.currentTarget.src = 'assets/ui/fallback-logo.png'; }}
+                                />
+                              ) : (
+                                <div 
+                                  className="w-14 h-14 rounded-2xl flex items-center justify-center border-2 font-display text-base font-black text-white mb-2"
+                                  style={{ backgroundColor: selectedTeamData.primaryColor || '#1e3a8a' }}
+                                >
+                                  {selectedTeamData.acronym}
+                                </div>
+                              );
+                            })()}
+
+                            <h4 className={`font-display text-xs font-black ${themeClasses.textPrimary} uppercase tracking-wider truncate max-w-full leading-tight`}>
+                              {selectedTeamData.name} ({selectedTeamData.acronym})
+                            </h4>
+                            
+                            <span className="text-[8px] font-mono bg-cyan-500/10 text-cyan-400 border border-cyan-400/25 rounded px-2 py-0.5 uppercase tracking-widest font-black mt-1">
+                              Liga: {selectedRegionGrid === 'Brasil' ? 'CBLOL' : selectedRegionGrid === 'América do Norte' ? 'LCS' : selectedRegionGrid === 'EUROPA' ? 'LEC' : selectedRegionGrid === 'Coreia' ? 'LCK' : selectedRegionGrid === 'China' ? 'LPL' : 'LCP'}
+                            </span>
+
+                            <p className={`text-[11px] ${themeClasses.textSecondary} leading-relaxed h-20 overflow-y-auto mt-3 pr-1 w-full text-left font-medium scrollbar-thin border-t border-b border-slate-800/25 py-2`}>
+                              {selectedTeamData.description || 'Nenhuma descrição adicionada.'}
+                            </p>
+                          </div>
+
+                          {/* Interactive metadata specs */}
+                          <div className="grid grid-cols-2 gap-2 mt-4 text-xs font-mono">
+                            <div className="space-y-0.5 text-left">
+                              <span className="block text-[8px] uppercase tracking-widest text-slate-400 font-bold">{text.budgetLabel}</span>
+                              <span className="font-bold text-[10.5px] text-emerald-400">
+                                {formatValueLocal(selectedTeamData.budget)}
+                              </span>
+                            </div>
+
+                            <div className="space-y-0.5 text-left">
+                              <span className="block text-[8px] uppercase tracking-widest text-slate-400 font-bold">{text.fansLabel}</span>
+                              <span className="font-bold text-[10.5px] text-sky-400">
+                                {selectedTeamData.popularity || 75}% Ativa
+                              </span>
+                            </div>
+
+                            <div className="space-y-0.5 text-left">
+                              <span className="block text-[8px] uppercase tracking-widest text-slate-400 font-bold">{text.starsLabel}</span>
+                              <div className="flex gap-0.5 mt-0.5">
+                                {Array.from({ length: 5 }).map((_, i) => {
+                                  const borderLimit = selectedTeamData.popularity >= 88 ? 5 : selectedTeamData.popularity >= 75 ? 4 : selectedTeamData.popularity >= 60 ? 3 : 2;
+                                  return (
+                                    <Award 
+                                      key={i} 
+                                      className={`w-3.5 h-3.5 ${i < borderLimit ? 'text-amber-400 fill-amber-400' : 'text-slate-600'}`} 
+                                    />
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            <div className="space-y-0.5 text-left">
+                              <span className="block text-[8px] uppercase tracking-widest text-slate-400 font-bold">{text.tierLabel}</span>
+                              <span className="font-black text-xs text-rose-500 uppercase">
+                                TIER {computeTeamTier(selectedTeamData)}
+                              </span>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="my-auto text-center text-xs text-slate-400 uppercase select-none">
+                          Carregando especificações...
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+
+                  {/* Footer Back/Next buttons */}
+                  <div className="flex gap-2.5 justify-end mt-6 border-t border-slate-800/10 pt-5">
+                    <button
+                      onClick={() => setWizardStep(2)}
+                      className={`px-5 py-3 rounded-lg border ${themeClasses.border} text-[10px] font-black uppercase text-slate-400 hover:text-white transition-colors cursor-pointer`}
+                    >
+                      {lang === 'PT-BR' ? 'VOLTAR' : 'BACK'}
+                    </button>
+                    <button
+                      onClick={() => setWizardStep(4)}
+                      className={`px-7 py-3 rounded-lg ${themeClasses.actionButton} font-mono text-[10px] uppercase tracking-wider cursor-pointer shadow-lg`}
+                    >
+                      {lang === 'PT-BR' ? 'CONFERIR & INICIAR →' : 'CONFIRM & REVIEW →'}
+                    </button>
+                  </div>
+
+                </div>
+              </div>
+            )}
+
+            {/* STAGE 4: CONFERIR E INICIAR */}
+            {wizardStep === 4 && (
+              <div className="w-full animate-fade-in flex flex-col items-center">
+                <div className={`w-full ${themeClasses.card} p-7 rounded-2xl text-left relative overflow-hidden`}>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
+
+                  <div className="border-b border-white/5 pb-4 mb-5">
+                    <span className="text-[10px] uppercase font-mono tracking-widest font-black text-cyan-400 block mb-1">
+                      {lang === 'PT-BR' ? 'ESTÁGIO 4 - REVISÃO FINAL DE CONTRATO' : lang === 'EN-US' ? 'STAGE 4 - FINAL CONTRACT REVIEW' : 'ESTADIO 4 - CONTROL DE REGISTRO'}
+                    </span>
+                    <h3 className={`font-display text-lg font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                      {lang === 'PT-BR' ? 'Conferir e Iniciar' : 'Review & Start Game'}
+                    </h3>
+                    <p className={`text-[11px] ${themeClasses.textSecondary} leading-relaxed mt-1.5`}>
+                      {lang === 'PT-BR' ? 'Tudo pronto para oficializar a sua contratação como Manager. Verifique os dados operacionais do novo save:' : 
+                       'Verify and validate all selections made for your coaching run. Read the details below:'}
+                    </p>
+                  </div>
+
+                  {/* Side-by-side Matchup Banner */}
+                  <div className="grid grid-cols-1 md:grid-cols-11 gap-4 mb-6 relative items-center select-none leading-normal">
+                    
+                    {/* Left panel: Manager */}
+                    <div 
+                      className="md:col-span-5 border p-5 rounded-xl flex items-center gap-4 transition-all"
+                      style={{
+                        backgroundColor: activeTheme === 'dark' ? '#050b16' : '#FFFFFF',
+                        borderColor: activeTheme === 'dark' ? 'rgba(30, 45, 68, 0.6)' : 'rgba(226, 232, 240, 0.8)'
+                      }}
+                    >
+                      <div className={`w-16 h-16 rounded-xl border overflow-hidden shrink-0 ${activeTheme === 'dark' ? 'border-[#1e2d44] bg-slate-900' : 'border-slate-200 bg-slate-100'}`}>
+                        {customPhotoFile ? (
+                          <img src={customPhotoFile} alt="Manager" className="w-full h-full object-cover" />
+                        ) : (
+                          <img src={profilePhoto} alt="Manager" className="w-full h-full object-cover" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="block text-[8px] font-mono tracking-widest text-cyan-500 dark:text-[#00E5FF] font-black uppercase">COMMITTED MANAGER</span>
+                        <h4 className={`font-display text-sm font-black truncate ${themeClasses.textPrimary}`}>{managerName}</h4>
+                        <div className={`text-[10px] mt-1 space-y-0.5 ${themeClasses.textSecondary}`}>
+                          <p>Idade: <span className={`font-bold ${activeTheme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{managerAge} Anos</span></p>
+                          <p>Nacionalidade: <span className={`font-bold ${activeTheme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{managerNationality}</span></p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Center VS Indicator */}
+                    <div className="md:col-span-1 flex flex-col items-center justify-center font-display font-black text-center text-xs">
+                      <div className="w-8 h-8 rounded-full border border-sky-400/25 bg-sky-500/10 text-cyan-500 dark:text-cyan-400 flex items-center justify-center shadow-lg animate-pulse uppercase tracking-widest">
+                        VS
+                      </div>
+                    </div>
+
+                    {/* Right panel: Chosen Team */}
+                    <div 
+                      className="md:col-span-5 border p-5 rounded-xl flex items-center gap-4 transition-all"
+                      style={{
+                        backgroundColor: activeTheme === 'dark' ? '#050b16' : '#FFFFFF',
+                        borderColor: activeTheme === 'dark' ? 'rgba(30, 45, 68, 0.6)' : 'rgba(226, 232, 240, 0.8)'
+                      }}
+                    >
+                      {selectedTeamData ? (
+                        <>
+                          <div className={`w-16 h-16 rounded-xl border flex items-center justify-center overflow-hidden shrink-0 ${activeTheme === 'dark' ? 'border-[#1e2d44] bg-slate-900' : 'border-slate-200 bg-slate-100'}`}>
+                            {(() => {
+                              const activeDb = (() => { try { return JSON.parse(localStorage.getItem('legendshub_custom_db') || ''); } catch(e){ return null; } })();
+                              const logo = getTeamLogoWithAcademyInheritance(selectedTeamData, activeDb);
+                              return logo && logo !== '/perfil-default.jpeg' ? (
+                                <img 
+                                  src={logo} 
+                                  alt={selectedTeamData.name} 
+                                  className="w-12 h-12 object-contain" 
+                                  referrerPolicy="no-referrer"
+                                  onError={(e) => { e.currentTarget.src = 'assets/ui/fallback-logo.png'; }}
+                                />
+                              ) : (
+                                <div 
+                                  className="w-10 h-10 rounded-xl flex items-center justify-center font-mono font-black text-xs text-white"
+                                  style={{ backgroundColor: selectedTeamData.primaryColor || '#1e3a8a' }}
+                                >
+                                  {selectedTeamData.acronym}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                          <div className="min-w-0">
+                            <span className="block text-[8px] font-mono tracking-widest text-[#FF007F] font-black uppercase">ASSOCIATED FRANCHISE</span>
+                            <h4 className={`font-display text-sm font-black truncate ${themeClasses.textPrimary}`}>{selectedTeamData.name}</h4>
+                            <div className={`text-[10px] mt-1 space-y-0.5 ${themeClasses.textSecondary}`}>
+                              <p>Região: <span className={`font-bold ${activeTheme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{selectedRegionGrid}</span></p>
+                              <p>Orçamento: <span className={`font-bold font-mono ${activeTheme === 'dark' ? 'text-slate-300' : 'text-slate-705'} text-emerald-500 dark:text-emerald-400`}>{formatValueLocal(selectedTeamData.budget)}</span></p>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-[10px] text-slate-500 font-mono uppercase">Nenhum time selecionado</div>
+                      )}
+                    </div>
+
+                  </div>
+
+                  {/* Summary grid list details */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mb-6">
+                    <div className={`p-3.5 border rounded-xl text-left ${themeClasses.innerBox}`}>
+                      <span className="text-[8px] font-mono uppercase tracking-widest text-slate-500 block font-bold">Banco de Dados Ativo</span>
+                      <span className={`text-[10.5px] mt-1 uppercase font-black tracking-wider block truncate ${themeClasses.textPrimary}`}>
+                        {selectedDbId === 'db_default_local' ? 'default.db' : selectedDbId}
+                      </span>
+                    </div>
+
+                    <div className={`p-3.5 border rounded-xl text-left ${themeClasses.innerBox}`}>
+                      <span className="text-[8px] font-mono uppercase tracking-widest text-slate-500 block font-bold">Idioma Operacional</span>
+                      <span className={`text-[10.5px] mt-1 uppercase font-black tracking-wider block ${themeClasses.textPrimary}`}>
+                        {lang === 'PT-BR' ? 'Português (PT-BR)' : lang === 'EN-US' ? 'English (EN-US)' : 'Español (ES-ES)'}
+                      </span>
+                    </div>
+
+                    <div className={`p-3.5 border rounded-xl text-left ${themeClasses.innerBox}`}>
+                      <span className="text-[8px] font-mono uppercase tracking-widest text-slate-500 block font-bold">Estrutura Financeira</span>
+                      <span className={`text-[10.5px] mt-1 uppercase font-black tracking-wider block ${themeClasses.textPrimary}`}>
+                        {activeCurrency} ({activeCurrency === 'BRL' ? 'R$' : activeCurrency === 'EUR' ? '€' : '$'})
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Action operations footer */}
+                  <div className="pt-5 border-t border-white/5">
+                    {downloadProgress.status === 'idle' ? (
+                      <div className="flex gap-2.5 justify-end">
+                        <button
+                          onClick={() => setWizardStep(3)}
+                          className={`px-5 py-3 rounded-lg border ${themeClasses.border} text-[10px] font-black uppercase text-slate-400 hover:text-white transition-colors cursor-pointer`}
+                        >
+                          {lang === 'PT-BR' ? 'VOLTAR' : 'BACK'}
+                        </button>
+                        <button
+                          onClick={() => handleStartCareerWithDb(selectedDbId)}
+                          className="px-8 py-3.5 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-mono text-[10.5px] uppercase tracking-widest font-black rounded-lg cursor-pointer transition-all shadow-lg shadow-cyan-500/10 active:scale-[0.98]"
+                        >
+                          [ COMEÇAR CARREIRA ]
+                        </button>
+                      </div>
+                    ) : (
+                      /* Futuristic Terminal Installation Screen during loading progress */
+                      <div className="bg-[#030712] border border-cyan-500/30 p-4 rounded-xl font-mono space-y-4 text-left">
+                        <div className="flex items-center justify-between text-[10.5px]">
+                          <span className="text-cyan-400 font-bold flex items-center gap-1.5 animate-pulse uppercase">
+                            <Cpu className="w-4 h-4 text-cyan-400 animate-spin" />
+                            Compilando Roster e Inicializando Universo: {selectedDbId.toUpperCase()}
+                          </span>
+                          <span className="font-bold text-slate-200">{downloadProgress.percent}%</span>
+                        </div>
+
+                        {/* Horizontal running progress meter */}
+                        <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-white/5 relative">
+                          <div 
+                            className="bg-gradient-to-r from-blue-500 to-cyan-400 h-full transition-all duration-350 ease-out"
+                            style={{ width: `${downloadProgress.percent}%` }}
+                          />
+                        </div>
+
+                        {/* Live terminal feedback list to give an ultra realistic modding experience */}
+                        <div className="h-28 overflow-y-auto pr-1 text-[9px] leading-relaxed text-slate-300 space-y-1 block scrollbar-thin scroll-smooth">
+                          {downloadProgress.log.map((logLine, index) => (
+                            <div key={index} className="flex gap-2 items-start text-[#00cbd6]/90">
+                              <span className="text-cyan-500 shrink-0 select-none">&gt;</span>
+                              <span className="break-all">{logLine}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+              </div>
+            )}
+
+          </div>
+        )}
+
+        {/* State: configuracoes_db (DB_SETTINGS) */}
+        {activeState === 'DB_SETTINGS' && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto animate-fade-in font-sans">
+            <div 
+              className="w-full max-w-4xl rounded-2xl text-left overflow-hidden flex flex-col md:flex-row h-auto md:h-[560px] shadow-2xl relative border transition-all duration-300"
+              style={{
+                backgroundColor: activeTheme === 'dark' ? 'rgba(15, 23, 42, 0.88)' : 'rgba(255, 255, 255, 0.90)',
+                backdropFilter: 'blur(16px)',
+                borderColor: activeTheme === 'dark' ? 'rgba(6, 182, 212, 0.25)' : 'rgba(226, 232, 240, 0.8)',
+                boxShadow: activeTheme === 'dark' ? '0 20px 40px rgba(0, 0, 0, 0.4), 0 0 30px rgba(6, 182, 212, 0.08)' : '0 20px 40px rgba(0, 0, 0, 0.05), 0 0 15px rgba(59, 130, 246, 0.03)'
+              }}
+            >
+              
+              {/* Close Button Top-Right */}
+              <button
+                onClick={() => setActiveState('MENU')}
+                className="absolute top-4 right-4 p-1.5 rounded-lg border border-slate-755/20 text-slate-400 hover:text-cyan-400 transition-colors cursor-pointer z-10 bg-slate-900/10 hover:bg-slate-900/30 dark:hover:bg-cyan-500/10"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              {/* Sidebar Tabs */}
+              <aside className="w-full md:w-[220px] bg-slate-500/5 border-b md:border-b-0 md:border-r border-slate-200/10 dark:border-slate-800/40 p-5 pt-7 shrink-0 flex flex-row md:flex-col gap-1.5 overflow-x-auto md:overflow-x-visible relative">
+                <div className="max-md:hidden mb-6">
+                  <h4 className={`text-[10px] uppercase tracking-widest font-extrabold ${activeTheme === 'dark' ? 'text-slate-405' : 'text-slate-505'}`}>
+                    Configurações
+                  </h4>
+                  <p className="font-mono text-[8.5px] text-cyan-400 font-bold uppercase tracking-wider mt-0.5">
+                    Modo Global
+                  </p>
+                </div>
+
+                {/* 1. Conta & Manager */}
+                <button
+                  onClick={() => setSettingsSubTab('profile')}
+                  className={`relative w-full py-2.5 px-3.5 rounded-xl text-left font-black text-[10px] uppercase tracking-wider flex items-center gap-2.5 transition-all shrink-0 cursor-pointer overflow-hidden ${
+                    settingsSubTab === 'profile'
+                      ? (activeTheme === 'dark' ? 'bg-cyan-500/10 text-[#00cbd6]' : 'bg-blue-600/10 text-blue-600')
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-500/5'
+                  }`}
+                >
+                  {settingsSubTab === 'profile' && (
+                    <div className={`absolute left-0 top-1/4 bottom-1/4 w-[3px] rounded-r ${activeTheme === 'dark' ? 'bg-cyan-400' : 'bg-blue-600'}`} />
+                  )}
+                  <User className={`w-4 h-4 shrink-0 transition-colors ${
+                    settingsSubTab === 'profile' 
+                      ? (activeTheme === 'dark' ? 'text-cyan-400 fill-cyan-400/10' : 'text-blue-600 fill-blue-600/10') 
+                      : 'text-slate-400'
+                  }`} />
+                  <span>Conta & Manager</span>
+                </button>
+
+                {/* 2. Aparência & Idioma */}
+                <button
+                  onClick={() => setSettingsSubTab('appearance')}
+                  className={`relative w-full py-2.5 px-3.5 rounded-xl text-left font-black text-[10px] uppercase tracking-wider flex items-center gap-2.5 transition-all shrink-0 cursor-pointer overflow-hidden ${
+                    settingsSubTab === 'appearance'
+                      ? (activeTheme === 'dark' ? 'bg-cyan-500/10 text-[#00cbd6]' : 'bg-blue-600/10 text-blue-600')
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-500/5'
+                  }`}
+                >
+                  {settingsSubTab === 'appearance' && (
+                    <div className={`absolute left-0 top-1/4 bottom-1/4 w-[3px] rounded-r ${activeTheme === 'dark' ? 'bg-cyan-400' : 'bg-blue-600'}`} />
+                  )}
+                  <Globe className={`w-4 h-4 shrink-0 transition-colors ${
+                    settingsSubTab === 'appearance' 
+                      ? (activeTheme === 'dark' ? 'text-cyan-400 fill-cyan-400/10' : 'text-blue-600 fill-blue-600/10') 
+                      : 'text-slate-400'
+                  }`} />
+                  <span>Aparência & Idioma</span>
+                </button>
+
+                {/* 3. Banco dados */}
+                <button
+                  onClick={() => setSettingsSubTab('db')}
+                  className={`relative w-full py-2.5 px-3.5 rounded-xl text-left font-black text-[10px] uppercase tracking-wider flex items-center gap-2.5 transition-all shrink-0 cursor-pointer overflow-hidden ${
+                    settingsSubTab === 'db'
+                      ? (activeTheme === 'dark' ? 'bg-cyan-500/10 text-[#00cbd6]' : 'bg-blue-600/10 text-blue-600')
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-500/5'
+                  }`}
+                >
+                  {settingsSubTab === 'db' && (
+                    <div className={`absolute left-0 top-1/4 bottom-1/4 w-[3px] rounded-r ${activeTheme === 'dark' ? 'bg-cyan-400' : 'bg-blue-600'}`} />
+                  )}
+                  <Database className={`w-4 h-4 shrink-0 transition-colors ${
+                    settingsSubTab === 'db' 
+                      ? (activeTheme === 'dark' ? 'text-cyan-400 fill-cyan-400/10' : 'text-blue-600 fill-blue-600/10') 
+                      : 'text-slate-405'
+                  }`} />
+                  <span>Banco dados</span>
+                </button>
+
+                {/* 4. Saves */}
+                <button
+                  onClick={() => setSettingsSubTab('saves')}
+                  className={`relative w-full py-2.5 px-3.5 rounded-xl text-left font-black text-[10px] uppercase tracking-wider flex items-center gap-2.5 transition-all shrink-0 cursor-pointer overflow-hidden ${
+                    settingsSubTab === 'saves'
+                      ? (activeTheme === 'dark' ? 'bg-cyan-500/10 text-[#00cbd6]' : 'bg-blue-600/10 text-blue-600')
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-500/5'
+                  }`}
+                >
+                  {settingsSubTab === 'saves' && (
+                    <div className={`absolute left-0 top-1/4 bottom-1/4 w-[3px] rounded-r ${activeTheme === 'dark' ? 'bg-cyan-400' : 'bg-blue-600'}`} />
+                  )}
+                  <Save className={`w-4 h-4 shrink-0 transition-colors ${
+                    settingsSubTab === 'saves' 
+                      ? (activeTheme === 'dark' ? 'text-cyan-400 fill-cyan-400/10' : 'text-blue-600 fill-blue-600/10') 
+                      : 'text-slate-400'
+                  }`} />
+                  <span>Saves</span>
+                </button>
+
+                {/* 5. Música */}
+                <button
+                  onClick={() => setSettingsSubTab('music')}
+                  className={`relative w-full py-2.5 px-3.5 rounded-xl text-left font-black text-[10px] uppercase tracking-wider flex items-center gap-2.5 transition-all shrink-0 cursor-pointer overflow-hidden ${
+                    settingsSubTab === 'music'
+                      ? (activeTheme === 'dark' ? 'bg-cyan-500/10 text-[#00cbd6]' : 'bg-blue-600/10 text-blue-600')
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-500/5'
+                  }`}
+                >
+                  {settingsSubTab === 'music' && (
+                    <div className={`absolute left-0 top-1/4 bottom-1/4 w-[3px] rounded-r ${activeTheme === 'dark' ? 'bg-cyan-400' : 'bg-blue-600'}`} />
+                  )}
+                  <Music className={`w-4 h-4 shrink-0 transition-colors ${
+                    settingsSubTab === 'music' 
+                      ? (activeTheme === 'dark' ? 'text-cyan-400 fill-cyan-400/10' : 'text-blue-600 fill-blue-600/10') 
+                      : 'text-slate-400'
+                  }`} />
+                  <span>Música</span>
+                </button>
+
+                {/* 6. Gameplay */}
+                <button
+                  onClick={() => setSettingsSubTab('gameplay')}
+                  className={`relative w-full py-2.5 px-3.5 rounded-xl text-left font-black text-[10px] uppercase tracking-wider flex items-center gap-2.5 transition-all shrink-0 cursor-pointer overflow-hidden ${
+                    settingsSubTab === 'gameplay'
+                      ? (activeTheme === 'dark' ? 'bg-cyan-500/10 text-[#00cbd6]' : 'bg-blue-600/10 text-blue-600')
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-500/5'
+                  }`}
+                >
+                  {settingsSubTab === 'gameplay' && (
+                    <div className={`absolute left-0 top-1/4 bottom-1/4 w-[3px] rounded-r ${activeTheme === 'dark' ? 'bg-cyan-400' : 'bg-blue-600'}`} />
+                  )}
+                  <Gamepad2 className={`w-4 h-4 shrink-0 transition-colors ${
+                    settingsSubTab === 'gameplay' 
+                      ? (activeTheme === 'dark' ? 'text-cyan-400 fill-cyan-400/10' : 'text-blue-600 fill-blue-600/10') 
+                      : 'text-slate-400'
+                  }`} />
+                  <span>Gameplay</span>
+                </button>
+
+                {/* 7. Atalhos */}
+                <button
+                  onClick={() => setSettingsSubTab('shortcuts')}
+                  className={`relative w-full py-2.5 px-3.5 rounded-xl text-left font-black text-[10px] uppercase tracking-wider flex items-center gap-2.5 transition-all shrink-0 cursor-pointer overflow-hidden ${
+                    settingsSubTab === 'shortcuts'
+                      ? (activeTheme === 'dark' ? 'bg-cyan-500/10 text-[#00cbd6]' : 'bg-blue-600/10 text-blue-600')
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-500/5'
+                  }`}
+                >
+                  {settingsSubTab === 'shortcuts' && (
+                    <div className={`absolute left-0 top-1/4 bottom-1/4 w-[3px] rounded-r ${activeTheme === 'dark' ? 'bg-cyan-400' : 'bg-blue-600'}`} />
+                  )}
+                  <Keyboard className={`w-4 h-4 shrink-0 transition-colors ${
+                    settingsSubTab === 'shortcuts' 
+                      ? (activeTheme === 'dark' ? 'text-cyan-400 fill-cyan-400/10' : 'text-blue-600 fill-blue-600/10') 
+                      : 'text-slate-400'
+                  }`} />
+                  <span>Atalhos</span>
+                </button>
+              </aside>
+
+              {/* Dynamic Sub-Tab Panel */}
+              <main className="flex-1 p-6 md:p-8 flex flex-col justify-between overflow-y-auto h-full">
+                
+                {/* 1) CONTA & MANAGER TAB */}
+                {settingsSubTab === 'profile' && (
+                  <div className="space-y-6 flex-1">
+                    <div>
+                      <h3 className={`font-display text-sm font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                        Conta & Manager
+                      </h3>
+                      <p className={`text-[10.5px] ${themeClasses.textSecondary} leading-relaxed mt-1`}>
+                        Ajuste sua identidade visual e nome do treinador que representam sua bio de manager e contratos históricos.
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Active profile avatar customized */}
+                      <div className="flex items-center gap-4 bg-slate-500/5 p-3 rounded-xl border border-slate-200/5 dark:border-slate-800/25">
+                        
+                        <div className="relative shrink-0">
+                          <div className={`w-14 h-14 rounded-full overflow-hidden border-2 flex items-center justify-center shadow-lg ${activeTheme === 'dark' ? 'border-[#00cbd6] bg-slate-900' : 'border-blue-600 bg-slate-100'}`}>
+                            {customPhotoFile ? (
+                              <img src={customPhotoFile} alt="Manager Avatar" className="w-full h-full object-cover" />
+                            ) : (
+                              <img src={profilePhoto} alt="Manager Avatar" className="w-full h-full object-cover" />
+                            )}
+                          </div>
+                          
+                          {/* Indicator for customized Base64 */}
+                          {customPhotoFile && (
+                            <button
+                              onClick={() => {
+                                setCustomPhotoFile(null);
+                                setProfilePhoto(AVATAR_TEMPLATES[0]);
+                                localStorage.removeItem('legendshub_manager_avatar');
+                              }}
+                              className="absolute -bottom-1 -right-1 bg-red-500 text-white rounded-full p-1 cursor-pointer hover:bg-red-650 shadow"
+                              title="Remover Foto Customizada"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="space-y-1 flex-1">
+                          <span className="block text-[8px] uppercase tracking-widest text-[#00cbd6] font-extrabold">Foto de Perfil</span>
+                          <p className="text-[9.5px] text-slate-400 leading-normal">Escolha um preset rápido ou envie um arquivo em formato de imagem (.jpg/.png).</p>
+                          <div className="flex gap-2 mt-1.5">
+                            <button
+                              onClick={() => document.getElementById('avatar-file-input-modal')?.click()}
+                              className={`py-1 px-3 text-[9px] uppercase tracking-wider rounded border cursor-pointer font-bold transition-all ${
+                                activeTheme === 'dark'
+                                  ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20'
+                                  : 'bg-blue-600/10 border-blue-600/20 text-blue-600 hover:bg-blue-600/20'
+                              }`}
+                            >
+                              Upload Local
+                            </button>
+                            <input
+                              type="file"
+                              id="avatar-file-input-modal"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const r = new FileReader();
+                                  r.onloadend = () => {
+                                    const src = r.result as string;
+                                    if (!src) return;
+                                    const img = new Image();
+                                    img.src = src;
+                                    img.onload = () => {
+                                      const canvas = document.createElement('canvas');
+                                      const maxDim = 160;
+                                      let width = img.width;
+                                      let height = img.height;
+                                      if (width > maxDim || height > maxDim) {
+                                        if (width > height) {
+                                          height = Math.round((height * maxDim) / width);
+                                          width = maxDim;
+                                        } else {
+                                          width = Math.round((width * maxDim) / height);
+                                          height = maxDim;
+                                        }
+                                      }
+                                      canvas.width = width;
+                                      canvas.height = height;
+                                      const ctx = canvas.getContext('2d');
+                                      if (ctx) {
+                                        ctx.drawImage(img, 0, 0, width, height);
+                                        try {
+                                          const compressed = canvas.toDataURL('image/png');
+                                          setCustomPhotoFile(compressed);
+                                          localStorage.setItem('legendshub_manager_avatar', compressed);
+                                        } catch (err) {
+                                          setCustomPhotoFile(src);
+                                          localStorage.setItem('legendshub_manager_avatar', src);
+                                        }
+                                      } else {
+                                        setCustomPhotoFile(src);
+                                        localStorage.setItem('legendshub_manager_avatar', src);
+                                      }
+                                    };
+                                  };
+                                  r.readAsDataURL(file);
+                                }
+                              }}
+                              className="hidden"
+                            />
+                            
+                            {!customPhotoFile && profilePhoto !== AVATAR_TEMPLATES[0] && (
+                              <button
+                                onClick={() => {
+                                  setProfilePhoto(AVATAR_TEMPLATES[0]);
+                                  localStorage.removeItem('legendshub_manager_avatar');
+                                }}
+                                className="py-1 px-3 bg-slate-500/10 hover:bg-slate-500/20 text-slate-400 font-bold text-[9px] uppercase tracking-wider rounded cursor-pointer"
+                              >
+                                Limpar
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Presets Grid Selection */}
+                      <div className="space-y-2">
+                        <span className="block text-[8px] uppercase tracking-widest text-slate-400 font-black">Pre-sets Disponíveis</span>
+                        <div className="grid grid-cols-5 gap-2">
+                          {[
+                            { name: 'Mestre Tático', url: 'https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=150&auto=format&fit=crop&q=80' },
+                            { name: 'Lenda', url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80' },
+                            { name: 'Cyber Stream', url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80' },
+                            { name: 'Estrategista', url: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=150&auto=format&fit=crop&q=80' },
+                            { name: 'Campeão', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80' }
+                          ].map((item, idx) => {
+                            const isSelected = profilePhoto === item.url && !customPhotoFile;
+                            return (
+                              <button
+                                key={idx}
+                                onClick={() => {
+                                  setProfilePhoto(item.url);
+                                  setCustomPhotoFile(null);
+                                  localStorage.setItem('legendshub_manager_avatar', item.url);
+                                }}
+                                className={`group p-1.5 rounded-xl border flex flex-col items-center gap-1 cursor-pointer transition-all ${
+                                  isSelected 
+                                    ? 'bg-cyan-500/10 border-cyan-400 text-cyan-400' 
+                                    : 'bg-slate-500/5 hover:bg-slate-500/10 border-slate-200/5 text-slate-400'
+                                }`}
+                              >
+                                <img src={item.url} alt={item.name} className="w-8 h-8 rounded-full object-cover border border-slate-700/40 group-hover:scale-105 transition-transform" />
+                                <span className="text-[7.5px] font-bold tracking-tight uppercase truncate max-w-full text-center leading-none mt-0.5">{item.name}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Nome do Manager */}
+                      <div className="space-y-1.5 pt-1">
+                        <label className="block text-[8px] uppercase tracking-widest text-slate-400 font-extrabold">NOME REGISTRADO (IN-GAME)</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={managerName}
+                            onChange={(e) => setManagerName(e.target.value)}
+                            placeholder="Nome do Manager"
+                            className={`flex-1 text-xs py-2.5 px-3.5 rounded-xl border font-bold ${themeClasses.input} focus:outline-none focus:border-cyan-450 shadow-sm`}
+                          />
+                          <button
+                            onClick={() => {
+                              if (managerName.trim()) {
+                                localStorage.setItem('legendshub_temp_manager_name', managerName.trim());
+                                localStorage.setItem('legendshub_manager_name', managerName.trim());
+                                alert('Identidade de Manager salva nos metadados globais!');
+                              }
+                            }}
+                            className="bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-black text-[9px] uppercase tracking-wider py-2 px-4 rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+                          >
+                            <Save className="w-3.5 h-3.5" />
+                            <span>Salvar</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 2) APARÊNCIA & IDIOMA TAB */}
+                {settingsSubTab === 'appearance' && (
+                  <div className="space-y-6 flex-1">
+                    <div>
+                      <h3 className={`font-display text-sm font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                        Aparência & Idioma
+                      </h3>
+                      <p className={`text-[10px] ${themeClasses.textSecondary} leading-relaxed mt-1`}>
+                        Personalize os temas globais, o idioma do sistema e a escala da interface de dados.
+                      </p>
+                    </div>
+
+                    <div className="space-y-5">
+                      {/* Tema global */}
+                      <div className="space-y-2">
+                        <span className="block text-[8px] uppercase tracking-widest text-[#00cbd6] font-black">Esquema de Cores do Painel</span>
+                        <div className="grid grid-cols-2 gap-3 flex-wrap">
+                          <button
+                            onClick={() => {
+                              setActiveTheme('dark');
+                              localStorage.setItem('legendshub_theme', 'dark');
+                            }}
+                            className={`py-3 px-4 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
+                              activeTheme === 'dark'
+                                ? 'bg-cyan-500/10 border-cyan-400 text-cyan-400 font-extrabold'
+                                : 'bg-slate-500/5 hover:bg-slate-500/10 border-transparent text-slate-400'
+                            }`}
+                          >
+                            <span className="text-[10px] uppercase font-bold tracking-wider">Dark Theme</span>
+                            <Moon className="w-4 h-4 text-[#00cbd6]" />
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setActiveTheme('light');
+                              localStorage.setItem('legendshub_theme', 'light');
+                            }}
+                            className={`py-3 px-4 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
+                              activeTheme === 'light'
+                                ? 'bg-blue-600/10 border-blue-500 text-blue-600 font-extrabold'
+                                : 'bg-slate-500/5 hover:bg-slate-500/10 border-transparent text-slate-405'
+                            }`}
+                          >
+                            <span className="text-[10px] uppercase font-bold tracking-wider">Light Theme</span>
+                            <Sun className="w-4 h-4 text-amber-500" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Escala da Interface */}
+                      <div className="space-y-2">
+                        <span className="block text-[8px] uppercase tracking-widest text-[#00cbd6] font-black">Escala da Interface (UI Scale)</span>
+                        <div className="grid grid-cols-3 gap-2">
+                          {['Compacta', 'Regular', 'Ampliada'].map(scale => {
+                            const isSelected = uiScale === scale;
+                            return (
+                              <button
+                                key={scale}
+                                onClick={() => {
+                                  setUiScale(scale);
+                                  localStorage.setItem('legendshub_ui_scale', scale);
+                                }}
+                                className={`py-2 px-3 rounded-xl border text-[10px] font-bold uppercase transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-cyan-500/15 border-cyan-400 text-cyan-400 font-black'
+                                    : 'bg-slate-500/5 hover:bg-slate-500/10 border-transparent text-slate-400'
+                                }`}
+                              >
+                                {scale}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Idioma Selecionado */}
+                      <div className="space-y-2">
+                        <span className="block text-[8px] uppercase tracking-widest text-[#00cbd6] font-black">Idioma do Ecossistema</span>
+                        <div className="flex flex-col gap-1.5">
+                          {[
+                            { code: 'PT-BR', label: 'Português (Brasil)', key: 'pt' },
+                            { code: 'EN-US', label: 'English (US/UK)', key: 'en' },
+                            { code: 'ES-ES', label: 'Español (Castellano)', key: 'es' }
+                          ].map((item) => {
+                            const isSelected = lang === item.code;
+                            return (
+                              <button
+                                key={item.code}
+                                onClick={() => {
+                                  setLang(item.code as any);
+                                  localStorage.setItem('legendshub_lang', item.key);
+                                }}
+                                className={`w-full py-2.5 px-3.5 rounded-xl border text-left flex justify-between items-center transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-cyan-500/10 border-cyan-400 text-cyan-400 font-extrabold shadow-sm'
+                                    : 'bg-slate-500/5 hover:bg-slate-500/10 border-transparent text-slate-400 shadow-none'
+                                }`}
+                              >
+                                <span className="text-[10px] font-bold uppercase tracking-wider">{item.label}</span>
+                                {isSelected && <Check className="w-3.5 h-3.5 text-cyan-400" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3) BANCO DE DADOS TAB */}
+                {settingsSubTab === 'db' && (
+                  <div className="space-y-5 flex-1">
+                    <div>
+                      <h3 className={`font-display text-sm font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                        Gerenciar Banco de Dados (.DB)
+                      </h3>
+                      <p className={`text-[10px] ${themeClasses.textSecondary} leading-relaxed mt-1`}>
+                        Gerenciamento de tabelas .db locais e dados estruturados das franquias Legend Hub.
+                      </p>
+                    </div>
+
+                    {/* Database Active Status Display */}
+                    <div className={`p-4 rounded-xl ${themeClasses.innerBox} flex justify-between items-center`}>
+                      <div>
+                        <span className="block text-[8px] uppercase tracking-widest text-slate-400 font-bold mb-1">
+                          STATUS DO BANCO DE DADOS ATIVO
+                        </span>
+                        <span className="font-mono text-xs font-black text-cyan-400 uppercase tracking-wide">
+                          {dbType === 'CUSTOM' ? 'IMPORTADO REGISTRADO (.db)' : 'OFICIAL INTERNA (PADRÃO)'}
+                        </span>
+                      </div>
+                      
+                      <button
+                        onClick={() => {
+                          setIsSpinning(true);
+                          setTimeout(() => {
+                            setIsSpinning(false);
+                            alert(lang === 'EN-US' ? 'Database structures refreshed!' : lang === 'ES-ES' ? '¡Estructuras de datos actualizadas!' : 'Tabelas e dicionários do banco de dados sincronizados com sucesso!');
+                          }, 1000);
+                        }}
+                        className={`p-2 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 transition-all cursor-pointer`}
+                        title="Sincronizar Banco de Dados"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${isSpinning ? 'animate-spin text-emerald-400' : ''}`} />
+                      </button>
+                    </div>
+
+                    {/* Action buttons Grid */}
+                    <div className="space-y-3 pt-1">
+                      <span className="block text-[8px] uppercase tracking-widest text-slate-400 font-bold">
+                        AÇÕES DA BASE DE DADOS
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button
+                          onClick={triggerDbExport}
+                          className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-sky-400/25 bg-sky-500/5 hover:bg-sky-500/10 text-[#00cbd6] text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5 text-cyan-400" />
+                          <span>Exportar Bases (.db)</span>
+                        </button>
+
+                        <div className="relative">
+                          <button
+                            onClick={() => document.getElementById('db-file-input-modal')?.click()}
+                            className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-emerald-400/25 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                          >
+                            <Upload className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>Importar Bases (.db)</span>
+                          </button>
+                          <input
+                            type="file"
+                            id="db-file-input-modal"
+                            accept=".db,.json"
+                            onChange={triggerDbImport}
+                            className="hidden"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Reset Button */}
+                    {dbType === 'CUSTOM' && (
+                      <div className="pt-2">
+                        <button
+                          onClick={triggerDbReset}
+                          className="w-full py-2.5 bg-rose-600/15 hover:bg-rose-600/25 text-[#f43f5e] border border-rose-500/20 text-[9px] font-mono font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer text-center"
+                        >
+                          {lang === 'EN-US' ? 'RESTORE DEFAULTS' : lang === 'ES-ES' ? 'RESTAURAR VALORES DE FÁBRICA' : 'RESTAURAR PADRÕES ADM'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 4) SAVES TAB */}
+                {settingsSubTab === 'saves' && (
+                  <div className="space-y-5 flex-1">
+                    <div>
+                      <h3 className={`font-display text-sm font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                        Salas de Salvamento (Saves)
+                      </h3>
+                      <p className={`text-[10px] ${themeClasses.textSecondary} leading-relaxed mt-1`}>
+                        Gerencie múltiplos slots ativos locais de sua carreira de manager de eSports.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {getSavesSlotsData().map(slot => {
+                        const isOccupied = slot.status === 'OCUPADO';
+                        const handleDeleteSave = async (slotId: number) => {
+                          if (confirm(`Aviso de Segurança: Deseja realmente excluir permanentemente os dados da carreira contida no Slot 0${slotId}? Esta operação não pode ser desfeita.`)) {
+                            await removeGameItem(`legendshub_save_slot_${slotId}`);
+                            await removeGameItem(`legendshub_save_slot_${slotId}_date`);
+                            setIsSpinning(true);
+                            await loadSavesSlotsData();
+                            setTimeout(() => {
+                              setIsSpinning(false);
+                            }, 200);
+                          }
+                        };
+
+                        return (
+                          <div 
+                            key={slot.id}
+                            className={`rounded-xl border p-4 flex flex-col justify-between h-[210px] relative transition-all duration-300 ${
+                              isOccupied
+                                ? (activeTheme === 'dark' ? 'bg-[#0a1424]/60 border-slate-800 shadow-lg' : 'bg-[#f8fafc] border-slate-200 shadow-sm')
+                                : 'border-dashed border-slate-300 dark:border-slate-850 bg-[#000000]/10 text-slate-500 flex items-center justify-center p-3 text-center'
+                            }`}
+                          >
+                            {isOccupied ? (
+                              <>
+                                <div className="space-y-1 text-left w-full">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[7.5px] font-mono font-black bg-cyan-400 text-slate-950 px-1.5 py-0.5 rounded tracking-wide">
+                                      SLOT 0{slot.id}
+                                    </span>
+                                    <span className="text-[7.5px] font-mono text-slate-400 truncate max-w-[65px]" title={slot.ultima_modificacao_real}>
+                                      {slot.ultima_modificacao_real.split(' ')[0]}
+                                    </span>
+                                  </div>
+                                  <div className="pt-2">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: slot.logo_time }} />
+                                      <h5 className={`font-display text-[10.5px] font-black truncate uppercase tracking-tight ${themeClasses.textPrimary}`}>
+                                        {slot.nome_time}
+                                      </h5>
+                                    </div>
+                                    <p className="text-[9px] text-slate-400 mt-0.5 truncate">
+                                      Mgr: <strong className="text-slate-300">{slot.nome_manager}</strong>
+                                    </p>
+                                    <p className="text-[8.5px] text-cyan-450 font-mono font-bold mt-1 uppercase tracking-wider">{slot.data_in_game}</p>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-1.5 pt-2 border-t border-slate-800/20 dark:border-slate-800/40 w-full">
+                                  <button
+                                    onClick={() => onLoadGame(`slot_${slot.id}`)}
+                                    className="w-full py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-600 text-slate-950 text-[8.5px] font-black uppercase tracking-wider transition-all cursor-pointer text-center"
+                                  >
+                                    Carregar
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteSave(slot.id)}
+                                    className="w-full py-1 rounded-lg bg-rose-600/10 hover:bg-rose-650/20 text-[#f43f5e] border border-rose-500/10 text-[8px] font-bold uppercase cursor-pointer"
+                                  >
+                                    Apagar Slot
+                                  </button>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="flex flex-col items-center justify-center space-y-1">
+                                <span className="text-[8px] font-mono font-bold text-slate-400">SLOT 0{slot.id}</span>
+                                <p className="text-[9px] text-slate-500 font-extrabold mt-1">DISPONÍVEL</p>
+                                <p className="text-[7.5px] text-slate-500">Sem Carreira Ativa</p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* 5) MUSIC TAB */}
+                {settingsSubTab === 'music' && (
+                  <div className="space-y-6 flex-1 font-sans">
+                    <div>
+                      <h3 className={`font-display text-sm font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                        Música & Volumes
+                      </h3>
+                      <p className={`text-[10px] ${themeClasses.textSecondary} leading-relaxed mt-1`}>
+                        Configure o nível dos canais eletrônicos de ambientação esports.
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Range Sliders */}
+                      <div className="space-y-3.5 bg-slate-500/5 p-4 rounded-xl border border-slate-200/5 dark:border-slate-800/40">
+                        {/* Music Volume Slider */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between items-center text-[10px] font-mono">
+                            <span className="text-slate-350 uppercase font-bold tracking-wider flex items-center gap-1.5">
+                              <Volume2 className="w-4 h-4 text-[#00cbd6]" /> Trilha Sonora (Música)
+                            </span>
+                            <span className="text-cyan-400 font-extrabold">{musicVolume}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={musicVolume}
+                            onChange={(e) => {
+                              const v = Number(e.target.value);
+                              setMusicVolume(v);
+                              localStorage.setItem('legendshub_music_volume', String(v));
+                            }}
+                            className={`w-full h-1 bg-slate-300 dark:bg-slate-850 rounded-lg appearance-none cursor-pointer ${
+                              activeTheme === 'dark' ? 'accent-white' : 'accent-blue-600'
+                            }`}
+                          />
+                        </div>
+
+                        {/* Effects SFX Slider */}
+                        <div className="space-y-1 mt-2">
+                          <div className="flex justify-between items-center text-[10px] font-mono">
+                            <span className="text-slate-350 uppercase font-bold tracking-wider flex items-center gap-1.5">
+                              <RefreshCw className="w-3.5 h-3.5 text-emerald-400" /> Efeitos Internos (SFX)
+                            </span>
+                            <span className="text-emerald-400 font-extrabold">{sfxVolume}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={sfxVolume}
+                            onChange={(e) => {
+                              const v = Number(e.target.value);
+                              setSfxVolume(v);
+                              localStorage.setItem('legendshub_sfx_volume', String(v));
+                            }}
+                            className={`w-full h-1 bg-slate-300 dark:bg-slate-850 rounded-lg appearance-none cursor-pointer ${
+                              activeTheme === 'dark' ? 'accent-white' : 'accent-blue-600'
+                            }`}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Soundtrack Song choices */}
+                      <div className="space-y-2">
+                        <span className="block text-[8px] uppercase tracking-widest text-[#00cbd6] font-black">Playlists Selecionadas</span>
+                        <div className="space-y-2">
+                          {[
+                            'Legends Theme Song v2.4 (Default)',
+                            'Midnight Gaming House Beats (Chill Lofi)',
+                            'Champions Anthem 2026 (Epic Orchestral)'
+                          ].map((tr) => {
+                            const isSel = activePlaylist === tr;
+                            return (
+                              <button
+                                key={tr}
+                                onClick={() => {
+                                  setActivePlaylist(tr);
+                                  localStorage.setItem('legendshub_playlist_track', tr);
+                                }}
+                                className={`w-full py-2.5 px-3.5 rounded-xl border text-left flex justify-between items-center transition-all cursor-pointer ${
+                                  isSel
+                                    ? 'bg-cyan-500/10 border-cyan-400 text-cyan-400 font-extrabold shadow-sm'
+                                    : 'bg-slate-500/5 hover:bg-slate-500/10 border-transparent text-slate-400'
+                                }`}
+                              >
+                                <span className="text-[10px] font-bold tracking-wide truncate">{tr}</span>
+                                {isSel && <Check className="w-3.5 h-3.5 text-cyan-400" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Loops Toggle */}
+                      <div className="grid grid-cols-2 gap-2 mt-1">
+                        <button
+                          onClick={() => {
+                            setPlaybackMode('LOOP');
+                            localStorage.setItem('legendshub_playback_mode', 'LOOP');
+                          }}
+                          className={`py-2 rounded-lg text-center text-[9px] font-bold uppercase border transition-all cursor-pointer ${
+                            playbackMode === 'LOOP' ? 'bg-cyan-500/10 border-cyan-500/35 text-cyan-400' : 'bg-slate-500/5 border-transparent text-slate-450'
+                          }`}
+                        >
+                          Repetição em Loop
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPlaybackMode('RANDOM');
+                            localStorage.setItem('legendshub_playback_mode', 'RANDOM');
+                          }}
+                          className={`py-2 rounded-lg text-center text-[9px] font-bold uppercase border transition-all cursor-pointer ${
+                            playbackMode === 'RANDOM' ? 'bg-cyan-500/10 border-cyan-500/35 text-cyan-400' : 'bg-slate-500/5 border-transparent text-slate-450'
+                          }`}
+                        >
+                          Aleatório
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 6) GAMEPLAY TAB */}
+                {settingsSubTab === 'gameplay' && (
+                  <div className="space-y-6 flex-1 text-left">
+                    <div>
+                      <h3 className={`font-display text-sm font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                        Gameplay & Dinâmicas
+                      </h3>
+                      <p className={`text-[10px] ${themeClasses.textSecondary} leading-relaxed mt-1`}>
+                        Ajuste o nível estratégico da liga e as velocidades das rodadas do simulador.
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Sim speed choice list */}
+                      <div className="space-y-2">
+                        <span className="block text-[8px] uppercase tracking-widest text-[#00cbd6] font-black">Velocidade de Processamento das Rodadas</span>
+                        <div className="grid grid-cols-3 gap-2">
+                          {(['STANDARD', 'FAST', 'ULTRA'] as const).map((spd) => {
+                            const isSel = simSpeed === spd;
+                            const mapLabel: Record<string, string> = {
+                              STANDARD: 'Padrão (Turno a Turno)',
+                              FAST: 'Rápido (Recomendado)',
+                              ULTRA: 'Instantâneo (Sem Pausa)'
+                            };
+                            return (
+                              <button
+                                key={spd}
+                                onClick={() => {
+                                  setSimSpeed(spd);
+                                  localStorage.setItem('legendshub_sim_speed', spd);
+                                }}
+                                className={`py-2.5 px-2 rounded-xl border text-center text-[8.5px] font-black uppercase tracking-tight transition-all cursor-pointer ${
+                                  isSel
+                                    ? 'bg-cyan-500/15 border-cyan-400 text-cyan-400'
+                                    : 'bg-slate-500/5 hover:bg-slate-500/10 border-transparent text-slate-400'
+                                }`}
+                              >
+                                {mapLabel[spd]}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Difficulty Selection */}
+                      <div className="space-y-2 pt-1">
+                        <span className="block text-[8px] uppercase tracking-widest text-[#00cbd6] font-black">Nível de Dificuldade de Negociações/IA</span>
+                        <div className="grid grid-cols-3 gap-2">
+                          {(['REGULAR', 'PROFESSIONAL', 'HARDCORE'] as const).map((df) => {
+                            const isSel = aiDifficulty === df;
+                            const mapDLabel: Record<string, string> = {
+                              REGULAR: 'Regular',
+                              PROFESSIONAL: 'Profissional Expert',
+                              HARDCORE: 'Ia Implacável (Hardcore)'
+                            };
+                            return (
+                              <button
+                                key={df}
+                                onClick={() => {
+                                  setAiDifficulty(df);
+                                  localStorage.setItem('legendshub_ai_difficulty', df);
+                                }}
+                                className={`py-2.5 px-1 rounded-xl border text-center text-[8.5px] font-black uppercase tracking-tight transition-all cursor-pointer ${
+                                  isSel
+                                    ? 'bg-cyan-500/15 border-cyan-400 text-cyan-400'
+                                    : 'bg-slate-500/5 hover:bg-slate-500/10 border-transparent text-slate-400'
+                                }`}
+                              >
+                                {mapDLabel[df]}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Alerts checkbox switches */}
+                      <div className="space-y-2 pt-2">
+                        <span className="block text-[8px] uppercase tracking-widest text-[#00cbd6] font-black">Filtros de Alerta Automáticos</span>
+                        <div className="space-y-2">
+                          <button
+                            onClick={() => {
+                              const n = !alertsEnabled;
+                              setAlertsEnabled(n);
+                              localStorage.setItem('legendshub_alerts_enabled', String(n));
+                            }}
+                            className={`w-full py-2.5 px-3.5 rounded-xl border text-left flex justify-between items-center transition-all cursor-pointer ${
+                              alertsEnabled ? 'bg-cyan-500/5 border-cyan-500/15 text-cyan-400' : 'bg-[#000000]/10 border-transparent text-slate-400'
+                            }`}
+                          >
+                            <span className="text-[9.5px] font-bold tracking-wide">Avisar antes da janela de transferências expirar</span>
+                            <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center font-bold text-[9px] ${
+                              alertsEnabled ? 'border-cyan-400 text-cyan-400' : 'border-slate-500 text-transparent'
+                            }`}>✓</div>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              const n = !boardEvalEnabled;
+                              setBoardEvalEnabled(n);
+                              localStorage.setItem('legendshub_board_eval_enabled', String(n));
+                            }}
+                            className={`w-full py-2.5 px-3.5 rounded-xl border text-left flex justify-between items-center transition-all cursor-pointer ${
+                              boardEvalEnabled ? 'bg-cyan-500/5 border-cyan-500/15 text-cyan-400' : 'bg-[#000000]/10 border-transparent text-slate-400'
+                            }`}
+                          >
+                            <span className="text-[9.5px] font-bold tracking-wide">Receber notificações de aprovação do conselho fiduciário</span>
+                            <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center font-bold text-[9px] ${
+                              boardEvalEnabled ? 'border-cyan-400 text-cyan-400' : 'border-slate-500 text-transparent'
+                            }`}>✓</div>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 7) SHORTCUTS ATALHOS TAB */}
+                {settingsSubTab === 'shortcuts' && (
+                  <div className="space-y-5 flex-1">
+                    <div>
+                      <h3 className={`font-display text-sm font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                        Teclas e Atalhos de Operação
+                      </h3>
+                      <p className={`text-[10px] ${themeClasses.textSecondary} leading-relaxed mt-1`}>
+                        Utilize os seguintes mapeamentos rápidos de navegação pelo painel do jogo.
+                      </p>
+                    </div>
+
+                    <div className="border border-slate-200/10 dark:border-slate-800/40 rounded-xl overflow-hidden text-[9.5px]">
+                      <table className="w-full text-left font-mono">
+                        <thead>
+                          <tr className="bg-slate-500/5 text-slate-400 uppercase tracking-wider font-extrabold text-[8.5px] border-b border-slate-200/10 dark:border-slate-800/40">
+                            <th className="py-2.5 px-3">Painel Destino</th>
+                            <th className="py-2.5 px-3 text-right">Mapeamento Rápido</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200/5 dark:divide-slate-800/20">
+                          {[
+                            { target: 'Central de Operações (Dashboard / Principal)', key: '[1] ou [F1]' },
+                            { target: 'Escalação e Status da Roster Ativa', key: '[2] ou [F2]' },
+                            { target: 'Mercado de Atletas e Agentes Livres', key: '[3] ou [F3]' },
+                            { target: 'Staff e Departamento Financeiro', key: '[4] ou [F4]' },
+                            { target: 'Circuito de Ligas Globais e Rivalidades', key: '[5] ou [F5]' },
+                            { target: 'Inbox de Mensagens e Negociações', key: '[6] ou [F6]' },
+                            { target: 'Salvar Progresso Rápido da Carreira', key: '[Ctrl + S]' },
+                            { target: 'Avançar Calendário Semanal', key: '[Espaço]' },
+                            { target: 'Fechar Menus e Modais Dinâmicos', key: '[Esc]' }
+                          ].map((it, idx) => (
+                            <tr key={idx} className="hover:bg-slate-500/5 text-slate-350">
+                              <td className="py-2 px-3 font-semibold">{it.target}</td>
+                              <td className="py-2 px-3 text-right font-black text-cyan-400">{it.key}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Footer and exit fully integrated */}
+                <div className="pt-4 border-t border-slate-200/10 dark:border-[#1e2d44]/30 flex justify-end gap-2.5 mt-6 shrink-0">
+                  <button
+                    onClick={() => setActiveState('MENU')}
+                    className="px-6 py-2.5 rounded text-[9.5px] uppercase font-black tracking-wider transition-all duration-200 cursor-pointer text-center bg-slate-100 dark:bg-slate-900 border border-slate-200/30 dark:border-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-cyan-400 font-mono rounded-[8px]"
+                  >
+                    [ Voltar ao Menu ]
+                  </button>
+                </div>
+
+              </main>
+
+            </div>
+          </div>
+        )}
+
+        {/* State: LOAD_CAREER (Slots de Salvamento) */}
+        {activeState === 'LOAD_CAREER' && (
+          <div className="animate-fade-in flex flex-col items-center w-full max-w-4xl mx-auto space-y-6">
+            <div className="text-center">
+              <h2 className={`font-display text-2xl font-black uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                {lang === 'PT-BR' ? 'CARREGAR CARREIRA' : 'LOAD CAREER'}
+              </h2>
+              <p className="text-[10px] uppercase font-mono text-cyan-400 tracking-widest mt-1">
+                Selecione um dos 3 slots de salvamento ativo para continuar sua jornada
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mt-4">
+              {getSavesSlotsData().map(slot => {
+                const isOccupied = slot.status === 'OCUPADO';
+                return (
+                  <div 
+                    key={slot.id} 
+                    className={`rounded-2xl border p-6 flex flex-col justify-between transition-all duration-300 relative overflow-hidden h-[340px] ${
+                      isOccupied 
+                        ? (activeTheme === 'dark' ? 'bg-[#0a1424] border-[#1e2d44] shadow-lg shadow-cyan-500/5 hover:border-cyan-500/30' : 'bg-white border-slate-200 shadow-md')
+                        : 'border-dashed border-slate-800 bg-[#040812]/40 text-slate-500 flex items-center justify-center'
+                    }`}
+                  >
+                    {isOccupied ? (
+                      <>
+                        <div className="space-y-4 text-left w-full">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] font-mono font-bold bg-cyan-500 text-slate-950 px-2 py-0.5 rounded tracking-widest">
+                              SLOT 0{slot.id}
+                            </span>
+                            <span className="text-[8.5px] font-mono text-slate-450">
+                              {slot.ultima_modificacao_real}
+                            </span>
+                          </div>
+
+                          <div className="space-y-1.5 pt-2">
+                            <div className="flex items-center gap-2">
+                              <span 
+                                className="w-3.5 h-3.5 rounded-full inline-block border border-white/20" 
+                                style={{ backgroundColor: slot.logo_time }}
+                              />
+                              <h4 className={`font-display text-xs font-extrabold tracking-wide uppercase truncate ${themeClasses.textPrimary}`}>
+                                {slot.nome_time}
+                              </h4>
+                            </div>
+                            <p className="text-xs text-slate-400 font-medium">
+                              MGR: <strong className="text-slate-200">{slot.nome_manager}</strong>
+                            </p>
+                          </div>
+
+                          <div className="border-t border-slate-800/40 my-3 pt-3 space-y-2 font-mono text-[10px] text-slate-400">
+                            <div className="flex justify-between">
+                              <span className="uppercase tracking-wider">DATA GERAL:</span>
+                              <span className="font-bold text-slate-200">{slot.data_in_game}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="uppercase tracking-wider">ORÇAMENTO:</span>
+                              <span className="font-bold text-emerald-400">{slot.moeda_formata_orcamento}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-2 w-full pt-4 border-t border-white/5">
+                          <button
+                            onClick={() => onLoadGame(`slot_${slot.id}`)}
+                            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-slate-950 font-black text-[10px] uppercase tracking-widest cursor-pointer transition-all hover:scale-[1.02] shadow-lg shadow-cyan-500/10"
+                          >
+                            Carregar Carreira
+                          </button>
+                           <button
+                            onClick={() => {
+                              setSlotToDelete(slot);
+                            }}
+                            className="w-full py-2 bg-rose-500/5 hover:bg-rose-500/15 text-rose-500 text-[9px] font-bold font-mono uppercase tracking-wider rounded-lg border border-rose-500/10 cursor-pointer text-center transition-all"
+                          >
+                            Excluir Progresso
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center p-6 flex flex-col items-center justify-center space-y-4">
+                        <div className="w-12 h-12 rounded-full bg-slate-900 border border-slate-850 flex items-center justify-center">
+                          <FolderOpen className="w-5 h-5 text-slate-600" />
+                        </div>
+                        <div>
+                          <h4 className="font-display text-xs font-bold text-slate-400 uppercase tracking-widest">Slot 0{slot.id} Vazio</h4>
+                          <p className="text-[10px] text-slate-500 mt-1">Nenhum progresso gravado neste arquivo</p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setActiveState('DISCLAIMER');
+                          }}
+                          className="px-5 py-2 rounded-xl bg-[#121f35] border border-[#1e2d44] hover:bg-[#182740] hover:border-cyan-500/30 text-slate-300 hover:text-white font-black text-[9px] uppercase tracking-wider transition-all cursor-pointer"
+                        >
+                          + Criar Nova Carreira
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {slotToDelete && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in" id="delete-alert-screen">
+                <div className="bg-[#0b1424] border border-rose-500/30 rounded-2xl p-6 max-w-md w-full shadow-2xl shadow-rose-500/5 text-center space-y-4">
+                  <div className="flex flex-col items-center space-y-2">
+                    <AlertTriangle className="w-12 h-12 text-rose-500 animate-pulse" />
+                    <h3 className="font-display text-sm font-black text-rose-500 uppercase tracking-widest pt-2">
+                      {lang === 'PT-BR' ? 'Aviso de Segurança' : 'Security Warning'}
+                    </h3>
+                  </div>
+                  
+                  <div className="space-y-2 text-slate-300">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-rose-450">
+                      {lang === 'PT-BR' ? `Deseja realmente apagar o Slot 0${slotToDelete.id}?` : `Do you really want to clear Slot 0${slotToDelete.id}?`}
+                    </p>
+                    <p className="text-[10.5px] leading-relaxed text-slate-400">
+                      {lang === 'PT-BR' 
+                        ? `Esta operação é irreversível. Todos os dados da carreira de ${slotToDelete.nome_manager} no comando de ${slotToDelete.nome_time} serão excluídos do navegador de forma definitiva.` 
+                        : `This operation is irreversible. All career data for ${slotToDelete.nome_manager} managing ${slotToDelete.nome_time} will be permanently removed.`
+                      }
+                    </p>
+                  </div>
+
+                  <div className="pt-2 flex flex-col gap-2">
+                    <button
+                      id="confirm-delete-button"
+                      onClick={async () => {
+                        const sId = slotToDelete.id;
+                        await removeGameItem(`legendshub_save_slot_${sId}`);
+                        await removeGameItem(`legendshub_save_slot_${sId}_date`);
+                        
+                        // Remova o botão Continuar Carreira se for o slot 1 (referencia ativa padrão)
+                        if (sId === 1) {
+                          setPreviewSave(null);
+                        }
+                        
+                        setSlotToDelete(null);
+                        await loadSavesSlotsData();
+                      }}
+                      className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-[9.5px] uppercase tracking-widest rounded-xl transition-all cursor-pointer shadow-md shadow-rose-600/15"
+                    >
+                      {lang === 'PT-BR' ? 'Sim, Excluir Progresso' : 'Yes, Delete Progress'}
+                    </button>
+                    <button
+                      id="cancel-delete-button"
+                      onClick={() => setSlotToDelete(null)}
+                      className="w-full py-2.5 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-400 font-mono text-[9px] uppercase tracking-widest rounded-xl transition-colors cursor-pointer"
+                    >
+                      {lang === 'PT-BR' ? 'Cancelar e Voltar' : 'Cancel and Go Back'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="pt-6 w-full flex justify-center">
+              <button
+                onClick={() => setActiveState('MENU')}
+                className="px-8 py-3 bg-[#111c30] hover:bg-[#162541] text-slate-300 font-mono font-black text-[10px] uppercase tracking-widest rounded-xl border border-[#1e2d44] cursor-pointer transition-colors"
+              >
+                &larr; Voltar ao Menu
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* State: EDITOR_JOGO (Motor de Edição Structural Independente de DB) */}
+        {activeState === 'EDITOR_JOGO' && (
+          <GameEditor 
+            onClose={() => setActiveState('MENU')} 
+            activeTheme={activeTheme} 
+            themeClasses={themeClasses}
+            lang={lang}
+            activeCurrency={activeCurrency}
+            onUpdateTheme={handleUpdateTheme}
+            onUpdateLanguage={handleUpdateLanguage}
+            onUpdateCurrency={handleUpdateCurrency}
+          />
+        )}
+
+        {false && activeState === 'EDITOR_JOGO' && editorDb && (
+          <div className="animate-fade-in flex flex-col w-full max-w-6xl mx-auto space-y-6">
+            
+            {/* Upper Editor Info bar */}
+            <div className={`p-4 rounded-xl border ${activeTheme === 'dark' ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200'} flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4`}>
+              <div className="text-left">
+                <span className="text-[8px] font-mono bg-cyan-400 text-slate-950 font-black px-1.5 py-0.5 rounded tracking-widest uppercase">
+                  LOCAL_DB_ENGINE
+                </span>
+                <h3 className={`font-display text-base font-black ${themeClasses.textPrimary} mt-1.5 flex items-center gap-2`}>
+                  <Server className="w-4 h-4 text-cyan-400" />
+                  <span>default.db</span>
+                  <span className="text-[10px] bg-sky-500/10 text-sky-400 border border-sky-400/25 px-1.5 py-0.5 rounded uppercase font-mono font-bold tracking-wider">
+                    SQLITE_LOCAL
+                  </span>
+                </h3>
+                <p className="text-[9px] font-mono text-slate-500 uppercase tracking-wider mt-0.5">
+                  Modificações salvas diretamente em storage local persistente
+                </p>
+              </div>
+
+              {/* Central categories nav */}
+              <div className="flex flex-wrap gap-1.5 p-1 bg-black/20 rounded-xl border border-white/5">
+                {[
+                  { id: 'cat_ligas', label: 'Editar Ligas' },
+                  { id: 'cat_times', label: 'Editar Times & Finanças' },
+                  { id: 'cat_jogadores', label: 'Editar Jogadores' },
+                  { id: 'cat_patrocinadores', label: 'Patrocinadores' },
+                  { id: 'cat_campeoes', label: 'CAMPEÕES E META' }
+                ].map(cat => (
+                  <button
+                    key={cat.id}
+                    onClick={() => {
+                      setEditorSub(cat.id as any);
+                      if (cat.id === 'cat_ligas') {
+                        const l = leaguesMeta[editorRegion] || { name: 'CBLOL (Brasil)', logo: '' };
+                        setFormLeagueName(l.name);
+                        setFormLeagueLogo(l.logo);
+                      }
+                      if (cat.id === 'cat_times') {
+                        const curId = editorSelectedTeamId || editorDb[editorRegion]?.[0]?.id || '';
+                        handleSelectTeam(curId);
+                      }
+                      if (cat.id === 'cat_jogadores') {
+                        const curId = editorSelectedTeamId || editorDb[editorRegion]?.[0]?.id || '';
+                        const plyrs = getPlayersForTeam(curId, false).roster;
+                        if (plyrs.length > 0) {
+                          handleSelectPlayer(plyrs[0], curId);
+                        }
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                      editorSub === cat.id 
+                        ? 'bg-cyan-400 text-slate-950 font-extrabold shadow' 
+                        : 'text-slate-450 hover:text-white'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Main Stage Grid (Sidebar + Form block) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              
+              {/* Left Selector (Span 4) */}
+              <div className={`lg:col-span-4 rounded-2xl border p-5 ${activeTheme === 'dark' ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200'} text-left`}>
+                
+                {/* LIGAS LIST SELECTION */}
+                {editorSub === 'cat_ligas' && (
+                  <div className="space-y-4">
+                    <h4 className="text-[10px] font-mono tracking-widest font-black text-cyan-400 uppercase">Selecione a Organização Regional</h4>
+                    <div className="space-y-2">
+                      {Object.keys(leaguesMeta).map(reg => {
+                        const l = leaguesMeta[reg];
+                        const isSelected = editorRegion === reg;
+                        let btnClass = '';
+                        let primaryTextClass = '';
+                        let secondaryTextClass = '';
+
+                        if (activeTheme === 'light') {
+                          if (isSelected) {
+                            btnClass = 'bg-[#ffffff] border-[#00E5FF]';
+                            primaryTextClass = 'text-[#0284c7]';
+                            secondaryTextClass = 'text-[#334155]';
+                          } else {
+                            btnClass = 'bg-[#b2b7c2] border-transparent hover:border-[#334155]/20';
+                            primaryTextClass = 'text-[#0f172a]';
+                            secondaryTextClass = 'text-[#334155]';
+                          }
+                        } else {
+                          // activeTheme === 'dark'
+                          if (isSelected) {
+                            btnClass = 'bg-[#0a1424] border-[#00E5FF]';
+                            primaryTextClass = 'text-[#00E5FF]';
+                            secondaryTextClass = 'text-[#8a99ad]';
+                          } else {
+                            btnClass = 'bg-[#1e2d44] border-transparent hover:border-slate-800';
+                            primaryTextClass = 'text-white';
+                            secondaryTextClass = 'text-[#8a99ad]';
+                          }
+                        }
+
+                        return (
+                          <button
+                            key={reg}
+                            onClick={() => {
+                              setEditorRegion(reg as any);
+                              setFormLeagueName(l.name);
+                              setFormLeagueLogo(l.logo);
+                            }}
+                            className={`w-full p-3.5 rounded-xl border text-left flex justify-between items-center transition-all cursor-pointer ${btnClass}`}
+                          >
+                            <span className={`font-display font-black text-xs ${primaryTextClass}`}>{reg}</span>
+                            <span className={`text-[10.5px] font-mono font-medium ${secondaryTextClass}`}>{l.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* TIMES LIST SELECTION */}
+                {editorSub === 'cat_times' && (
+                  <div className="space-y-4">
+                    <div className="flex flex-col gap-2.5 pb-2.5 border-b border-white/5">
+                      <div className="flex justify-between items-center text-[10px]">
+                        <span className="font-mono text-cyan-400 font-black uppercase">Selecione Ligas</span>
+                        <select
+                          value={editorRegion}
+                          onChange={(e) => {
+                            const reg = e.target.value as any;
+                            setEditorRegion(reg);
+                            const firstT = editorDb[reg]?.[0]?.id || '';
+                            handleSelectTeam(firstT);
+                          }}
+                          className={`text-[10px] p-1.5 rounded bg-slate-900 border ${themeClasses.border} text-sky-450 font-bold uppercase cursor-pointer`}
+                        >
+                          {['CBLOL', 'LCK', 'LPL', 'LEC', 'LCS', 'LCP'].map(r => (
+                            <option key={r} value={r}>{r}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="flex justify-between items-center text-[10px]">
+                        <span className="font-mono text-cyan-400 font-black uppercase">Selecionar Equipe</span>
+                        <select
+                          value={editorSelectedTeamId}
+                          onChange={(e) => {
+                            const list = editorDb[editorRegion] || [];
+                            const novoTimeSelecionado = list.find((t: any) => t.id === e.target.value);
+                            if (novoTimeSelecionado) {
+                              handleSelectTeam(novoTimeSelecionado.id);
+                            }
+                          }}
+                          className={`p-1 bg-slate-950 border ${themeClasses.border} text-[10.5px] uppercase font-bold text-[#00cbd6] cursor-pointer flex-1 ml-2 text-right`}
+                        >
+                          {(editorDb[editorRegion] || []).map((t: any) => (
+                            <option key={t.id} value={t.id}>
+                              {t.name} ({t.acronym})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 max-h-80 overflow-y-auto block pr-1 select-none font-sans">
+                      {(editorDb[editorRegion] || []).map((t: any) => {
+                        const isSelected = editorSelectedTeamId === t.id;
+                        let btnClass = '';
+                        let primaryTextClass = '';
+                        let badgeClass = '';
+
+                        if (activeTheme === 'light') {
+                          if (isSelected) {
+                            btnClass = 'bg-[#ffffff] border-[#00E5FF] shadow-sm';
+                            primaryTextClass = 'text-[#0284c7] font-black';
+                            badgeClass = 'bg-[#0f172a] text-[#ffffff] border border-transparent';
+                          } else {
+                            btnClass = 'bg-[#b2b7c2]/60 border-transparent hover:bg-[#cbd5e1] hover:border-transparent group';
+                            primaryTextClass = 'text-[#0f172a] font-bold';
+                            badgeClass = 'bg-[#334155]/10 text-[#334155] border border-slate-300 group-hover:bg-[#0f172a] group-hover:text-white transition-all';
+                          }
+                        } else {
+                          if (isSelected) {
+                            btnClass = 'bg-[#0a1424] border-[#00E5FF] shadow-lg';
+                            primaryTextClass = 'text-[#00E5FF] font-black';
+                            badgeClass = 'bg-cyan-500/15 text-[#00E5FF] border border-cyan-500/30';
+                          } else {
+                            btnClass = 'bg-[#1e2d44]/50 border-transparent hover:bg-[#334155] text-slate-350 hover:text-white group';
+                            primaryTextClass = 'text-white font-bold';
+                            badgeClass = 'bg-slate-900 border border-slate-800 text-slate-450 group-hover:text-[#e2e8f0] group-hover:bg-slate-800';
+                          }
+                        }
+
+                        return (
+                          <button
+                            key={t.id}
+                            onClick={() => handleSelectTeam(t.id)}
+                            className={`w-full p-2.5 rounded-lg border text-left flex items-center justify-between text-xs transition-all cursor-pointer ${btnClass}`}
+                          >
+                            <div className={`flex items-center gap-2 truncate ${primaryTextClass}`}>
+                              <span 
+                                className="w-2.5 h-2.5 rounded-full inline-block shrink-0" 
+                                style={{ backgroundColor: t.primaryColor || '#00cbd6' }}
+                              />
+                              <span className="truncate">{t.name}</span>
+                            </div>
+                            <span className={`text-[8.5px] font-mono font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${badgeClass}`}>{t.acronym}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* JOGADORES SELECTION */}
+                {editorSub === 'cat_jogadores' && (
+                  <div className="space-y-4">
+                    <div className="space-y-2 pb-2 border-b border-white/5">
+                      <div className="flex justify-between items-center text-[10px]">
+                        <span className="font-mono text-cyan-400 font-black uppercase">Filtro de Liga:</span>
+                        <select
+                          value={editorRegion}
+                          onChange={(e) => {
+                            const r = e.target.value as any;
+                            setEditorRegion(r);
+                            const firstT = editorDb[r]?.[0]?.id || '';
+                            setEditorSelectedTeamId(firstT);
+                            const pId = getPlayersForTeam(firstT, false).roster[0]?.id || '';
+                            const tPlyrs = getPlayersForTeam(firstT, false).roster;
+                            if (tPlyrs.length > 0) {
+                              handleSelectPlayer(tPlyrs[0], firstT);
+                            }
+                          }}
+                          className={`p-1 bg-slate-905 border ${themeClasses.border} text-[9px] uppercase font-bold text-slate-300 cursor-pointer`}
+                        >
+                          {['CBLOL', 'LCK', 'LPL', 'LEC', 'LCS', 'LCP'].map(r => (
+                            <option key={r} value={r}>{r}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="flex justify-between items-center text-[10px]">
+                        <span className="font-mono text-cyan-400 font-black uppercase">Filtrar por Elenco:</span>
+                        <select
+                          value={editorSelectedTeamId}
+                          onChange={(e) => {
+                            const tId = e.target.value;
+                            handleSelectTeam(tId);
+                          }}
+                          className={`max-w-[150px] p-1 bg-slate-905 border ${themeClasses.border} text-[9px] uppercase font-bold text-slate-300 cursor-pointer`}
+                        >
+                          {(editorDb[editorRegion] || []).map((t: any) => (
+                            <option key={t.id} value={t.id}>{t.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 max-h-80 overflow-y-auto block pr-1">
+                      {/* Active Roster List */}
+                      <span className="text-[8px] font-mono uppercase tracking-widest text-[#00cbd6] block mb-2 font-extrabold font-mono">Jogadores Listados</span>
+                      {getPlayersForTeam(editorSelectedTeamId || editorDb[editorRegion]?.[0]?.id || '', false).roster.map((p: any) => {
+                        const key = `${editorSelectedTeamId}_${p.id}_${p.name}`;
+                        const isSelected = editorSelectedPlayerId === p.id;
+                        const ovr = editorPlayersDict[key]?.overallRating || p.baseRating || 75;
+
+                        let btnClass = '';
+                        let primaryTextClass = '';
+                        let subTextClass = '';
+                        let badgeClass = '';
+
+                        if (activeTheme === 'light') {
+                          if (isSelected) {
+                            btnClass = 'bg-[#ffffff] border-[#00E5FF] shadow-sm';
+                            primaryTextClass = 'text-[#0284c7] font-black';
+                            subTextClass = 'text-[#334155]';
+                            badgeClass = 'bg-[#0f172a] text-[#ffffff] border border-transparent';
+                          } else {
+                            btnClass = 'bg-[#b2b7c2]/60 border-transparent hover:bg-[#cbd5e1] hover:border-transparent group';
+                            primaryTextClass = 'text-[#0f172a] font-bold';
+                            subTextClass = 'text-[#334155] group-hover:text-[#1e293b]';
+                            badgeClass = 'bg-[#334155]/15 text-[#334155] border border-slate-350 group-hover:bg-[#0f172a] group-hover:text-white transition-all';
+                          }
+                        } else {
+                          if (isSelected) {
+                            btnClass = 'bg-[#0a1424] border-[#00E5FF] shadow-lg';
+                            primaryTextClass = 'text-[#00E5FF] font-black';
+                            subTextClass = 'text-[#8a99ad]';
+                            badgeClass = 'bg-cyan-500/15 text-[#00E5FF] border border-cyan-500/30';
+                          } else {
+                            btnClass = 'bg-[#1e2d44]/50 border-transparent hover:bg-[#334155] text-slate-350 hover:text-white group';
+                            primaryTextClass = 'text-white font-bold';
+                            subTextClass = 'text-slate-400 group-hover:text-[#e2e8f0]';
+                            badgeClass = 'bg-slate-900 text-slate-450 group-hover:text-white border border-transparent';
+                          }
+                        }
+
+                        return (
+                          <button
+                            key={p.id}
+                            onClick={() => handleSelectPlayer(p, editorSelectedTeamId)}
+                            className={`w-full p-2 rounded-lg border text-left flex items-center justify-between transition-all cursor-pointer ${btnClass}`}
+                          >
+                            <div className="truncate text-xs flex items-center gap-1.5 min-w-0">
+                              <span className={`text-[10px] font-mono font-bold w-6 uppercase ${subTextClass}`}>{p.position}</span>
+                              <span className={`truncate ${primaryTextClass}`}>{editorPlayersDict[key]?.name || p.name}</span>
+                            </div>
+                            <span className={`font-mono text-[9px] px-1.5 py-0.5 rounded font-bold shrink-0 ${badgeClass}`}>OVR {ovr}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* PATROCINADORES SELECTION */}
+                {editorSub === 'cat_patrocinadores' && (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center border-b border-white/5 pb-3">
+                      <h4 className="text-[10px] font-mono tracking-widest font-black text-cyan-400 uppercase">Marcas de Patrocínio</h4>
+                      <button
+                        onClick={() => {
+                          const freshId = 'sp_' + Math.random().toString(36).substring(2, 9);
+                          const freshSponsor = {
+                            id: freshId,
+                            name: 'Marca Nova',
+                            logoUrl: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=150',
+                            minPopularity: 40,
+                            incomePerWeek: 30000,
+                            signatureBonus: 40000,
+                            termsInWeeks: 12,
+                            isSigned: false,
+                            objective: 'Se manter no Top 3 da liga em popularidade.',
+                            objectiveBonus: 20000
+                          };
+                          setEditorSponsors([freshSponsor, ...editorSponsors]);
+                          handleSelectSponsor(freshSponsor);
+                          alert('Patrocinador registrado na lista! Ajuste as métricas ao lado.');
+                        }}
+                        className="px-2.5 py-1 text-[8.5px] font-bold uppercase tracking-wider bg-indigo-600 hover:bg-indigo-700 text-white rounded cursor-pointer transition-colors"
+                      >
+                        + Criar Novo
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5 max-h-80 overflow-y-auto block pr-1">
+                      {editorSponsors.map(sp => {
+                        const isSelected = editorSelectedSponsorId === sp.id;
+                        let btnClass = '';
+                        let primaryTextClass = '';
+                        let badgeClass = '';
+
+                        if (activeTheme === 'light') {
+                          if (isSelected) {
+                            btnClass = 'bg-[#ffffff] border-[#00E5FF] shadow-sm';
+                            primaryTextClass = 'text-[#0284c7] font-black';
+                            badgeClass = 'bg-[#0f172a] text-[#ffffff] border border-transparent';
+                          } else {
+                            btnClass = 'bg-[#b2b7c2]/60 border-transparent hover:bg-[#cbd5e1] hover:border-transparent group';
+                            primaryTextClass = 'text-[#0f172a] font-bold';
+                            badgeClass = 'bg-[#334155]/15 text-[#334155] border border-slate-350 group-hover:bg-[#0f172a] group-hover:text-white transition-all';
+                          }
+                        } else {
+                          if (isSelected) {
+                            btnClass = 'bg-[#0a1424] border-[#00E5FF] shadow-lg';
+                            primaryTextClass = 'text-[#00E5FF] font-black';
+                            badgeClass = 'bg-cyan-500/15 text-[#00E5FF] border border-cyan-500/30';
+                          } else {
+                            btnClass = 'bg-[#1e2d44]/50 border-transparent hover:bg-[#334155] text-slate-350 hover:text-white group';
+                            primaryTextClass = 'text-white font-bold';
+                            badgeClass = 'bg-slate-900 text-slate-450 group-hover:text-white border border-transparent';
+                          }
+                        }
+
+                        return (
+                          <button
+                            key={sp.id}
+                            onClick={() => handleSelectSponsor(sp)}
+                            className={`w-full p-2.5 rounded-lg border text-left flex items-center justify-between transition-all cursor-pointer ${btnClass}`}
+                          >
+                            <span className={`text-xs truncate ${primaryTextClass}`}>{sp.name}</span>
+                            <span className={`text-[8.5px] font-mono font-bold uppercase transition-all ${badgeClass}`}>{sp.minPopularity}% Popularidade</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* CAMPEÕES SELECTION */}
+                {editorSub === 'cat_campeoes' && (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center border-b border-white/5 pb-3">
+                      <h4 className="text-[10px] font-mono tracking-widest font-black text-cyan-400 uppercase">Campeões do LoL</h4>
+                      <button
+                        onClick={() => {
+                          const freshId = 'ch_' + Math.random().toString(36).substring(2, 9);
+                          const freshChamp = {
+                            id: freshId,
+                            name: 'Inovador',
+                            roles: ['MID' as const],
+                            tier: 'S',
+                            power: 85,
+                            buffStatus: 'NORMAL' as const,
+                            idealPlaystyle: 'Lances acrobáticos e controle territorial.',
+                            counters: [],
+                            synergies: [],
+                            imageSeed: 100
+                          };
+                          setEditorChamps([freshChamp, ...editorChamps]);
+                          handleSelectChamp(freshChamp);
+                          alert('Novo campeão inserido com sucesso.');
+                        }}
+                        className="px-2.5 py-1 text-[8.5px] font-bold uppercase tracking-wider bg-indigo-600 hover:bg-indigo-700 text-white rounded cursor-pointer transition-colors"
+                      >
+                        + Adicionar Novo
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5 max-h-80 overflow-y-auto block pr-1">
+                      {editorChamps.map(c => {
+                        const isSelected = editorSelectedChampId === c.id;
+                        let btnClass = '';
+                        let primaryTextClass = '';
+                        let badgeClass = '';
+
+                        if (activeTheme === 'light') {
+                          if (isSelected) {
+                            btnClass = 'bg-[#ffffff] border-[#00E5FF] shadow-sm';
+                            primaryTextClass = 'text-[#0284c7] font-black';
+                            badgeClass = 'bg-[#0f172a] text-[#ffffff] border border-transparent';
+                          } else {
+                            btnClass = 'bg-[#b2b7c2]/60 border-transparent hover:bg-[#cbd5e1] hover:border-transparent group';
+                            primaryTextClass = 'text-[#0f172a] font-bold';
+                            badgeClass = 'bg-[#334155]/15 text-[#334155] border border-slate-350 group-hover:bg-[#0f172a] group-hover:text-white transition-all';
+                          }
+                        } else {
+                          if (isSelected) {
+                            btnClass = 'bg-[#0a1424] border-[#00E5FF] shadow-lg';
+                            primaryTextClass = 'text-[#00E5FF] font-black';
+                            badgeClass = 'bg-cyan-500/15 text-[#00E5FF] border border-cyan-500/30';
+                          } else {
+                            btnClass = 'bg-[#1e2d44]/50 border-transparent hover:bg-[#334155] text-slate-350 hover:text-white group';
+                            primaryTextClass = 'text-white font-bold';
+                            badgeClass = 'bg-slate-900 text-slate-450 group-hover:text-white border border-transparent';
+                          }
+                        }
+
+                        return (
+                          <button
+                            key={c.id}
+                            onClick={() => handleSelectChamp(c)}
+                            className={`w-full p-2.5 rounded-lg border text-left flex items-center justify-between transition-all cursor-pointer ${btnClass}`}
+                          >
+                            <span className={`text-xs truncate ${primaryTextClass}`}>{c.name}</span>
+                            <span className={`text-[8.5px] font-mono font-bold uppercase transition-all ${badgeClass}`}>{c.tier}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+              </div>
+
+              {/* Right panel (Form editor inputs - Span 8) */}
+              <div className={`lg:col-span-8 rounded-2xl border p-6 ${activeTheme === 'dark' ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-white border-slate-200'} text-left`}>
+                
+                {/* LIGAS FORM EDIT */}
+                {editorSub === 'cat_ligas' && (
+                  <div className="space-y-5">
+                    <div className="border-b border-white/5 pb-3">
+                      <h3 className={`font-display text-sm font-extrabold uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                        Formulário da Liga: <span className="text-cyan-405">{editorRegion}</span>
+                      </h3>
+                      <p className="text-[10px] text-slate-500 font-mono mt-0.5 uppercase tracking-wide">
+                        Modifique o nome legal e endereço do emblema desta liga
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 gap-1.5">
+                        <label className="text-[10px] font-mono tracking-wide uppercase text-slate-400 font-bold">Nome Oficial da Liga</label>
+                        <input
+                          type="text"
+                          value={formLeagueName}
+                          onChange={(e) => setFormLeagueName(e.target.value)}
+                          className={`w-full p-3 rounded-lg border focus:border-cyan-405 focus:outline-none ${themeClasses.input}`}
+                          placeholder="Ex: Campeonato Brasileiro de League of Legends"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-1.5">
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] font-mono tracking-wide uppercase text-slate-400 font-bold">Emblema/Escudo da Liga (Suporta URL Web ou Arquivo)</label>
+                          <label className="text-[9px] font-mono font-black text-cyan-400 hover:text-cyan-300 cursor-pointer flex items-center gap-1 bg-cyan-400/10 px-2 py-0.5 rounded border border-cyan-400/20">
+                            <Upload className="w-3" style={{ height: '12px' }} />
+                            <span>Carregar do Computador (PC)</span>
+                            <input
+                              type="file"
+                              accept=".png,.jpg,.jpeg,.webp"
+                              onChange={(e) => handleFileChange(e, setFormLeagueLogo)}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+                        <input
+                          type="text"
+                          value={formLeagueLogo}
+                          onChange={(e) => setFormLeagueLogo(e.target.value)}
+                          className={`w-full p-3 rounded-lg border focus:border-cyan-450 focus:outline-none ${themeClasses.input}`}
+                          placeholder="Cole a URL ou suba um arquivo acima (input_url_web / input_file_picker)"
+                        />
+                        {formLeagueLogo && (
+                          <div className="mt-1 flex items-center gap-2">
+                            <span className="text-[8px] font-mono text-slate-500 uppercase">Pré-visualização:</span>
+                            <img src={formLeagueLogo} className="w-8 h-8 object-contain rounded bg-transparent border border-white/5 p-0.5" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        const updatedMeta = {
+                          ...leaguesMeta,
+                          [editorRegion]: { name: formLeagueName, logo: formLeagueLogo }
+                        };
+                        setLeaguesMeta(updatedMeta);
+                        localStorage.setItem('legendshub_custom_leagues_meta', JSON.stringify(updatedMeta));
+                        alert('Dados da Liga atualizados com sucesso nestas abas!');
+                      }}
+                      className={`px-6 py-3 rounded-lg text-xs font-black uppercase tracking-widest cursor-pointer transition-all shadow-md mt-4 ${
+                        activeTheme === 'light' 
+                          ? 'bg-[#4F46E5] text-white hover:bg-[#4338CA]' 
+                          : 'bg-[#00E5FF] text-[#0a1424] hover:bg-[#00B2CC]'
+                      }`}
+                    >
+                      Sincronizar Liga
+                    </button>
+                  </div>
+                )}
+
+                {/* TIMES FORM EDIT */}
+                {editorSub === 'cat_times' && (
+                  <div className="space-y-4">
+                    {editorSelectedTeamId ? (
+                      <>
+                        <div className="border-b border-white/5 pb-3">
+                          <h3 className={`font-display text-sm font-extrabold uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                            Ficha do Time: <span className="text-cyan-405">{formTeamName}</span>
+                          </h3>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 gap-1.5">
+                            <label className="text-[10px] font-mono tracking-wide uppercase text-slate-400 font-bold">Nome Oficial da Organização</label>
+                            <input
+                              type="text"
+                              value={formTeamName}
+                              onChange={(e) => setFormTeamName(e.target.value)}
+                              className={`w-full p-2.5 rounded-lg border focus:outline-none ${themeClasses.input}`}
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-1.5">
+                            <label className="text-[10px] font-mono tracking-wide uppercase text-slate-400 font-bold">Sigla do Time (Ex: PNG)</label>
+                            <input
+                              type="text"
+                              value={formTeamAcronym}
+                              onChange={(e) => setFormTeamAcronym(e.target.value)}
+                              className={`w-full p-2.5 rounded-lg border focus:outline-none ${themeClasses.input}`}
+                              maxLength={4}
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-1.5">
+                            <label className="text-[10px] font-mono tracking-wide uppercase text-slate-400 font-bold font-mono">Popularidade do Time</label>
+                            <select
+                              value={formTeamPopularity}
+                              onChange={(e) => setFormTeamPopularity(e.target.value as any)}
+                              className={`w-full p-2.5 rounded-lg border focus:outline-none ${themeClasses.input} cursor-pointer`}
+                            >
+                              <option value="BAIXA">BAIXA (70-74)</option>
+                              <option value="MEDIA">MÉDIA (75-84)</option>
+                              <option value="ALTA">ALTA (85-99)</option>
+                            </select>
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-1.5">
+                            <label className="text-[10px] font-mono tracking-wide uppercase text-slate-400 font-bold font-mono">Prestígio / Tier de Força</label>
+                            <select
+                              value={formTeamTier}
+                              onChange={(e) => setFormTeamTier(e.target.value as any)}
+                              className={`w-full p-2.5 rounded-lg border focus:outline-none ${themeClasses.input} cursor-pointer`}
+                            >
+                              <option value="B">TIER B</option>
+                              <option value="A">TIER A</option>
+                              <option value="S">TIER S (Favoritos)</option>
+                            </select>
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-1.5">
+                            <label className="text-[10px] font-mono tracking-wide uppercase text-slate-400 font-bold">Cor Primária (Hex Code)</label>
+                            <input
+                              type="text"
+                              value={formTeamColor}
+                              onChange={(e) => setFormTeamColor(e.target.value)}
+                              className={`w-full p-2.5 rounded-lg border focus:outline-none ${themeClasses.input}`}
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-1.5">
+                            <label className="text-[10px] font-mono tracking-wide uppercase text-slate-400 font-bold font-mono">Cor Secundária (Hex Code)</label>
+                            <input
+                              type="text"
+                              value={formTeamColorSec}
+                              onChange={(e) => setFormTeamColorSec(e.target.value)}
+                              className={`w-full p-2.5 rounded-lg border focus:outline-none ${themeClasses.input}`}
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-1.5 sm:col-span-2 border-t border-white/5 pt-3 mt-1">
+                            <div className="flex justify-between items-center">
+                              <label className="text-[10px] font-mono tracking-wide uppercase text-slate-400 font-bold">Escudo/Logo do Time</label>
+                              <label className="text-[9px] font-mono font-black text-cyan-400 hover:text-cyan-300 cursor-pointer flex items-center gap-1 bg-cyan-400/10 px-2 py-0.5 rounded border border-cyan-400/20">
+                                <Upload className="w-3" style={{ height: '12px' }} />
+                                <span>Carregar do Computador (PC)</span>
+                                <input
+                                  type="file"
+                                  accept=".png,.jpg,.jpeg,.webp"
+                                  onChange={(e) => handleFileChange(e, setFormTeamLogo)}
+                                  className="hidden"
+                                />
+                              </label>
+                            </div>
+                            <input
+                              type="text"
+                              value={formTeamLogo}
+                              onChange={(e) => setFormTeamLogo(e.target.value)}
+                              placeholder="Cole a URL ou suba um arquivo acima (input_url_web / input_file_picker)"
+                              className={`w-full p-2.5 rounded-lg border focus:outline-none ${themeClasses.input}`}
+                            />
+                            {formTeamLogo && (
+                              <div className="mt-1 flex items-center gap-2">
+                                <span className="text-[8px] font-mono text-slate-500 uppercase">Pré-visualização:</span>
+                                <img src={formTeamLogo} className="w-8 h-8 object-contain rounded bg-transparent border border-white/5 p-0.5" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Automatic procedurals computed budget card box */}
+                        <div className="p-4 rounded-xl border border-cyan-400/20 bg-cyan-400/5 my-4 space-y-1.5">
+                          <span className="text-[8px] font-mono font-bold tracking-widest text-cyan-405 block uppercase">
+                            REGRA PROCEDURAL OPERACIONAL (FINANCEIRA)
+                          </span>
+                          <div className="flex justify-between items-center">
+                            <p className="text-[10.5px] text-slate-400">
+                              Orçamento operacional anual do time calculado pelo motor:
+                            </p>
+                            <div className="font-mono text-sm font-black text-emerald-400">
+                              $ {calcProceduralBudget(formTeamTier, formTeamPopularity).toLocaleString('pt-BR')}
+                            </div>
+                          </div>
+                          <p className="text-[8.5px] text-slate-500 font-mono italic">
+                            * O software não permite editar fundos manualmente. O orçamento é computado a partir de Tier e Popularidade.
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            const updatedDb = { ...editorDb };
+                            const list = updatedDb[editorRegion] || [];
+                            const popNum = formTeamPopularity === 'ALTA' ? 92 : formTeamPopularity === 'MEDIA' ? 78 : 64;
+                            const recalculatedBudget = calcProceduralBudget(formTeamTier, formTeamPopularity);
+                            
+                            updatedDb[editorRegion] = list.map((t: any) => {
+                              if (t.id === editorSelectedTeamId) {
+                                return {
+                                  ...t,
+                                  name: formTeamName,
+                                  acronym: formTeamAcronym,
+                                  popularity: popNum,
+                                  budget: recalculatedBudget,
+                                  primaryColor: formTeamColor,
+                                  secondaryColor: formTeamColorSec,
+                                  logoUrl: formTeamLogo
+                                };
+                              }
+                              return t;
+                            });
+                            
+                            setEditorDb(updatedDb);
+                            alert("Ficha do Time e orçamento recalculados aplicados ao banco local!");
+                          }}
+                          className={`px-5 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider cursor-pointer transition-colors ${
+                            activeTheme === 'light' 
+                              ? 'bg-[#4F46E5] text-white hover:bg-[#4338CA]' 
+                              : 'bg-[#00E5FF] text-[#0a1424] hover:bg-[#00B2CC]'
+                          }`}
+                        >
+                          Salvar Dados do Time
+                        </button>
+                      </>
+                    ) : (
+                      <p className="text-slate-500 text-xs py-8 text-center font-mono uppercase">Escolha um time para inicializar a edição</p>
+                    )}
+                  </div>
+                )}
+
+                {/* JOGADORES FORM EDIT */}
+                {editorSub === 'cat_jogadores' && (
+                  <div className="space-y-4">
+                    {editorSelectedPlayerId ? (
+                      <>
+                        <div className="border-b border-white/5 pb-3">
+                          <h3 className={`font-display text-sm font-extrabold uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                            Editando Atleta: <span className="text-indigo-405">{formPlayerName}</span>
+                          </h3>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 gap-1.5">
+                            <label className="text-[10px] font-mono tracking-wide uppercase text-slate-400 font-bold">Nickname do Atleta</label>
+                            <input
+                              type="text"
+                              value={formPlayerName}
+                              onChange={(e) => setFormPlayerName(e.target.value)}
+                              className={`w-full p-2.5 rounded-lg border focus:outline-none ${themeClasses.input}`}
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-1.5">
+                            <label className="text-[10px] font-mono tracking-wide uppercase text-slate-400 font-bold font-mono">Nome Real / Completo</label>
+                            <input
+                              type="text"
+                              value={formPlayerRealName}
+                              onChange={(e) => setFormPlayerRealName(e.target.value)}
+                              className={`w-full p-2.5 rounded-lg border focus:outline-none ${themeClasses.input}`}
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-1.5">
+                            <label className="text-[10px] font-mono tracking-wide uppercase text-slate-400 font-bold font-mono">Nacionalidade</label>
+                            <input
+                              type="text"
+                              value={formPlayerNationality}
+                              onChange={(e) => setFormPlayerNationality(e.target.value)}
+                              className={`w-full p-2.5 rounded-lg border focus:outline-none ${themeClasses.input}`}
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-1.5">
+                            <label className="text-[10px] font-mono tracking-wide uppercase text-slate-400 font-bold">Idade</label>
+                            <input
+                              type="number"
+                              value={formPlayerAge}
+                              onChange={(e) => setFormPlayerAge(Number(e.target.value))}
+                              className={`w-full p-2.5 rounded-lg border focus:outline-none ${themeClasses.input}`}
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-1.5 sm:col-span-2 border-t border-white/5 pt-3 mt-1">
+                            <div className="flex justify-between items-center">
+                              <label className="text-[10px] font-mono tracking-wide uppercase text-slate-400 font-bold">Foto/Retrato do Jogador</label>
+                              <label className="text-[9px] font-mono font-black text-cyan-400 hover:text-cyan-300 cursor-pointer flex items-center gap-1 bg-cyan-400/10 px-2 py-0.5 rounded border border-cyan-400/20">
+                                <Upload className="w-3" style={{ height: '12px' }} />
+                                <span>Carregar do Computador (PC)</span>
+                                <input
+                                  type="file"
+                                  accept=".png,.jpg,.jpeg,.webp"
+                                  onChange={(e) => handleFileChange(e, setFormPlayerPhoto)}
+                                  className="hidden"
+                                />
+                              </label>
+                            </div>
+                            <input
+                              type="text"
+                              value={formPlayerPhoto}
+                              onChange={(e) => setFormPlayerPhoto(e.target.value)}
+                              placeholder="Cole a URL ou suba um arquivo acima (input_url_web / input_file_picker)"
+                              className={`w-full p-2.5 rounded-lg border focus:outline-none ${themeClasses.input}`}
+                            />
+                            {formPlayerPhoto && (
+                              <div className="mt-1 flex items-center gap-2">
+                                <span className="text-[8px] font-mono text-slate-500 uppercase">Pré-visualização:</span>
+                                <img src={formPlayerPhoto} className="w-8 h-8 object-cover rounded-full bg-transparent border border-white/5 p-0.5" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 mt-4 text-left">
+                          <div className="flex justify-between items-center">
+                            <label className="text-[10px] font-mono tracking-wide uppercase text-slate-400 font-bold font-mono">Atributo Geral de Força (OVR)</label>
+                            <span className="font-mono text-sm font-black text-indigo-400">{formPlayerOvr} / 99</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="50"
+                            max="99"
+                            value={formPlayerOvr}
+                            onChange={(e) => setFormPlayerOvr(Number(e.target.value))}
+                            className="w-full text-indigo-505 bg-slate-800"
+                          />
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            const updatedDict = { ...editorPlayersDict };
+                            const dictKey = `${editorSelectedTeamId}_${editorSelectedPlayerId}_${formPlayerName}`;
+                            
+                            updatedDict[dictKey] = {
+                              name: formPlayerName,
+                              realName: formPlayerRealName,
+                              age: formPlayerAge,
+                              nationality: formPlayerNationality,
+                              overallRating: formPlayerOvr,
+                              photoUrl: formPlayerPhoto
+                            };
+                            
+                            updatedDict[editorSelectedPlayerId] = {
+                              name: formPlayerName,
+                              realName: formPlayerRealName,
+                              age: formPlayerAge,
+                              nationality: formPlayerNationality,
+                              overallRating: formPlayerOvr,
+                              photoUrl: formPlayerPhoto
+                            };
+                            
+                            setEditorPlayersDict(updatedDict);
+                            alert("Parâmetros do atleta alterados e sincronizados! O meta-loader carregará estes dados ao iniciar campanhas.");
+                          }}
+                          className={`px-5 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider mt-4 cursor-pointer ${
+                            activeTheme === 'light' 
+                              ? 'bg-[#4F46E5] text-white hover:bg-[#4338CA]' 
+                              : 'bg-[#00E5FF] text-[#0a1424] hover:bg-[#00B2CC]'
+                          }`}
+                        >
+                          Sincronizar Dados do Atleta
+                        </button>
+                      </>
+                    ) : (
+                      <p className="text-slate-500 text-xs py-10 text-center font-mono uppercase">Escolha um jogador do catálogo ao lado para carregar</p>
+                    )}
+                  </div>
+                )}
+
+                {/* PATROCINADORES FORM EDIT */}
+                {editorSub === 'cat_patrocinadores' && (
+                  <div className="space-y-4">
+                    {editorSelectedSponsorId ? (
+                      <>
+                        <div className="border-b border-white/5 pb-3">
+                          <h3 className={`font-display text-sm font-extrabold uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                            Editando Patrocinador: <span className="text-cyan-405">{formSponsorName}</span>
+                          </h3>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4">
+                          <div className="grid grid-cols-1 gap-1.5">
+                            <label className="text-[10px] font-mono tracking-wide uppercase text-slate-400 font-bold">Nome da Marca</label>
+                            <input
+                              type="text"
+                              value={formSponsorName}
+                              onChange={(e) => setFormSponsorName(e.target.value)}
+                              className={`w-full p-2.5 rounded-lg border focus:outline-none ${themeClasses.input}`}
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-1.5">
+                            <div className="flex justify-between items-center font-mono text-[10px]">
+                              <label className="text-[10px] font-mono tracking-wide uppercase text-slate-400 font-bold">Imagem Logotipo (URL ou Arquivo)</label>
+                              <label className="text-[9px] font-mono font-black text-cyan-400 hover:text-cyan-300 cursor-pointer flex items-center gap-1 bg-cyan-400/10 px-2 py-0.5 rounded border border-cyan-400/20">
+                                <Upload className="w-3" style={{ height: '12px' }} />
+                                <span>Carregar do Computador (PC)</span>
+                                <input
+                                  type="file"
+                                  accept=".png,.jpg,.jpeg,.webp"
+                                  onChange={(e) => handleFileChange(e, setFormSponsorLogo)}
+                                  className="hidden"
+                                />
+                              </label>
+                            </div>
+                            <input
+                              type="text"
+                              value={formSponsorLogo}
+                              onChange={(e) => setFormSponsorLogo(e.target.value)}
+                              placeholder="Cole a URL ou suba um arquivo acima (input_url_web / input_file_picker)"
+                              className={`w-full p-2.5 rounded-lg border focus:outline-none ${themeClasses.input}`}
+                            />
+                            {formSponsorLogo && (
+                              <div className="mt-1 flex items-center gap-2">
+                                <span className="text-[8px] font-mono text-slate-500 uppercase">Pré-visualização:</span>
+                                <img src={formSponsorLogo} className="w-8 h-8 object-contain rounded bg-transparent border border-white/5 p-0.5" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-center text-[10px]">
+                              <label className="font-mono text-slate-400 font-bold font-mono">Popularidade Mínima da Marca (Requisito)</label>
+                              <strong className="text-indigo-400 font-mono font-bold">{formSponsorPopularity}%</strong>
+                            </div>
+                            <input
+                              type="range"
+                              min="20"
+                              max="99"
+                              value={formSponsorPopularity}
+                              onChange={(e) => setFormSponsorPopularity(Number(e.target.value))}
+                              className="w-full text-indigo-505"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Recalculated procedural sponsor values */}
+                        <div className="p-4 rounded-xl border border-indigo-450/20 bg-indigo-505/5 space-y-2 mt-4 font-mono text-[10px]">
+                          <span className="text-[8px] font-bold text-indigo-405 tracking-widest block uppercase">PREDIÇÃO PROCEDURAL DE CONTRATO CORPORATIVO</span>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400 uppercase">Pagamento Semanal Calculado:</span>
+                            <span className="text-emerald-400 font-black font-mono">$ {calcProceduralSponsorWeekly(formSponsorPopularity).toLocaleString('pt-BR')}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400 uppercase">Bônus de Assinatura Único:</span>
+                            <span className="text-emerald-400 font-black font-mono">$ {calcProceduralSponsorBonus(formSponsorPopularity).toLocaleString('pt-BR')}</span>
+                          </div>
+                          <p className="text-[8px] text-slate-500 leading-normal mt-2 italic font-sans font-medium">
+                            * Os pagamentos e bônus das marcas são gerados proceduralmente de acordo com a popularidade definida no editor para manter o balanceamento da simulação financeira da liga.
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            const updatedSponsors = editorSponsors.map(sp => {
+                              if (sp.id === editorSelectedSponsorId) {
+                                return {
+                                  ...sp,
+                                  name: formSponsorName,
+                                  logoUrl: formSponsorLogo,
+                                  minPopularity: formSponsorPopularity,
+                                  incomePerWeek: calcProceduralSponsorWeekly(formSponsorPopularity),
+                                  signatureBonus: calcProceduralSponsorBonus(formSponsorPopularity)
+                                };
+                              }
+                              return sp;
+                            });
+                            
+                            setEditorSponsors(updatedSponsors);
+                            alert("Sponsor salvo na base temporária de edição!");
+                          }}
+                          className={`px-5 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider mt-4 cursor-pointer ${
+                            activeTheme === 'light' 
+                              ? 'bg-[#4F46E5] text-white hover:bg-[#4338CA]' 
+                              : 'bg-[#00E5FF] text-[#0a1424] hover:bg-[#00B2CC]'
+                          }`}
+                        >
+                          Salvar Marca de Patrocínio
+                        </button>
+                      </>
+                    ) : (
+                      <p className="text-slate-500 text-xs py-10 text-center font-mono uppercase">Escolha um patrocinador da lista para carregar seu formulário</p>
+                    )}
+                  </div>
+                )}
+
+                {/* CAMPEÕES FORM EDIT */}
+                {editorSub === 'cat_campeoes' && (
+                  <div className="space-y-4 font-sans">
+                    {editorSelectedChampId ? (
+                      <>
+                        <div className="border-b border-white/5 pb-3">
+                          <h3 className={`font-display text-sm font-extrabold uppercase tracking-wider ${themeClasses.textPrimary}`}>
+                            Editando Campeão: <span className="text-indigo-405">{formChampName}</span>
+                          </h3>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 gap-1.5">
+                            <label className="text-[10px] font-mono tracking-wide uppercase text-slate-400 font-bold font-mono">Nome do Campeão</label>
+                            <input
+                              type="text"
+                              value={formChampName}
+                              onChange={(e) => setFormChampName(e.target.value)}
+                              className={`w-full p-2.5 rounded-lg border focus:outline-none ${themeClasses.input}`}
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-1.5">
+                            <label className="text-[10px] font-mono tracking-wide uppercase text-slate-400 font-bold font-mono">Tier Meta Season</label>
+                            <select
+                              value={formChampTier}
+                              onChange={(e) => setFormChampTier(e.target.value)}
+                              className={`w-full p-2.5 rounded-lg border focus:outline-none ${themeClasses.input} cursor-pointer`}
+                            >
+                              <option value="S+">S+</option>
+                              <option value="S">S</option>
+                              <option value="A">A</option>
+                              <option value="B">B</option>
+                              <option value="C">C</option>
+                            </select>
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-1.5">
+                            <div className="flex justify-between items-center font-mono text-[10px]">
+                              <label className="text-[10px] font-mono tracking-wide uppercase text-slate-400 font-bold">Retrato Ícone (URL ou Arquivo)</label>
+                              <label className="text-[9px] font-mono font-black text-cyan-400 hover:text-cyan-300 cursor-pointer flex items-center gap-1 bg-cyan-400/10 px-2 py-0.5 rounded border border-cyan-400/20">
+                                <Upload className="w-3" style={{ height: '12px' }} />
+                                <span>Carregar do Computador (PC)</span>
+                                <input
+                                  type="file"
+                                  accept=".png,.jpg,.jpeg,.webp"
+                                  onChange={(e) => handleFileChange(e, setFormChampLogo)}
+                                  className="hidden"
+                                />
+                              </label>
+                            </div>
+                            <input
+                              type="text"
+                              value={formChampLogo}
+                              onChange={(e) => setFormChampLogo(e.target.value)}
+                              placeholder="Cole a URL ou suba um arquivo acima (input_url_web / input_file_picker)"
+                              className={`w-full p-2.5 rounded-lg border focus:outline-none ${themeClasses.input}`}
+                            />
+                            {formChampLogo && (
+                              <div className="mt-1 flex items-center gap-2">
+                                <span className="text-[8px] font-mono text-slate-500 uppercase">Pré-visualização:</span>
+                                <img src={formChampLogo} className="w-8 h-8 object-contain rounded bg-transparent border border-white/5 p-0.5" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-1.5">
+                            <label className="text-[10px] font-mono tracking-wide uppercase text-slate-400 font-bold font-mono">Poder Operacional Base</label>
+                            <input
+                              type="number"
+                              min="50"
+                              max="99"
+                              value={formChampPower}
+                              onChange={(e) => setFormChampPower(Number(e.target.value))}
+                              className={`w-full p-2.5 rounded-lg border focus:outline-none ${themeClasses.input}`}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Checkbox selector for roles */}
+                        <div className="space-y-2 mt-4 text-left">
+                          <label className="text-[10px] font-mono tracking-wide uppercase text-slate-400 font-bold block mb-1">Rotas Recomendadas (Drafts Inteligentes)</label>
+                          <div className="flex flex-wrap gap-4 font-mono text-[10px] font-bold tracking-wider text-slate-300">
+                            {['TOP', 'JNG', 'MID', 'ADC', 'SUP'].map(role => {
+                              const isChecked = formChampRoles.includes(role);
+                              return (
+                                <label key={role} className="flex items-center gap-2 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={() => {
+                                      if (isChecked) {
+                                        setFormChampRoles(formChampRoles.filter(r => r !== role));
+                                      } else {
+                                        setFormChampRoles([...formChampRoles, role]);
+                                      }
+                                    }}
+                                    className="rounded border-slate-700 text-indigo-500"
+                                  />
+                                  <span>{role}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            const updatedChamps = editorChamps.map(c => {
+                              if (c.id === editorSelectedChampId) {
+                                return {
+                                  ...c,
+                                  name: formChampName,
+                                  tier: formChampTier,
+                                  power: formChampPower,
+                                  roles: formChampRoles,
+                                  idealPlaystyle: formChampLogo || c.idealPlaystyle
+                                };
+                              }
+                              return c;
+                            });
+                            
+                            setEditorChamps(updatedChamps);
+                            alert("Meta do boneco balanceado na base temporária!");
+                          }}
+                          className={`px-5 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider mt-4 cursor-pointer ${
+                            activeTheme === 'light' 
+                              ? 'bg-[#4F46E5] text-white hover:bg-[#4338CA]' 
+                              : 'bg-[#00E5FF] text-[#0a1424] hover:bg-[#00B2CC]'
+                          }`}
+                        >
+                          Salvar Campeão
+                        </button>
+                      </>
+                    ) : (
+                      <p className="text-slate-500 text-xs py-10 text-center font-mono uppercase">Escolha um campeão da lista para ver sua rotas e atributos</p>
+                    )}
+                  </div>
+                )}
+
+              </div>
+
+            </div>
+
+            {/* Bottom bar control action nodes */}
+            <div className={`p-4 rounded-xl border flex flex-col md:flex-row justify-between items-center gap-4 ${activeTheme === 'dark' ? 'bg-[#0a1424] border-[#1e2d44]' : 'bg-slate-50 border-slate-205'}`}>
+              
+              <div className="flex gap-2 w-full md:w-auto">
+                {/* Save DB Commit */}
+                <button
+                  onClick={() => {
+                    localStorage.setItem('legendshub_custom_db', JSON.stringify(editorDb));
+                    localStorage.setItem('legendshub_custom_champions', JSON.stringify(editorChamps));
+                    localStorage.setItem('legendshub_custom_sponsors', JSON.stringify(editorSponsors));
+                    localStorage.setItem('legendshub_custom_players_dict', JSON.stringify(editorPlayersDict));
+                    
+                    // Consolidate editing components into unified editor_database.json structure
+                    const now = Date.now();
+                    const consolidated = {
+                      teams: editorDb,
+                      champions: editorChamps,
+                      sponsors: editorSponsors,
+                      playersDict: editorPlayersDict,
+                      lastModified: now
+                    };
+                    localStorage.setItem('editor_database.json', JSON.stringify(consolidated));
+                    localStorage.setItem('editor_last_modified_timestamp', String(now));
+                    
+                    alert("Sucesso! Banco de Dados gravado e consolidado com sucesso no arquivo do sistema (editor_database.json)! Todas as novas carreiras herdarão esses rosters, atributos de atletas e balanços propatrocinadores.");
+                  }}
+                  className="flex-1 md:flex-none flex items-center justify-center gap-2 py-3 px-5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-black text-[10.5px] uppercase tracking-widest rounded-xl cursor-pointer transition-all shadow-md"
+                >
+                  <Save className="w-4 h-4" />
+                  Salvar No Banco Ativo
+                </button>
+
+                {/* Export File Direct */}
+                <button
+                  onClick={handleExportEditedDb}
+                  className="flex-1 md:flex-none flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-cyan-400/25 bg-cyan-500/5 hover:bg-cyan-500/10 text-cyan-400 text-[10.5px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  Exportar .db
+                </button>
+              </div>
+
+              <div className="flex gap-2 w-full md:w-auto justify-end">
+                {/* Standalone Import directly in stage editor */}
+                <label className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-[#1e2d44] hover:bg-slate-900/40 text-slate-400 text-[10px] font-mono font-bold uppercase tracking-wider cursor-pointer select-none">
+                  <Upload className="w-4 h-4 text-cyan-455" />
+                  <span>Importar .DB</span>
+                  <input
+                    type="file"
+                    accept=".json,.db"
+                    className="hidden"
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      if (files && files[0]) {
+                        const reader = new FileReader();
+                        reader.onload = (evt) => {
+                          try {
+                            const json = JSON.parse(evt.target?.result as string);
+                            if (json.teams_database) setEditorDb(json.teams_database);
+                            if (json.champions) setEditorChamps(json.champions);
+                            if (json.sponsors) setEditorSponsors(json.sponsors);
+                            if (json.players_overrides) setEditorPlayersDict(json.players_overrides);
+                            alert("Banco de dados customizado carregado na memória do editor com total sucesso!");
+                          } catch (err) {
+                            alert("Erro ao ler ou validar formato do arquivo .db carregado.");
+                          }
+                        };
+                        reader.readAsText(files[0]);
+                      }
+                    }}
+                  />
+                </label>
+
+                {/* Exit Editor Standalone back to menu */}
+                <button
+                  onClick={() => setActiveState('MENU')}
+                  className="px-6 py-3 bg-[#111c30] hover:bg-[#162541] border border-[#1e2d44] text-slate-300 font-mono font-black text-[10px] uppercase tracking-widest rounded-xl cursor-pointer transition-colors"
+                >
+                  Voltar Ao Menu
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+      </div>
+
+      {/* Footer release brandings - removed as requested */}
+    </div>
+  );
+}
